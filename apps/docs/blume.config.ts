@@ -7,6 +7,10 @@ export default defineConfig({
     image: "./public/logo.svg",
     text: "CRE Docs",
   },
+  i18n: {
+    defaultLocale: "ja",
+    locales: [{ code: "ja", label: "日本語" }],
+  },
   deployment: {
     site: "https://docs.cre.run",
   },
