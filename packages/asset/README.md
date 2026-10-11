@@ -3,10 +3,10 @@
 Open Orbit の A1 / A3 を SVG として清書したアセットです。
 生成した比較ボードをもとに、形状を幾何学的に整えています。
 
-| 案 | コンセプト | シンボル | 文字付きロゴ | Avatar | Favicon |
-| --- | --- | --- | --- | --- | --- |
-| A1 — Satellite | C の開口部に四角を配置 | [symbol.svg](a1/symbol.svg) | [logo.svg](a1/logo.svg) | [avatar.svg](a1/avatar.svg) | [favicon.svg](a1/favicon.svg) |
-| A3 — Focus | C の内側の中心に四角を配置 | [symbol.svg](a3/symbol.svg) | [logo.svg](a3/logo.svg) | [avatar.svg](a3/avatar.svg) | [favicon.svg](a3/favicon.svg) |
+| 案             | コンセプト                 | シンボル                    | 文字付きロゴ            | Avatar                      | Favicon                       |
+| -------------- | -------------------------- | --------------------------- | ----------------------- | --------------------------- | ----------------------------- |
+| A1 — Satellite | C の開口部に四角を配置     | [symbol.svg](a1/symbol.svg) | [logo.svg](a1/logo.svg) | [avatar.svg](a1/avatar.svg) | [favicon.svg](a1/favicon.svg) |
+| A3 — Focus     | C の内側の中心に四角を配置 | [symbol.svg](a3/symbol.svg) | [logo.svg](a3/logo.svg) | [avatar.svg](a3/avatar.svg) | [favicon.svg](a3/favicon.svg) |
 
 ## 仕様
 
