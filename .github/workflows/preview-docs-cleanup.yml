@@ -1,0 +1,37 @@
+name: Preview Docs Cleanup
+
+# PR を閉じたら、preview-docs.yml が作った Worker Preview（pr-<番号>）を削除する。
+# 途中で docs の変更を取り消した PR でも消せるよう、パスでは絞り込まない。
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    # フォークからの PR にはシークレットを渡さない（プレビューも作られていない）
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/docs
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: voidzero-dev/setup-vp@v1.21.2
+        with:
+          node-version: "24"
+          cache: true
+
+      # docs に触れていない PR ではプレビューがないので、削除の失敗は通知に留める
+      - name: Delete Worker Preview
+        run: |
+          vp exec wrangler preview delete --name "pr-$PR_NUMBER" --skip-confirmation \
+            || echo "::notice::No Worker Preview pr-$PR_NUMBER to delete (or deletion failed)."
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}

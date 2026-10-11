@@ -1,12 +1,12 @@
 name: Preview Docs
 
 # PR ごとに Cloudflare Worker Previews でドキュメントサイトのプレビューを作り、URL を PR にコメントする。
-# PR を閉じたらプレビューを削除する。
+# PR を閉じたときの削除は、パス指定に左右されないよう preview-docs-cleanup.yml で行う。
 # https://developers.cloudflare.com/workers/previews/
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, closed]
+    types: [opened, synchronize, reopened]
     paths:
       - apps/docs/**
       - packages/asset/**
@@ -29,9 +29,7 @@ env:
 jobs:
   deploy:
     # フォークからの PR にはシークレットを渡さない
-    if: >-
-      github.event.action != 'closed' &&
-      github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -88,25 +86,3 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           PREVIEW_URL: ${{ steps.preview.outputs.url }}
-
-  cleanup:
-    if: >-
-      github.event.action == 'closed' &&
-      github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/docs
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: voidzero-dev/setup-vp@v1.21.2
-        with:
-          node-version: "24"
-          cache: true
-
-      - name: Delete Worker Preview
-        run: vp exec wrangler preview delete --name "$PREVIEW_NAME" --skip-confirmation
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
