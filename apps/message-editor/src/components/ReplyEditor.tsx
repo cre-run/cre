@@ -1,5 +1,7 @@
+import { collectActions } from "../actions.ts";
 import { EVIDENCE_TYPE, STATUS } from "../labels.ts";
 import type { Reply } from "../types.ts";
+import { ActionList } from "./ActionList.tsx";
 import { Icon } from "./Icon.tsx";
 
 export const ReplyEditor = ({
@@ -11,6 +13,8 @@ export const ReplyEditor = ({
   emphasize,
   onToggleEmphasize,
   isSample,
+  done,
+  onToggleDone,
 }: {
   reply: Reply;
   texts: Record<string, string>;
@@ -21,12 +25,11 @@ export const ReplyEditor = ({
   onToggleEmphasize: () => void;
   /** 見本データを表示しているとき（URL のデータがない・読み込めない） */
   isSample: boolean;
+  /** アクションを確認済みにした段落 ID（画面を開いている間だけ保持） */
+  done: Set<string>;
+  onToggleDone: (paragraphId: string) => void;
 }) => {
   const paragraphs = reply.paragraphs;
-  const verified = paragraphs.filter((p) => p.status === "verified").length;
-  const pending = paragraphs.filter((p) => p.status !== "verified");
-  const currentIndex = pending.findIndex((p) => p.id === selectedId);
-  const nextPending = pending[(currentIndex + 1) % pending.length];
 
   return (
     <section className="card reply" aria-labelledby="reply-title">
@@ -49,7 +52,9 @@ export const ReplyEditor = ({
 
       <div className="reply-body">
         <div className="reply-toolbar">
-          <span className="muted small">本文を直接編集できます</span>
+          <span className="muted small">
+            本文を直接編集できます。右の注釈はお客様に送る文面には含まれません
+          </span>
           <button
             type="button"
             className={`toggle ${emphasize ? "is-on" : ""}`}
@@ -101,19 +106,12 @@ export const ReplyEditor = ({
       </div>
 
       <div className="reply-foot">
-        <p className="reply-progress">
-          <Icon name="shield" size={14} />
-          {paragraphs.length}段落のうち、{verified}段落の根拠を確認済み
-        </p>
-        {nextPending && (
-          <button type="button" className="link-button" onClick={() => onSelect(nextPending.id)}>
-            あと{pending.length}段落を確認 <Icon name="arrowRight" size={14} />
-          </button>
-        )}
-        <p className="reply-note muted small">
-          <Icon name="info" size={12} />
-          右の注釈はお客様に送る文面には含まれません。
-        </p>
+        <ActionList
+          groups={collectActions(paragraphs)}
+          done={done}
+          onToggle={onToggleDone}
+          onSelect={onSelect}
+        />
       </div>
     </section>
   );

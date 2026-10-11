@@ -35,4 +35,4 @@ Cloudflare Workers の `cre-editor` として、静的ファイル（`dist/`）�
 
 1. `vp run @cre/message-editor#build` のあと `vp run @cre/message-editor#preview`
 2. `/#p=r1`（`message-editor.png`）と `/#p=r3`（`message-editor-recheck.png`）を開く
-3. 幅 1440px・デバイスピクセル比 2 で撮影し、同じファイル名で上書きする
+3. 幅 1440px・高さ 1700px・デバイスピクセル比 2 で撮影し、同じファイル名で上書きする
