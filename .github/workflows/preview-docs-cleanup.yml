@@ -10,6 +10,12 @@ on:
 permissions:
   contents: read
 
+# preview-docs.yml と同じグループに入れ、作成中のデプロイを取り消してから削除する
+# （削除のあとにデプロイが走ってプレビューが残るのを防ぐ）
+concurrency:
+  group: preview-docs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   cleanup:
     # フォークからの PR にはシークレットを渡さない（プレビューも作られていない）
@@ -26,11 +32,22 @@ jobs:
           node-version: "24"
           cache: true
 
-      # docs に触れていない PR ではプレビューがないので、削除の失敗は通知に留める
+      # docs に触れていない PR ではプレビューがない。その場合（API エラー 10025: Preview not found）だけ
+      # 正常終了とし、認証や API の失敗などはジョブを失敗させて気づけるようにする
       - name: Delete Worker Preview
         run: |
-          vp exec wrangler preview delete --name "pr-$PR_NUMBER" --skip-confirmation \
-            || echo "::notice::No Worker Preview pr-$PR_NUMBER to delete (or deletion failed)."
+          set +e
+          out=$(vp exec wrangler preview delete --name "pr-$PR_NUMBER" --skip-confirmation 2>&1)
+          status=$?
+          set -e
+          echo "$out"
+          if [ "$status" -ne 0 ]; then
+            if grep -q "code: 10025" <<< "$out"; then
+              echo "::notice::No Worker Preview pr-$PR_NUMBER to delete."
+            else
+              exit "$status"
+            fi
+          fi
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
