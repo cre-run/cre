@@ -25,5 +25,5 @@ vp run dev         # apps/sample の開発サーバー
 
 ## AI エージェント
 
-Claude Code・Codex 向けの内部ガイドは [AGENTS.md](AGENTS.md) にあります（Claude Code は `CLAUDE.md` がなければ `AGENTS.md` を読みます）。
+Claude Code・Codex 向けの内部ガイドは [AGENTS.md](AGENTS.md) にあります。`CLAUDE.md` は `@AGENTS.md` を読み込むだけなので、内容は `AGENTS.md` に書いてください。
 チーム共通の Claude Code の設定は `.claude/settings.json`（応答は日本語）です。個人の設定は `.claude/settings.local.json` に書いてください。
