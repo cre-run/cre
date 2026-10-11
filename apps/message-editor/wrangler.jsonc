@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cre-editor",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "editor.cre.run", "custom_domain": true }],
+  // 本番は editor.cre.run のみで配信し、<name>.<subdomain>.workers.dev は使わない
+  "workers_dev": false,
+  // PR ごとの Worker Previews（pr-<番号>-cre-editor.<subdomain>.workers.dev）を有効にする
+  "preview_urls": true,
+  // wrangler preview に必要。Preview 専用の vars やバインディングがあればここに書く
+  "previews": {},
+  "assets": {
+    "directory": "./dist",
+    // SPA なので、存在しないパスは index.html を返す（データは URL の # 以降で渡す）
+    "not_found_handling": "single-page-application",
+  },
+}

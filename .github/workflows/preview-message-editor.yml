@@ -1,0 +1,39 @@
+name: Preview Message Editor
+
+# PR ごとに Message Editor（cre-editor）の Worker Preview を作り、URL を PR にコメントする。
+# PR を閉じたときの削除は、パス指定に左右されないよう preview-cleanup.yml で行う。
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    paths:
+      - apps/message-editor/**
+      - packages/asset/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/preview-message-editor.yml
+      - .github/workflows/_preview-worker.yml
+
+permissions:
+  contents: read
+  pull-requests: write
+
+# preview-cleanup.yml と同じグループ名にして、削除とデプロイが同時に走らないようにする
+concurrency:
+  group: preview-message-editor-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    # フォークや Dependabot の PR では Actions のシークレットが使えないので実行しない
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    uses: ./.github/workflows/_preview-worker.yml
+    with:
+      app: message-editor
+      title: Message Editor
+      build: vp build
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
