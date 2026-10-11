@@ -736,6 +736,10 @@ h1 {
   font-size: 16px;
 }
 
+.dialog-body p {
+  white-space: pre-wrap;
+}
+
 .dialog-body {
   display: grid;
   gap: 14px;

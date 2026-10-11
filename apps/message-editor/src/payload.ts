@@ -46,6 +46,9 @@ type Shape = Record<string, unknown>;
 const isObject = (value: unknown): value is Shape => typeof value === "object" && value !== null;
 const isString = (value: unknown): value is string => typeof value === "string";
 const isOptionalString = (value: unknown): boolean => value === undefined || isString(value);
+/** 表示時に Date として扱う項目は、解釈できる日時文字列だけを受け付ける */
+const isDate = (value: unknown): value is string =>
+  isString(value) && !Number.isNaN(Date.parse(value));
 const isArrayOf = <T>(value: unknown, item: (v: unknown) => v is T): value is T[] =>
   Array.isArray(value) && value.every(item);
 const oneOf =
@@ -77,7 +80,8 @@ const isEvidence = (v: unknown): v is Shape =>
   isEvidenceType(v.type) &&
   isStance(v.stance) &&
   isString(v.title) &&
-  ["excerpt", "source", "url", "checkedAt"].every((key) => isOptionalString(v[key]));
+  ["excerpt", "source", "url"].every((key) => isOptionalString(v[key])) &&
+  (v.checkedAt === undefined || isDate(v.checkedAt));
 
 const isReplyParagraph = (v: unknown): v is Shape =>
   isObject(v) &&
@@ -91,13 +95,15 @@ const isReplyParagraph = (v: unknown): v is Shape =>
 
 /** 画面が前提とする項目と値をすべて確かめる（欠けていれば見本データにフォールバックさせる） */
 export const isPayload = (data: unknown): data is ReplyReviewPayload => {
-  if (!isObject(data) || data.version !== 1 || !isString(data.generatedAt)) {
+  if (!isObject(data) || data.version !== 1 || !isDate(data.generatedAt)) {
     return false;
   }
   const { inquiry, reply } = data;
   return (
     isObject(inquiry) &&
-    ["from", "subject", "receivedAt"].every((key) => isString(inquiry[key])) &&
+    isString(inquiry.from) &&
+    isString(inquiry.subject) &&
+    isDate(inquiry.receivedAt) &&
     isArrayOf(inquiry.paragraphs, isInquiryParagraph) &&
     isObject(reply) &&
     isString(reply.to) &&
