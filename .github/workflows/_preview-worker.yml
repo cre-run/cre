@@ -19,6 +19,15 @@ on:
         description: apps/<app> で実行するビルドコマンド
         required: true
         type: string
+      pr:
+        # workflow_dispatch の入力は文字列で渡ってくることがあるので string で受ける
+        description: PR の番号（workflow_dispatch からも呼ぶため、イベントからは読まない）
+        required: true
+        type: string
+      sha:
+        description: プレビューにするコミット（PR コメントに表示する）
+        required: true
+        type: string
     secrets:
       CLOUDFLARE_API_TOKEN:
         required: true
@@ -30,7 +39,7 @@ permissions:
   pull-requests: write
 
 env:
-  PREVIEW_NAME: pr-${{ github.event.pull_request.number }}
+  PREVIEW_NAME: pr-${{ inputs.pr }}
   COMMENT_MARKER: "<!-- preview-${{ inputs.app }} -->"
 
 jobs:
@@ -66,8 +75,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.jsonl
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ inputs.pr }}
+          HEAD_SHA: ${{ inputs.sha }}
 
       # 同じコメントを更新し続ける（プッシュごとに増やさない）
       - name: Comment preview URL
@@ -88,7 +97,7 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ inputs.pr }}
+          HEAD_SHA: ${{ inputs.sha }}
           PREVIEW_URL: ${{ steps.preview.outputs.url }}
           TITLE: ${{ inputs.title }}

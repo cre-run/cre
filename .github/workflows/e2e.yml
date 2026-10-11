@@ -24,7 +24,7 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - .github/workflows/e2e.yml
-  # update-screenshots.yml が撮り直しのコミット後に呼び出す（GITHUB_TOKEN の push では PR の CI が走らないため）
+  # update-screenshots.yml が撮り直しのコミット後に呼び出す（ボットの push で起きた PR の CI は承認待ちになるため）
   workflow_dispatch:
 
 permissions:

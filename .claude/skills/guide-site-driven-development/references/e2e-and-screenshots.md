@@ -20,6 +20,8 @@
 - `.github/workflows/e2e.yml` — PR と `main` で全 E2E を実行する。画像に差分があれば **失敗** する
 - `.github/workflows/update-screenshots.yml` — PR に `update-screenshots` ラベルを付けると、ガイドの画像を撮り直し、
   全 E2E が通ったときだけ PR のブランチにコミットする。結果は PR にコメントされ、ラベルは自動で外れる
+  - ボットのコミットで起きる PR のワークフローは承認待ちで止まるため、コミット後に CI・E2E・ドキュメントのプレビューを
+    `workflow_dispatch` で呼び出し直す（承認しなくてもチェックとプレビューがそろう）
 - どちらも Playwright の公式コンテナ（`@playwright/test` と同じバージョン）に `fonts-noto-cjk` を入れて実行する。
   ローカルとはフォントの描画が違うので、**基準画像は CI で撮ったものだけをコミットする**
 

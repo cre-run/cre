@@ -4,6 +4,8 @@ on:
   pull_request:
   push:
     branches: [main]
+  # update-screenshots.yml が撮り直しのコミット後に呼び出す（ボットの push で起きた PR の CI は承認待ちになるため）
+  workflow_dispatch:
 
 permissions:
   contents: read

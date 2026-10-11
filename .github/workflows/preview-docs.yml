@@ -13,6 +13,13 @@ on:
       - pnpm-workspace.yaml
       - .github/workflows/preview-docs.yml
       - .github/workflows/_preview-worker.yml
+  # update-screenshots.yml が撮り直しのコミット後に呼び出す（撮り直したガイドの画像をプレビューで確かめるため）
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: プレビューを作る PR の番号（ブランチは実行時の ref）
+        required: true
+        type: number
 
 permissions:
   contents: read
@@ -20,20 +27,24 @@ permissions:
 
 # preview-cleanup.yml と同じグループ名にして、削除とデプロイが同時に走らないようにする
 concurrency:
-  group: preview-docs-${{ github.event.pull_request.number }}
+  group: preview-docs-${{ github.event.pull_request.number || inputs.pr }}
   cancel-in-progress: true
 
 jobs:
   preview:
     # フォークや Dependabot の PR では Actions のシークレットが使えないので実行しない
+    # workflow_dispatch は書き込み権限のある人（または update-screenshots.yml）しか実行できない
     if: >-
-      github.event.pull_request.head.repo.full_name == github.repository &&
-      github.event.pull_request.user.login != 'dependabot[bot]'
+      github.event_name == 'workflow_dispatch' || (
+        github.event.pull_request.head.repo.full_name == github.repository &&
+        github.event.pull_request.user.login != 'dependabot[bot]')
     uses: ./.github/workflows/_preview-worker.yml
     with:
       app: docs
       title: ドキュメント
       build: vp exec blume build
+      pr: ${{ github.event.pull_request.number || inputs.pr }}
+      sha: ${{ github.event.pull_request.head.sha || github.sha }}
     secrets:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
