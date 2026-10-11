@@ -74,7 +74,8 @@ README 駆動開発・Working Backwards（PR/FAQ）・ATDD と同じ「先に書
 ## このリポジトリでの現状
 
 - ドキュメントサイト: `apps/docs`（Blume）。外部・内部ガイドの置き場所や分け方は **未決**
-- E2E ツール、スクショ・動画の撮影方法、VRT、PR プレビュー環境は **未決**
+- PR プレビュー: `apps/docs` は PR ごとに Cloudflare Worker Previews でプレビューを作り、URL を PR にコメントする（`.github/workflows/preview-docs.yml`）
+- E2E ツール、スクショ・動画の撮影方法、VRT は **未決**
 - 未決の部分に触れる作業では、案を出して人と決め、決まったことをこのスキルに書き足す
 
 ## このスキルの育て方

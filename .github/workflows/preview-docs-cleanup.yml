@@ -1,0 +1,57 @@
+name: Preview Docs Cleanup
+
+# PR を閉じたら、preview-docs.yml が作った Worker Preview（pr-<番号>）を削除する。
+# 途中で docs の変更を取り消した PR でも消せるよう、パスでは絞り込まない。
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+
+# preview-docs.yml と同じグループに入れ、作成中のデプロイを取り消してから削除する
+# （削除のあとにデプロイが走ってプレビューが残るのを防ぐ）
+concurrency:
+  group: preview-docs-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  cleanup:
+    # フォークからの PR にはシークレットを渡さない（プレビューも作られていない）
+    # Dependabot の PR もフォークと同様に Actions のシークレットが使えないので除外する
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/docs
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: voidzero-dev/setup-vp@v1.21.2
+        with:
+          node-version: "24"
+          cache: true
+
+      # docs に触れていない PR ではプレビューがない。その場合（API エラー 10025: Preview not found）だけ
+      # 正常終了とし、認証や API の失敗などはジョブを失敗させて気づけるようにする
+      - name: Delete Worker Preview
+        run: |
+          set +e
+          out=$(vp exec wrangler preview delete --name "pr-$PR_NUMBER" --skip-confirmation 2>&1)
+          status=$?
+          set -e
+          echo "$out"
+          if [ "$status" -ne 0 ]; then
+            if grep -q "code: 10025" <<< "$out"; then
+              echo "::notice::No Worker Preview pr-$PR_NUMBER to delete."
+            else
+              exit "$status"
+            fi
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
