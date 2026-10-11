@@ -53,7 +53,11 @@ jobs:
         # URL は wrangler の出力ファイル（ND-JSON）の type: "preview" の行から読む
         run: |
           vp exec wrangler preview --name "$PREVIEW_NAME" --message "PR #$PR_NUMBER $HEAD_SHA"
-          url=$(jq -er 'select(.type == "preview") | .preview_urls[0]' "$WRANGLER_OUTPUT_FILE_PATH" | tail -n 1)
+          url=$(jq -r 'select(.type == "preview") | .preview_urls[0] // empty' "$WRANGLER_OUTPUT_FILE_PATH" | tail -n 1)
+          # preview_urls は本番デプロイ（wrangler deploy）で反映される。未反映だと URL が付かない
+          if [ -z "$url" ]; then
+            echo "::warning::Preview $PREVIEW_NAME was deployed but has no URL. Deploy production once with preview_urls: true."
+          fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -65,8 +69,13 @@ jobs:
       # 同じコメントを更新し続ける（プッシュごとに増やさない）
       - name: Comment preview URL
         run: |
+          if [ -n "$PREVIEW_URL" ]; then
+            link="$PREVIEW_URL"
+          else
+            link="プレビューは作成しましたが、URL がまだありません。本番の Worker に \`preview_urls: true\` が反映される（この設定を含む変更が main に入り、本番デプロイが走る）と URL が付きます。"
+          fi
           body=$(printf '%s\n### ドキュメントのプレビュー\n\n%s\n\nコミット: %s（プッシュのたびに同じ URL が更新されます）\n' \
-            "$COMMENT_MARKER" "$PREVIEW_URL" "$HEAD_SHA")
+            "$COMMENT_MARKER" "$link" "$HEAD_SHA")
           id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
             --jq ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" | head -n 1)
           if [ -n "$id" ]; then

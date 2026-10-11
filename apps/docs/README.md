@@ -31,3 +31,4 @@ Actions タブから手動実行（workflow_dispatch）も可能です。
 - PR を閉じると、プレビューは削除されます
 - フォークからの PR では実行しません（シークレットを渡さないため）
 - `workers.dev` のプレビューには `X-Robots-Tag: noindex` が付きます
+- `wrangler.jsonc` の `preview_urls: true` は本番デプロイ（`wrangler deploy`）で Cloudflare に反映されます。反映前はプレビューを作っても URL が付きません
