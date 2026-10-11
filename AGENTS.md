@@ -18,6 +18,7 @@ Claude Code・Codex など、このリポジトリで作業する AI エージ�
   - シークレットが必要なコマンド（`wrangler deploy` など）は `vp exec wrangler ...` で直接実行する
 - 依存関係は pnpm（`devEngines` で 12.11.2）。`pnpm-workspace.yaml` の `minimumReleaseAge` で **公開から 3 日未満の版は入れられない**
   - lockfile の検証でも落ちるので、新しすぎる版は 1 つ前に下げる。共通の版は `catalog:` で揃える
+  - 依存の更新は Renovate（`renovate.json`）。`minimumReleaseAge` を同じ 3 日にしている。片方を変えるときはもう片方も揃える
 - ビルド時にスクリプトを実行してよいパッケージは `allowBuilds` に列挙している（esbuild・workerd）
 
 ## Cloudflare Workers
