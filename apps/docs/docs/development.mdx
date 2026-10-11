@@ -1,0 +1,26 @@
+---
+title: 開発ガイド
+description: リポジトリでの開発手順。
+---
+
+## 必要なもの
+
+- Node.js 22.19 以上（`^22.19.0 || ^24.11.0 || >=26.0.0`）
+- [Vite+ CLI (`vp`)](https://viteplus.dev/guide/)
+
+## よく使うコマンド
+
+```bash
+vp install         # 依存関係のインストール
+vp check           # format + lint + typecheck
+vp run -r test     # 全パッケージのテスト
+vp run -r build    # 全パッケージのビルド
+```
+
+## ドキュメントの編集
+
+```bash
+vp run @cre/docs#dev   # ローカルでプレビュー
+```
+
+ページを追加するときは `apps/docs/docs/` に `.md` または `.mdx` ファイルを置きます。

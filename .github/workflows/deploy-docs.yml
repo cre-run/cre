@@ -1,0 +1,43 @@
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - apps/docs/**
+      - packages/asset/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/deploy-docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/docs
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: voidzero-dev/setup-vp@v1.21.2
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Build docs
+        run: vp exec blume build
+
+      # `vp run` は環境変数を引き継がずキャッシュも効くため、デプロイは wrangler を直接実行する
+      - name: Deploy cre-docs to Cloudflare Workers
+        run: vp exec wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
