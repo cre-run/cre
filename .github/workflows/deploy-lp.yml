@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - apps/lp/**
+      - packages/asset/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - .github/workflows/deploy-lp.yml

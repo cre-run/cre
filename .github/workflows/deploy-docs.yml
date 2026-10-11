@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - apps/docs/**
+      - packages/asset/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - .github/workflows/deploy-docs.yml
