@@ -1,0 +1,88 @@
+import { expect, test } from "vite-plus/test";
+import { formatDate, formatMonthDayTime, freshness } from "../src/labels.ts";
+import { decodePayload, encodePayload, isPayload, readHash, toHash } from "../src/payload.ts";
+import { samplePayload } from "../src/sample.ts";
+
+test("payload は pako 圧縮を経ても元に戻る", () => {
+  expect(decodePayload(encodePayload(samplePayload))).toEqual(samplePayload);
+});
+
+test("ハッシュは URL で安全な文字だけでできている", () => {
+  const hash = toHash(samplePayload);
+  expect(hash).toMatch(/^#d=[\w-]+$/u);
+  expect(readHash(hash)).toBe(encodePayload(samplePayload));
+});
+
+test("ハッシュに d がなければ null", () => {
+  expect(readHash("")).toBeNull();
+  expect(readHash("#p=r3")).toBeNull();
+});
+
+test("形式の違うデータは読み込まない", () => {
+  const broken = encodePayload({ ...samplePayload, version: 2 as 1 });
+  expect(() => decodePayload(broken)).toThrow();
+  expect(() => decodePayload("not-a-payload")).toThrow();
+});
+
+test("入れ子の必須項目や値が不正なデータは読み込まない", () => {
+  const { inquiry, reply } = samplePayload;
+  const [first, ...rest] = reply.paragraphs;
+  const withoutFrom = { ...samplePayload, inquiry: { ...inquiry, from: undefined } };
+  const withoutEvidence = {
+    ...samplePayload,
+    reply: { ...reply, paragraphs: [{ ...first, evidence: undefined }, ...rest] },
+  };
+  const unknownStatus = {
+    ...samplePayload,
+    reply: { ...reply, paragraphs: [{ ...first, status: "done" }, ...rest] },
+  };
+  const invalidDate = { ...samplePayload, generatedAt: "x" };
+  const invalidCheckedAt = {
+    ...samplePayload,
+    reply: {
+      ...reply,
+      paragraphs: [{ ...first, evidence: [{ ...first.evidence[0], checkedAt: "昨日" }] }, ...rest],
+    },
+  };
+  const duplicateIds = {
+    ...samplePayload,
+    reply: { ...reply, paragraphs: [first, { ...rest[0], id: first.id }, ...rest.slice(1)] },
+  };
+  const danglingRef = {
+    ...samplePayload,
+    reply: { ...reply, paragraphs: [{ ...first, respondsTo: ["q9"] }, ...rest] },
+  };
+  const duplicateInquiryIds = {
+    ...samplePayload,
+    inquiry: {
+      ...inquiry,
+      paragraphs: inquiry.paragraphs.map((p, i) => (i === 1 ? { ...p, id: "q1" } : p)),
+    },
+  };
+  for (const data of [
+    danglingRef,
+    duplicateInquiryIds,
+    withoutFrom,
+    withoutEvidence,
+    unknownStatus,
+    invalidDate,
+    invalidCheckedAt,
+    duplicateIds,
+  ]) {
+    expect(isPayload(data)).toBe(false);
+    expect(() => decodePayload(encodePayload(data as typeof samplePayload))).toThrow();
+  }
+  expect(isPayload(samplePayload)).toBe(true);
+});
+
+test("確認日時の鮮度を判定日時から計算する", () => {
+  const now = samplePayload.generatedAt;
+  expect(freshness("2026-10-05T10:00:00+09:00", now)).toEqual({ days: 1, level: "fresh" });
+  expect(freshness("2026-09-24T10:00:00+09:00", now)).toEqual({ days: 12, level: "recent" });
+  expect(freshness("2026-08-22T09:00:00+09:00", now)).toEqual({ days: 45, level: "stale" });
+});
+
+test("日時は日本時間で表示する", () => {
+  expect(formatDate("2026-10-05T01:00:00Z")).toBe("2026/10/05");
+  expect(formatMonthDayTime("2026-10-06T00:15:00Z")).toBe("10月6日 09:15");
+});
