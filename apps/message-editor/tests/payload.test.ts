@@ -48,7 +48,20 @@ test("入れ子の必須項目や値が不正なデータは読み込まない",
     ...samplePayload,
     reply: { ...reply, paragraphs: [first, { ...rest[0], id: first.id }, ...rest.slice(1)] },
   };
+  const danglingRef = {
+    ...samplePayload,
+    reply: { ...reply, paragraphs: [{ ...first, respondsTo: ["q9"] }, ...rest] },
+  };
+  const duplicateInquiryIds = {
+    ...samplePayload,
+    inquiry: {
+      ...inquiry,
+      paragraphs: inquiry.paragraphs.map((p, i) => (i === 1 ? { ...p, id: "q1" } : p)),
+    },
+  };
   for (const data of [
+    danglingRef,
+    duplicateInquiryIds,
     withoutFrom,
     withoutEvidence,
     unknownStatus,

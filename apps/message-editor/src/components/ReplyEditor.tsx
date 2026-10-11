@@ -10,6 +10,7 @@ export const ReplyEditor = ({
   onSelect,
   emphasize,
   onToggleEmphasize,
+  isSample,
 }: {
   reply: Reply;
   texts: Record<string, string>;
@@ -18,6 +19,8 @@ export const ReplyEditor = ({
   onSelect: (id: string) => void;
   emphasize: boolean;
   onToggleEmphasize: () => void;
+  /** 見本データを表示しているとき（URL のデータがない・読み込めない） */
+  isSample: boolean;
 }) => {
   const paragraphs = reply.paragraphs;
   const verified = paragraphs.filter((p) => p.status === "verified").length;
@@ -38,7 +41,7 @@ export const ReplyEditor = ({
       <dl className="reply-fields">
         <dt>宛先</dt>
         <dd>
-          {reply.to} <span className="muted small">サンプル</span>
+          {reply.to} {isSample && <span className="muted small">サンプル</span>}
         </dd>
         <dt>件名</dt>
         <dd>{reply.subject}</dd>

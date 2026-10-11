@@ -93,6 +93,22 @@ const isReplyParagraph = (v: unknown): v is Shape =>
   isArrayOf(v.evidence, isEvidence) &&
   (v.owners === undefined || isArrayOf(v.owners, isString));
 
+const isUnique = (ids: unknown[]): boolean => new Set(ids).size === ids.length;
+
+/**
+ * 段落 ID は選択・編集内容・React の key に使うため重複させない。
+ * respondsTo は問い合わせの段落を指すので、存在する ID だけを許す。
+ */
+const hasConsistentIds = (inquiry: Shape[], reply: Shape[]): boolean => {
+  const inquiryIds = inquiry.map((p) => p.id);
+  const known = new Set(inquiryIds);
+  return (
+    isUnique(inquiryIds) &&
+    isUnique(reply.map((p) => p.id)) &&
+    reply.every((p) => (p.respondsTo as string[]).every((id) => known.has(id)))
+  );
+};
+
 /** 画面が前提とする項目と値をすべて確かめる（欠けていれば見本データにフォールバックさせる） */
 export const isPayload = (data: unknown): data is ReplyReviewPayload => {
   if (!isObject(data) || data.version !== 1 || !isDate(data.generatedAt)) {
@@ -111,7 +127,6 @@ export const isPayload = (data: unknown): data is ReplyReviewPayload => {
     isOptionalString(reply.opening) &&
     isOptionalString(reply.closing) &&
     isArrayOf(reply.paragraphs, isReplyParagraph) &&
-    // 段落 ID は選択・編集内容・React の key に使うため重複させない
-    new Set(reply.paragraphs.map((p) => p.id)).size === reply.paragraphs.length
+    hasConsistentIds(inquiry.paragraphs, reply.paragraphs)
   );
 };

@@ -117,6 +117,7 @@ export const App = () => {
               onSelect={setSelectedId}
               emphasize={emphasize}
               onToggleEmphasize={() => setEmphasize(!emphasize)}
+              isSample={loaded.kind !== "data"}
             />
             <p className="muted small keep-note">
               <Icon name="clock" size={12} />
