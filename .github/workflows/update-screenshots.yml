@@ -1,0 +1,114 @@
+name: Update Screenshots
+
+# PR に `update-screenshots` ラベルが付いたら、ガイドの画像（apps/docs/docs/features/*.png）を
+# E2E のコンテナで撮り直し、E2E がすべて通ったときだけ PR のブランチにコミットする。
+# 差分が意図どおりかは、人が PR の画像差分（Files changed）とプレビューで確かめ、マージで承認する。
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: write
+  pull-requests: write
+  # 撮り直し後に e2e.yml を workflow_dispatch で呼び出すため
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  LABEL: update-screenshots
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+  HEAD_REF: ${{ github.event.pull_request.head.ref }}
+  GH_TOKEN: ${{ github.token }}
+
+jobs:
+  update:
+    # フォークや Dependabot の PR には push できないので実行しない
+    if: >-
+      github.event.label.name == 'update-screenshots' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    # e2e.yml と同じコンテナ（バージョンは catalog の @playwright/test と合わせる）
+    container: mcr.microsoft.com/playwright:v1.64.0-noble
+    steps:
+      # コミットのために git を、API 呼び出しのために curl と jq を入れる（checkout より前に必要）
+      - name: Install CJK fonts and tools
+        run: apt-get update && apt-get install -y --no-install-recommends fonts-noto-cjk git curl jq
+
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - uses: voidzero-dev/setup-vp@v1.21.2
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Update guide screenshots
+        working-directory: apps/message-editor
+        run: vp exec playwright test e2e/guide- --update-snapshots
+
+      # 撮り直した画像で、クリティカルパスを含めてすべて通ることを確かめてからコミットする
+      - name: Run E2E
+        working-directory: apps/message-editor
+        run: vp exec playwright test
+
+      - name: Commit and push
+        id: commit
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git add apps/docs/docs/features/*.png
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs(message-editor): update guide screenshots"
+          git push origin "HEAD:$HEAD_REF"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      # GITHUB_TOKEN での push では PR の CI が走らないので、新しいコミットで E2E を実行し直す
+      - name: Rerun E2E on the new commit
+        if: steps.commit.outputs.changed == 'true'
+        run: |
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/e2e.yml/dispatches" \
+            -d "$(jq -n --arg ref "$HEAD_REF" '{ref: $ref}')"
+
+      - name: Comment result
+        if: always()
+        env:
+          OUTCOME: ${{ job.status }}
+          CHANGED: ${{ steps.commit.outputs.changed }}
+          SHA: ${{ steps.commit.outputs.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$OUTCOME" != "success" ]; then
+            body="ガイドの画像を撮り直せませんでした（E2E が失敗したため、コミットしていません）。[実行ログ]($RUN_URL)"
+          elif [ "$CHANGED" = "true" ]; then
+            body="ガイドの画像を撮り直して ${SHA} をコミットしました。Files changed の画像差分が意図どおりか確認してください。[実行ログ]($RUN_URL)"
+          else
+            body="ガイドの画像に差分はありませんでした。[実行ログ]($RUN_URL)"
+          fi
+          curl -fsS -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+            -d "$(jq -n --arg body "$body" '{body: $body}')"
+
+      # 付けたままだと次に付け直せないので外す
+      - name: Remove label
+        if: always()
+        run: |
+          curl -fsS -X DELETE \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels/$LABEL" || true

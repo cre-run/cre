@@ -37,3 +37,7 @@ dist-ssr
 
 # Blume
 .blume
+
+# Playwright
+test-results/
+playwright-report/

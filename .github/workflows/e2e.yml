@@ -1,0 +1,67 @@
+name: E2E
+
+# apps/message-editor の E2E（Playwright）。
+# - e2e/critical-path.e2e.ts: 壊れるとガイドの手順が成り立たなくなる操作
+# - e2e/guide-*.e2e.ts: ガイドの手順をなぞり、ガイドの画像（apps/docs/docs/features/*.png）と比べる（VRT）
+# 画像の差分で失敗したら、意図した変更なら PR に `update-screenshots` ラベルを付けて撮り直す（update-screenshots.yml）。
+# フォントなどの描画差をなくすため、基準画像を撮るときと同じコンテナで実行する。
+
+on:
+  pull_request:
+    paths:
+      - apps/message-editor/**
+      - apps/docs/docs/features/**
+      - packages/asset/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/e2e.yml
+  push:
+    branches: [main]
+    paths:
+      - apps/message-editor/**
+      - apps/docs/docs/features/**
+      - packages/asset/**
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - .github/workflows/e2e.yml
+  # update-screenshots.yml が撮り直しのコミット後に呼び出す（GITHUB_TOKEN の push では PR の CI が走らないため）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    # バージョンは pnpm-workspace.yaml の catalog の @playwright/test と合わせる
+    container: mcr.microsoft.com/playwright:v1.64.0-noble
+    defaults:
+      run:
+        working-directory: apps/message-editor
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install CJK fonts
+        run: apt-get update && apt-get install -y --no-install-recommends fonts-noto-cjk
+
+      - uses: voidzero-dev/setup-vp@v1.21.2
+        with:
+          node-version: "24"
+          cache: true
+
+      - name: Run E2E
+        run: vp exec playwright test
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: playwright-report
+          path: |
+            apps/message-editor/playwright-report/
+            apps/message-editor/test-results/
+          retention-days: 14

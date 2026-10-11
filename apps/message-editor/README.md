@@ -28,11 +28,22 @@ Cloudflare Workers の `cre-editor` として、静的ファイル（`dist/`）�
 - シークレットは他のアプリと共通の `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` を使います
 - 判定データは URL の `#` 以降に載るため、サーバー（Cloudflare）には送られません。ただしブラウザの履歴や共有したリンクには残るので、実際の問い合わせ内容を扱う場合は注意してください
 
-## ドキュメントのモック画像
+## E2E とドキュメントの画像
 
-`apps/docs/docs/features/message-editor*.png` は、見本データを表示した画面のスクリーンショットです。
-撮影方法（E2E での自動撮影など）はまだ決まっていないため、現状は手動で撮り直します。
+E2E は Playwright です（`playwright.config.ts`、`e2e/`）。
 
-1. `vp run @cre/message-editor#build` のあと `vp run @cre/message-editor#preview`
-2. `/#p=r1`（`message-editor.png`）と `/#p=r3`（`message-editor-recheck.png`）を開く
-3. 幅 1440px・高さ 1700px・デバイスピクセル比 2 で撮影し、同じファイル名で上書きする
+- `e2e/critical-path.e2e.ts` — 壊れるとガイドの手順が成り立たなくなる操作（画像は撮らない）
+- `e2e/guide-message-editor.e2e.ts` — ガイド（`apps/docs/docs/features/message-editor.mdx`）の手順をなぞり、
+  ガイドの画像 `apps/docs/docs/features/message-editor*.png` と比べる（VRT）
+
+```bash
+vp exec playwright test                # ビルドしてプレビューサーバーを起動し、全 E2E を実行
+vp exec playwright test critical-path  # クリティカルパスだけ
+```
+
+CI（`.github/workflows/e2e.yml`）は PR と `main` で全 E2E を実行し、画像に差分があれば失敗します。
+画面の変更が意図どおりなら、PR に `update-screenshots` ラベルを付けると、CI が画像を撮り直して PR にコミットします
+（`.github/workflows/update-screenshots.yml`）。Files changed の画像差分を確認してからマージしてください。
+
+フォントの描画がローカルと CI で違うため、基準画像は CI で撮ったものだけをコミットします
+（ローカルで `--update-snapshots` した画像はコミットしない）。

@@ -8,7 +8,8 @@
     "build": "vp build",
     "preview": "vp preview",
     "test": "vp test",
-    "encode": "node scripts/encode.ts"
+    "encode": "node scripts/encode.ts",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "pako": "^3.0.1",
@@ -16,6 +17,7 @@
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
