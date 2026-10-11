@@ -63,10 +63,22 @@ export const App = () => {
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [emphasize, setEmphasize] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [done, setDone] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     setSelectedId(initialSelection(hash, payload));
     setTexts({});
+    setDone(new Set());
   }, [hash, payload]);
+  const toggleDone = (id: string) =>
+    setDone((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
 
   const index = reply.paragraphs.findIndex((p) => p.id === selectedId);
   const selected = reply.paragraphs[index];
@@ -118,6 +130,8 @@ export const App = () => {
               emphasize={emphasize}
               onToggleEmphasize={() => setEmphasize(!emphasize)}
               isSample={loaded.kind !== "data"}
+              done={done}
+              onToggleDone={toggleDone}
             />
             <p className="muted small keep-note">
               <Icon name="clock" size={12} />
