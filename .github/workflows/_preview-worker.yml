@@ -20,9 +20,10 @@ on:
         required: true
         type: string
       pr:
+        # workflow_dispatch の入力は文字列で渡ってくることがあるので string で受ける
         description: PR の番号（workflow_dispatch からも呼ぶため、イベントからは読まない）
         required: true
-        type: number
+        type: string
       sha:
         description: プレビューにするコミット（PR コメントに表示する）
         required: true
