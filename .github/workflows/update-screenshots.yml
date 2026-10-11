@@ -11,7 +11,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  # 撮り直し後に e2e.yml を workflow_dispatch で呼び出すため
+  # 撮り直し後に CI・E2E・ドキュメントのプレビューを workflow_dispatch で呼び出すため
   actions: write
 
 concurrency:
@@ -73,15 +73,22 @@ jobs:
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-      # GITHUB_TOKEN での push では PR の CI が走らないので、新しいコミットで E2E を実行し直す
-      - name: Rerun E2E on the new commit
+      # GITHUB_TOKEN（ボット）の push で起きた PR のワークフローは、人の承認待ち（action_required）で止まる。
+      # 承認なしで新しいコミットを確かめられるよう、workflow_dispatch で直接呼び出す。
+      # 画像だけの変更なので、message-editor のプレビューは変わらず呼び出さない
+      - name: Rerun CI, E2E and docs preview on the new commit
         if: steps.commit.outputs.changed == 'true'
         run: |
-          curl -fsS -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/e2e.yml/dispatches" \
-            -d "$(jq -n --arg ref "$HEAD_REF" '{ref: $ref}')"
+          dispatch() {
+            curl -fsS -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/actions/workflows/$1/dispatches" \
+              -d "$2"
+          }
+          dispatch ci.yml "$(jq -n --arg ref "$HEAD_REF" '{ref: $ref}')"
+          dispatch e2e.yml "$(jq -n --arg ref "$HEAD_REF" '{ref: $ref}')"
+          dispatch preview-docs.yml "$(jq -n --arg ref "$HEAD_REF" --arg pr "$PR_NUMBER" '{ref: $ref, inputs: {pr: $pr}}')"
 
       - name: Comment result
         if: always()
