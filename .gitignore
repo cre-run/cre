@@ -34,3 +34,6 @@ dist-ssr
 
 # Cloudflare Wrangler
 .wrangler
+
+# Blume
+.blume
