@@ -4,6 +4,7 @@
 
 ## 構成
 
+- `apps/lp` (`@cre/lp`) — Cloudflare Workers (`cre-lp`) で配信する準備中ページ
 - `apps/sample` (`@cre/app-sample`) — Vite アプリの見本
 - `packages/sample` (`@cre/sample`) — `vp pack` でビルドするライブラリの見本
 
