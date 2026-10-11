@@ -4,6 +4,7 @@
 import { expect, test } from "@playwright/test";
 import { toHash } from "../src/payload.ts";
 import { samplePayload } from "../src/sample.ts";
+import { guideExampleHashes } from "../tests/guide-example.ts";
 
 test("見本データで画面が開く", async ({ page }) => {
   await page.goto("/");
@@ -48,6 +49,16 @@ test("URL の判定データを表示する", async ({ page }) => {
   await page.goto(`/${toHash(payload)}`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("URL から渡した件名");
   await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
+});
+
+test("ガイドに載せた URL の例を開くと、見本と同じ内容が表示される", async ({ page }) => {
+  const [encoded] = guideExampleHashes();
+  await page.goto(`/#d=${encoded}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
+  await expect(page.locator(".paragraph")).toHaveCount(samplePayload.reply.paragraphs.length);
+  // URL から渡したデータなので、見本のバッジや読み込みエラーは出ない
+  await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("URL のデータを読み込めませんでした")).toHaveCount(0);
 });
 
 test("壊れた判定データでは見本データとエラーを表示する", async ({ page }) => {
