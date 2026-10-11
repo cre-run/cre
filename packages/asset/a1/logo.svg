@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="256" viewBox="0 0 480 256" role="img" aria-label="CRE A1 Satellite logo">
+  <title>CRE A1 Satellite logo</title>
+  <path d="M 182.225 65.775 A 88 88 0 1 0 182.225 190.225 L 156.77 164.77 A 52 52 0 1 1 156.77 91.23 Z" fill="#071B3D"/>
+  <rect x="164" y="108" width="40" height="40" rx="2" fill="#42D6A4"/>
+  <g transform="translate(250 80)" fill="none" stroke="#071B3D" stroke-width="13" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M 55 26 A 30 30 0 1 0 55 70"/>
+    <path d="M 86 78 V 22 M 86 48 C 86 29 98 20 114 22"/>
+    <path d="M 139 48 H 195 C 195 10 137 10 137 48 C 137 79 171 90 190 70"/>
+  </g>
+</svg>
