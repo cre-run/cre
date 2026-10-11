@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { formatDate, formatMonthDayTime, freshness } from "../src/labels.ts";
-import { decodePayload, encodePayload, readHash, toHash } from "../src/payload.ts";
+import { decodePayload, encodePayload, isPayload, readHash, toHash } from "../src/payload.ts";
 import { samplePayload } from "../src/sample.ts";
 
 test("payload は pako 圧縮を経ても元に戻る", () => {
@@ -22,6 +22,25 @@ test("形式の違うデータは読み込まない", () => {
   const broken = encodePayload({ ...samplePayload, version: 2 as 1 });
   expect(() => decodePayload(broken)).toThrow();
   expect(() => decodePayload("not-a-payload")).toThrow();
+});
+
+test("入れ子の必須項目や値が不正なデータは読み込まない", () => {
+  const { inquiry, reply } = samplePayload;
+  const [first, ...rest] = reply.paragraphs;
+  const withoutFrom = { ...samplePayload, inquiry: { ...inquiry, from: undefined } };
+  const withoutEvidence = {
+    ...samplePayload,
+    reply: { ...reply, paragraphs: [{ ...first, evidence: undefined }, ...rest] },
+  };
+  const unknownStatus = {
+    ...samplePayload,
+    reply: { ...reply, paragraphs: [{ ...first, status: "done" }, ...rest] },
+  };
+  for (const data of [withoutFrom, withoutEvidence, unknownStatus]) {
+    expect(isPayload(data)).toBe(false);
+    expect(() => decodePayload(encodePayload(data as typeof samplePayload))).toThrow();
+  }
+  expect(isPayload(samplePayload)).toBe(true);
 });
 
 test("確認日時の鮮度を判定日時から計算する", () => {

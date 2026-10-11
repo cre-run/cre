@@ -75,7 +75,7 @@ export const ReplyEditor = ({
                 contentEditable
                 suppressContentEditableWarning
                 onFocus={() => onSelect(p.id)}
-                onBlur={(event) => onEdit(p.id, event.currentTarget.textContent ?? "")}
+                onBlur={(event) => onEdit(p.id, event.currentTarget.innerText)}
               >
                 {texts[p.id] ?? p.text}
               </p>

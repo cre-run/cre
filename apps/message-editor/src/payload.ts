@@ -41,15 +41,69 @@ export const readHash = (hash: string): string | null => {
 export const toHash = (payload: ReplyReviewPayload): string =>
   `#${HASH_KEY}=${encodePayload(payload)}`;
 
-const isPayload = (data: unknown): data is ReplyReviewPayload => {
-  if (typeof data !== "object" || data === null) {
+type Shape = Record<string, unknown>;
+
+const isObject = (value: unknown): value is Shape => typeof value === "object" && value !== null;
+const isString = (value: unknown): value is string => typeof value === "string";
+const isOptionalString = (value: unknown): boolean => value === undefined || isString(value);
+const isArrayOf = <T>(value: unknown, item: (v: unknown) => v is T): value is T[] =>
+  Array.isArray(value) && value.every(item);
+const oneOf =
+  <T extends string>(...values: T[]) =>
+  (value: unknown): value is T =>
+    values.includes(value as T);
+
+const isStatus = oneOf("verified", "conditional", "recheck", "unverified");
+const isCheckResult = oneOf("ok", "warn", "ng");
+const isEvidenceType = oneOf(
+  "terms",
+  "internal-rule",
+  "precedent",
+  "case-law",
+  "code",
+  "faq",
+  "help",
+);
+const isStance = oneOf("supports", "conditional", "contradicts", "related");
+
+const isInquiryParagraph = (v: unknown): v is Shape =>
+  isObject(v) && isString(v.id) && isString(v.text);
+
+const isCheck = (v: unknown): v is Shape =>
+  isObject(v) && isString(v.label) && isCheckResult(v.result) && isOptionalString(v.note);
+
+const isEvidence = (v: unknown): v is Shape =>
+  isObject(v) &&
+  isEvidenceType(v.type) &&
+  isStance(v.stance) &&
+  isString(v.title) &&
+  ["excerpt", "source", "url", "checkedAt"].every((key) => isOptionalString(v[key]));
+
+const isReplyParagraph = (v: unknown): v is Shape =>
+  isObject(v) &&
+  ["id", "topic", "text", "summary"].every((key) => isString(v[key])) &&
+  ["method", "conditions", "nextAction"].every((key) => isOptionalString(v[key])) &&
+  isArrayOf(v.respondsTo, isString) &&
+  isStatus(v.status) &&
+  isArrayOf(v.checks, isCheck) &&
+  isArrayOf(v.evidence, isEvidence) &&
+  (v.owners === undefined || isArrayOf(v.owners, isString));
+
+/** 画面が前提とする項目と値をすべて確かめる（欠けていれば見本データにフォールバックさせる） */
+export const isPayload = (data: unknown): data is ReplyReviewPayload => {
+  if (!isObject(data) || data.version !== 1 || !isString(data.generatedAt)) {
     return false;
   }
-  const value = data as Partial<ReplyReviewPayload>;
+  const { inquiry, reply } = data;
   return (
-    value.version === 1 &&
-    typeof value.generatedAt === "string" &&
-    Array.isArray(value.inquiry?.paragraphs) &&
-    Array.isArray(value.reply?.paragraphs)
+    isObject(inquiry) &&
+    ["from", "subject", "receivedAt"].every((key) => isString(inquiry[key])) &&
+    isArrayOf(inquiry.paragraphs, isInquiryParagraph) &&
+    isObject(reply) &&
+    isString(reply.to) &&
+    isString(reply.subject) &&
+    isOptionalString(reply.opening) &&
+    isOptionalString(reply.closing) &&
+    isArrayOf(reply.paragraphs, isReplyParagraph)
   );
 };
