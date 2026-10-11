@@ -1,7 +1,7 @@
-name: Preview Docs Cleanup
+name: Preview Cleanup
 
-# PR を閉じたら、preview-docs.yml が作った Worker Preview（pr-<番号>）を削除する。
-# 途中で docs の変更を取り消した PR でも消せるよう、パスでは絞り込まない。
+# PR を閉じたら、各アプリの Worker Preview（pr-<番号>）を削除する。
+# 途中で変更を取り消した PR でも消せるよう、パスでは絞り込まない。
 
 on:
   pull_request:
@@ -10,23 +10,24 @@ on:
 permissions:
   contents: read
 
-# preview-docs.yml と同じグループに入れ、作成中のデプロイを取り消してから削除する
-# （削除のあとにデプロイが走ってプレビューが残るのを防ぐ）
-concurrency:
-  group: preview-docs-${{ github.event.pull_request.number }}
-  cancel-in-progress: true
-
 jobs:
   cleanup:
-    # フォークからの PR にはシークレットを渡さない（プレビューも作られていない）
-    # Dependabot の PR もフォークと同様に Actions のシークレットが使えないので除外する
+    # フォークや Dependabot の PR では Actions のシークレットが使えない（プレビューも作られていない）
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [docs, message-editor]
+    # preview-<app>.yml と同じグループに入れ、作成中のデプロイを取り消してから削除する
+    concurrency:
+      group: preview-${{ matrix.app }}-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: apps/docs
+        working-directory: apps/${{ matrix.app }}
     steps:
       - uses: actions/checkout@v6
 
@@ -35,7 +36,7 @@ jobs:
           node-version: "24"
           cache: true
 
-      # docs に触れていない PR ではプレビューがない。その場合（API エラー 10025: Preview not found）だけ
+      # そのアプリに触れていない PR ではプレビューがない。その場合（API エラー 10025: Preview not found）だけ
       # 正常終了とし、認証や API の失敗などはジョブを失敗させて気づけるようにする
       - name: Delete Worker Preview
         run: |

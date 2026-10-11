@@ -19,6 +19,15 @@ vp run @cre/message-editor#test
 vp run @cre/message-editor#build
 ```
 
+## デプロイ
+
+Cloudflare Workers の `cre-editor` として、静的ファイル（`dist/`）を `https://editor.cre.run` で配信します（`wrangler.jsonc`）。
+
+- `main` へ `apps/message-editor` などの変更が push されると、`.github/workflows/deploy-message-editor.yml` がビルドと `wrangler deploy` を実行します。Actions タブから手動実行も可能です
+- PR を開くと `.github/workflows/preview-message-editor.yml` が Worker Previews で `pr-<番号>` のプレビューを作り、URL を PR にコメントします。PR を閉じると `preview-cleanup.yml` が削除します
+- シークレットは他のアプリと共通の `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` を使います
+- 判定データは URL の `#` 以降に載るため、サーバー（Cloudflare）には送られません。ただしブラウザの履歴や共有したリンクには残るので、実際の問い合わせ内容を扱う場合は注意してください
+
 ## ドキュメントのモック画像
 
 `apps/docs/docs/features/message-editor*.png` は、見本データを表示した画面のスクリーンショットです。

@@ -1,8 +1,7 @@
 name: Preview Docs
 
-# PR ごとに Cloudflare Worker Previews でドキュメントサイトのプレビューを作り、URL を PR にコメントする。
-# PR を閉じたときの削除は、パス指定に左右されないよう preview-docs-cleanup.yml で行う。
-# https://developers.cloudflare.com/workers/previews/
+# PR ごとにドキュメントサイト（cre-docs）の Worker Preview を作り、URL を PR にコメントする。
+# PR を閉じたときの削除は、パス指定に左右されないよう preview-cleanup.yml で行う。
 
 on:
   pull_request:
@@ -13,79 +12,28 @@ on:
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - .github/workflows/preview-docs.yml
+      - .github/workflows/_preview-worker.yml
 
 permissions:
   contents: read
   pull-requests: write
 
+# preview-cleanup.yml と同じグループ名にして、削除とデプロイが同時に走らないようにする
 concurrency:
   group: preview-docs-${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
-env:
-  PREVIEW_NAME: pr-${{ github.event.pull_request.number }}
-  COMMENT_MARKER: "<!-- preview-docs -->"
-
 jobs:
-  deploy:
-    # フォークからの PR にはシークレットを渡さない
-    # Dependabot の PR もフォークと同様に Actions のシークレットが使えないので除外する
+  preview:
+    # フォークや Dependabot の PR では Actions のシークレットが使えないので実行しない
     if: >-
       github.event.pull_request.head.repo.full_name == github.repository &&
       github.event.pull_request.user.login != 'dependabot[bot]'
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/docs
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: voidzero-dev/setup-vp@v1.21.2
-        with:
-          node-version: "24"
-          cache: true
-
-      - name: Build docs
-        run: vp exec blume build
-
-      # `vp run` は環境変数を引き継がずキャッシュも効くため、wrangler を直接実行する
-      - name: Deploy Worker Preview
-        id: preview
-        # URL は wrangler の出力ファイル（ND-JSON）の type: "preview" の行から読む
-        run: |
-          vp exec wrangler preview --name "$PREVIEW_NAME" --message "PR #$PR_NUMBER $HEAD_SHA"
-          url=$(jq -r 'select(.type == "preview") | .preview_urls[0] // empty' "$WRANGLER_OUTPUT_FILE_PATH" | tail -n 1)
-          # preview_urls は本番デプロイ（wrangler deploy）で反映される。未反映だと URL が付かない
-          if [ -z "$url" ]; then
-            echo "::warning::Preview $PREVIEW_NAME was deployed but has no URL. Deploy production once with preview_urls: true."
-          fi
-          echo "url=$url" >> "$GITHUB_OUTPUT"
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          WRANGLER_OUTPUT_FILE_PATH: ${{ runner.temp }}/wrangler-output.jsonl
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-
-      # 同じコメントを更新し続ける（プッシュごとに増やさない）
-      - name: Comment preview URL
-        run: |
-          if [ -n "$PREVIEW_URL" ]; then
-            link="$PREVIEW_URL"
-          else
-            link="プレビューは作成しましたが、URL がまだありません。本番の Worker に \`preview_urls: true\` が反映される（この設定を含む変更が main に入り、本番デプロイが走る）と URL が付きます。"
-          fi
-          body=$(printf '%s\n### ドキュメントのプレビュー\n\n%s\n\nコミット: %s（プッシュのたびに同じ URL が更新されます）\n' \
-            "$COMMENT_MARKER" "$link" "$HEAD_SHA")
-          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" --paginate \
-            --jq ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id" | head -n 1)
-          if [ -n "$id" ]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" > /dev/null
-          else
-            gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" -f body="$body" > /dev/null
-          fi
-        env:
-          GH_TOKEN: ${{ github.token }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          PREVIEW_URL: ${{ steps.preview.outputs.url }}
+    uses: ./.github/workflows/_preview-worker.yml
+    with:
+      app: docs
+      title: ドキュメント
+      build: vp exec blume build
+    secrets:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
