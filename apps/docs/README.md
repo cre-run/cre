@@ -1,7 +1,7 @@
 # @cre/docs
 
 [Blume](https://useblume.dev/) で構築したドキュメントサイトです。
-静的ビルド（`dist/`）を Cloudflare Workers の静的アセットとして `cre-docs` に配信します。
+静的ビルド（`dist/`）を Cloudflare Workers の静的アセットとして `cre-docs` に配信し、カスタムドメイン https://docs.cre.run で公開します。
 
 - `docs/` — ページ（Markdown / MDX）
 - `blume.config.ts` — サイト設定
