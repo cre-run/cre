@@ -4,7 +4,7 @@ export default defineConfig({
   title: "CRE Docs",
   description: "CRE のドキュメント",
   logo: {
-    image: "./public/logo.svg",
+    image: "../../packages/asset/a1/symbol-mono.svg",
     text: "CRE Docs",
   },
   i18n: {
