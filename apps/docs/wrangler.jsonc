@@ -7,6 +7,9 @@
   "workers_dev": false,
   // PR ごとの Worker Previews（pr-<番号>-cre-docs.<subdomain>.workers.dev）を有効にする
   "preview_urls": true,
+  // wrangler preview に必要。Preview 専用の vars やバインディングがあればここに書く
+  // https://developers.cloudflare.com/workers/previews/configuration/
+  "previews": {},
   "assets": {
     "directory": "./dist",
     "html_handling": "drop-trailing-slash",
