@@ -3,7 +3,7 @@
 Message Editor のモック（SPA）です。返信の下書きを段落ごとに編集しながら、
 各段落の確認状況（確認済み・条件あり・再確認・根拠なし）と、根拠（種類・立場・確認日時の鮮度）を表示します。
 
-ドキュメント: `apps/docs/docs/features/message-editor.mdx`（`planned`）
+ドキュメント: `apps/docs/docs/features/message-editor.mdx`（`preview`）
 
 ## データの渡し方
 
