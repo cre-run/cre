@@ -4,12 +4,15 @@ packages:
 
 catalogMode: prefer
 
+# 公開から3日（4320分）経っていないバージョンはインストールしない
+minimumReleaseAge: 4320
+
 catalog:
   "@types/node": ^24
   typescript: ^7.0.2
   vite: npm:@voidzero-dev/vite-plus-core@1.1.0
   vite-plus: 1.1.0
-  wrangler: ^4.149.0
+  wrangler: ^4.140.0
 overrides:
   vite@*: "catalog:"
 peerDependencyRules:
