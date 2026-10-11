@@ -1,6 +1,6 @@
 /**
- * ガイド「判定データの扱いについて」（apps/docs/docs/features/message-editor.mdx）と
- * README「セキュリティとプライバシー」で約束していることを、コードの形で確かめる。
+ * 対応ガイド: apps/docs/docs/features/message-editor-data-handling.mdx「確かめ方」
+ * （README「セキュリティとプライバシー」も同じ約束）。ブラウザを使わず、コードの形で確かめる。
  * - 判定データをサーバーや外部サービスに送らない（fetch などを使わない）
  * - ブラウザに保存しない（localStorage などを使わない）
  * - 外部スクリプト・解析タグを読み込まない。検索エンジンに載せない（noindex）

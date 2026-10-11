@@ -24,13 +24,15 @@ vp run @cre/message-editor#build
 また `vp run ... -- payload.json --base URL` の形では `--` 以降がすべてファイル名として扱われ、`--base` が効きません。
 
 受け取ったデータは `src/payload.ts` の `isPayload` で検証し、形式が合わないもの（必須の項目がない、
-根拠の `url` が `http(s)` 以外、圧縮データが `MAX_ENCODED_LENGTH`（10 万文字）を超える、など）は表示せず、
+根拠の `url` が `http(s)` 以外、圧縮データが `MAX_ENCODED_LENGTH`（10 万文字）を超える、
+展開後が `MAX_DECODED_BYTES`（1 MB）を超える、など）は表示せず、
 見本データとエラーを表示します。`javascript:` などの URL はリンクになりません。
+展開は大きさを見ながら行い、上限を超えた時点で打ち切るので、小さな URL が巨大なデータに展開される「展開爆弾」でもタブは固まりません。
 
 ### セキュリティとプライバシー
 
-ガイドの「判定データの扱いについて」で約束している内容です。`tests/data-handling.test.ts` と
-`e2e/data-handling.e2e.ts` で確かめ続けています。
+ガイドの「判定データの扱いについて」と `apps/docs/docs/features/message-editor-data-handling.mdx` で約束している内容です。`tests/data-handling.test.ts` と
+`e2e/guide-message-editor-data-handling.e2e.ts` で確かめ続けています。
 
 - 判定データは URL の `#` 以降に載るため、サーバー（Cloudflare）には送られません。Worker にロジックはなく、静的ファイルを返すだけです
 - 画面はデータをブラウザの中だけで復号・表示します。`fetch` などでの送信、解析タグ・外部スクリプトの読み込み、
@@ -56,7 +58,7 @@ E2E は Playwright です（`playwright.config.ts`、`e2e/`）。
 - `e2e/critical-path.e2e.ts` — 壊れるとガイドの手順が成り立たなくなる操作（画像は撮らない）
 - `e2e/guide-message-editor.e2e.ts` — ガイド（`apps/docs/docs/features/message-editor.mdx`）の手順をなぞり、
   ガイドの画像 `apps/docs/docs/features/message-editor*.png` と比べる（VRT）
-- `e2e/data-handling.e2e.ts` — ガイドの「判定データの扱いについて」のとおり、判定データが外部に送られず、ブラウザにも残らないことを確かめる（画像は撮らない）
+- `e2e/guide-message-editor-data-handling.e2e.ts` — ガイドの「判定データの扱いについて」のとおり、判定データが外部に送られず、ブラウザにも残らないことを確かめる（画像は撮らない）
 
 ```bash
 vp exec playwright test                # ビルドしてプレビューサーバーを起動し、全 E2E を実行

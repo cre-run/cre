@@ -1,4 +1,4 @@
-import { deflate, inflate } from "pako";
+import { Inflate, deflate } from "pako";
 import type { ReplyReviewPayload } from "./types.ts";
 
 /** URL ハッシュのキー（`#d=<base64url>`） */
@@ -9,6 +9,39 @@ export const HASH_KEY = "d";
  * deflate は 700 倍以上に展開できるので、上限がないと巨大な URL で開いたタブが固まる。
  */
 export const MAX_ENCODED_LENGTH = 100_000;
+
+/**
+ * 展開後の JSON の最大バイト数。見本データで約 4 KB。
+ * 圧縮後の長さだけでは展開爆弾を防げない（10 万文字の圧縮データが 70 MB 以上に展開できる）ので、
+ * 展開しながら大きさを見て、超えた時点で打ち切る。
+ */
+export const MAX_DECODED_BYTES = 1_000_000;
+
+const tooLarge = (limit: string): Error => new Error(`データが大きすぎます（${limit}まで）`);
+
+/** 展開後の大きさを見ながら inflate し、上限を超えたら途中でやめる */
+const inflateBounded = (bytes: Uint8Array): Uint8Array => {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const inflater = new Inflate({ chunkSize: 16 * 1024 });
+  inflater.onData = (chunk) => {
+    total += chunk.length;
+    if (total > MAX_DECODED_BYTES) {
+      throw tooLarge(`展開後 ${MAX_DECODED_BYTES.toLocaleString("ja-JP")} バイト`);
+    }
+    chunks.push(chunk);
+  };
+  if (!inflater.push(bytes, true) || inflater.err) {
+    throw new Error(inflater.msg || "データを展開できません");
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
+};
 
 const toBase64Url = (bytes: Uint8Array): string => {
   let binary = "";
@@ -31,11 +64,9 @@ export const encodePayload = (payload: ReplyReviewPayload): string =>
 /** encodePayload の逆。形式が不正なら例外を投げる */
 export const decodePayload = (encoded: string): ReplyReviewPayload => {
   if (encoded.length > MAX_ENCODED_LENGTH) {
-    throw new Error(
-      `データが大きすぎます（${MAX_ENCODED_LENGTH.toLocaleString("ja-JP")} 文字まで）`,
-    );
+    throw tooLarge(`${MAX_ENCODED_LENGTH.toLocaleString("ja-JP")} 文字`);
   }
-  const json = new TextDecoder().decode(inflate(fromBase64Url(encoded)));
+  const json = new TextDecoder().decode(inflateBounded(fromBase64Url(encoded)));
   const data: unknown = JSON.parse(json);
   if (!isPayload(data)) {
     throw new Error("データの形式が正しくありません（version 1 の payload ではありません）");

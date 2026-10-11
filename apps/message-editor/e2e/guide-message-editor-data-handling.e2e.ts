@@ -1,11 +1,13 @@
 /**
- * 対応ガイド: apps/docs/docs/features/message-editor.mdx「判定データの扱いについて」
+ * 対応ガイド: apps/docs/docs/features/message-editor-data-handling.mdx
+ * （apps/docs/docs/features/message-editor.mdx「判定データの扱いについて」の詳細）
  *
- * ガイドで約束している「判定データはブラウザの外に出ない・ブラウザに残らない」を、実際のブラウザで確かめる。
+ * ガイドの表「どこに届き、どこに届かないか」と「受け付けないデータ」の各行を、実際のブラウザで確かめる。
+ * 「ブラウザの履歴・ブックマーク」「チャットに貼った URL」の行はブラウザや外部サービスの振る舞いなのでテストしない。
  * 画像は撮らない（見た目ではなく、通信と保存の有無を見る）。
  */
 import { expect, test } from "@playwright/test";
-import { MAX_ENCODED_LENGTH, toHash } from "../src/payload.ts";
+import { MAX_DECODED_BYTES, MAX_ENCODED_LENGTH, toHash } from "../src/payload.ts";
 import { samplePayload } from "../src/sample.ts";
 
 /** 外部に出ていないことを探すための目印（圧縮前の JSON にだけ現れる） */
@@ -129,5 +131,17 @@ test("http(s) 以外のリンクを含むデータは読み込まず、見本デ
 test("大きすぎるデータは展開せずにエラーを表示する", async ({ page }) => {
   await page.goto(`/#d=${"A".repeat(MAX_ENCODED_LENGTH + 1)}`);
   await expect(page.getByText("データが大きすぎます")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
+});
+
+test("展開すると大きくなるデータ（展開爆弾）は、途中で打ち切ってエラーを表示する", async ({
+  page,
+}) => {
+  const bomb = {
+    ...samplePayload,
+    inquiry: { ...samplePayload.inquiry, subject: "a".repeat(MAX_DECODED_BYTES * 50) },
+  };
+  await page.goto(`/${toHash(bomb)}`);
+  await expect(page.getByText("データが大きすぎます（展開後")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
 });
