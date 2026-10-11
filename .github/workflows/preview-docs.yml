@@ -29,7 +29,10 @@ env:
 jobs:
   deploy:
     # フォークからの PR にはシークレットを渡さない
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    # Dependabot の PR もフォークと同様に Actions のシークレットが使えないので除外する
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     defaults:
       run:

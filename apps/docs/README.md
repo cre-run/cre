@@ -29,6 +29,6 @@ Actions タブから手動実行（workflow_dispatch）も可能です。
 
 - URL は `pr-<番号>-cre-docs.<アカウントの workers.dev サブドメイン>.workers.dev`。プッシュのたびに同じ URL の内容が更新されます
 - PR を閉じると、`.github/workflows/preview-docs-cleanup.yml` がプレビューを削除します（途中で docs の変更を取り消した PR でも消えるよう、パスでは絞り込みません）
-- フォークからの PR では実行しません（シークレットを渡さないため）
+- フォークや Dependabot の PR では実行しません（Actions のシークレットが使えないため）
 - `workers.dev` のプレビューには `X-Robots-Tag: noindex` が付きます
 - `wrangler.jsonc` の `preview_urls: true` は本番デプロイ（`wrangler deploy`）で Cloudflare に反映されます。反映前はプレビューを作っても URL が付きません
