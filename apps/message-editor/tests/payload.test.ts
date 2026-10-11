@@ -44,7 +44,18 @@ test("入れ子の必須項目や値が不正なデータは読み込まない",
       paragraphs: [{ ...first, evidence: [{ ...first.evidence[0], checkedAt: "昨日" }] }, ...rest],
     },
   };
-  for (const data of [withoutFrom, withoutEvidence, unknownStatus, invalidDate, invalidCheckedAt]) {
+  const duplicateIds = {
+    ...samplePayload,
+    reply: { ...reply, paragraphs: [first, { ...rest[0], id: first.id }, ...rest.slice(1)] },
+  };
+  for (const data of [
+    withoutFrom,
+    withoutEvidence,
+    unknownStatus,
+    invalidDate,
+    invalidCheckedAt,
+    duplicateIds,
+  ]) {
     expect(isPayload(data)).toBe(false);
     expect(() => decodePayload(encodePayload(data as typeof samplePayload))).toThrow();
   }

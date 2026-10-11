@@ -110,6 +110,8 @@ export const isPayload = (data: unknown): data is ReplyReviewPayload => {
     isString(reply.subject) &&
     isOptionalString(reply.opening) &&
     isOptionalString(reply.closing) &&
-    isArrayOf(reply.paragraphs, isReplyParagraph)
+    isArrayOf(reply.paragraphs, isReplyParagraph) &&
+    // 段落 ID は選択・編集内容・React の key に使うため重複させない
+    new Set(reply.paragraphs.map((p) => p.id)).size === reply.paragraphs.length
   );
 };
