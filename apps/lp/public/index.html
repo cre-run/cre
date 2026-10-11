@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <meta name="description" content="CRE は現在準備中です。" />
+    <title>CRE — Coming soon</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root {
+        --navy: #071b3d;
+        --mint: #42d6a4;
+        --white: #ffffff;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: grid;
+        place-items: center;
+        padding: 24px;
+        background: var(--navy);
+        color: var(--white);
+        font-family:
+          system-ui,
+          -apple-system,
+          "Segoe UI",
+          "Hiragino Sans",
+          "Noto Sans JP",
+          sans-serif;
+        text-align: center;
+      }
+      main {
+        display: grid;
+        justify-items: center;
+        gap: 24px;
+      }
+      svg {
+        width: 96px;
+        height: 96px;
+      }
+      .dot {
+        animation: pulse 2.4s ease-in-out infinite;
+        transform-origin: 184px 128px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(2rem, 6vw, 3.5rem);
+        font-weight: 700;
+        letter-spacing: 0.04em;
+      }
+      p {
+        margin: 0;
+        color: rgb(255 255 255 / 0.72);
+        line-height: 1.7;
+      }
+      .rule {
+        width: 48px;
+        height: 4px;
+        border-radius: 2px;
+        background: var(--mint);
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.35;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .dot {
+          animation: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <svg viewBox="0 0 256 256" role="img" aria-label="CRE">
+        <path
+          d="M 182.225 65.775 A 88 88 0 1 0 182.225 190.225 L 156.77 164.77 A 52 52 0 1 1 156.77 91.23 Z"
+          fill="currentColor"
+        />
+        <rect class="dot" x="164" y="108" width="40" height="40" rx="2" fill="#42D6A4" />
+      </svg>
+      <h1>Coming soon</h1>
+      <div class="rule" aria-hidden="true"></div>
+      <p>ただいま準備中です。公開まで今しばらくお待ちください。</p>
+    </main>
+  </body>
+</html>
