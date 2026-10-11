@@ -21,9 +21,10 @@
       "minimumReleaseAge": null
     },
     {
-      "description": "minor・patch・固定・digest・lockfile の更新は、CI が通れば自動でマージする。major は人が見る",
+      "description": "minor・patch・固定・digest・lockfile の更新は、CI が通れば自動でマージする。major は人が見る。E2E はパスで絞っていて必須チェックにできないので、GitHub の自動マージは使わず、Renovate 自身にすべてのチェックを待たせる",
       "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest", "lockFileMaintenance"],
-      "automerge": true
+      "automerge": true,
+      "platformAutomerge": false
     },
     {
       "description": "vite（vite-plus-core の別名）と vite-plus は同じ版で揃える",
