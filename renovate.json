@@ -1,6 +1,46 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": [
-    "config:recommended"
+  "extends": ["config:best-practices"],
+  "timezone": "Asia/Tokyo",
+  "packageRules": [
+    {
+      "description": "pnpm-workspace.yaml の minimumReleaseAge（3日）に合わせ、npm の版も公開から3日待つ。config:best-practices の security:minimumReleaseAgeNpm と同じ値を明示しておく",
+      "matchDatasources": ["npm"],
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "GitHub Actions も公開から3日待つ",
+      "matchManagers": ["github-actions"],
+      "matchDatasources": ["github-tags", "github-releases"],
+      "minimumReleaseAge": "3 days",
+      "internalChecksFilter": "strict"
+    },
+    {
+      "description": "digest で固定するだけの更新は待たない（いま使っている版をそのまま固定するため）",
+      "matchUpdateTypes": ["pin", "pinDigest"],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "minor・patch・固定・digest・lockfile の更新は、CI が通れば自動でマージする。major は人が見る",
+      "matchUpdateTypes": ["minor", "patch", "pin", "pinDigest", "digest", "lockFileMaintenance"],
+      "automerge": true
+    },
+    {
+      "description": "vite（vite-plus-core の別名）と vite-plus は同じ版で揃える",
+      "matchPackageNames": ["vite-plus", "@voidzero-dev/vite-plus-core"],
+      "groupName": "vite-plus"
+    },
+    {
+      "description": "E2E のコンテナと @playwright/test は同じ版で揃える。描画が変わり画像の撮り直しが要ることがあるので、自動マージしない",
+      "matchPackageNames": ["@playwright/test", "mcr.microsoft.com/playwright"],
+      "groupName": "playwright",
+      "automerge": false
+    },
+    {
+      "description": "Playwright のイメージのタグは v1.64.0-noble の形",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["mcr.microsoft.com/playwright"],
+      "versioning": "regex:^v(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:-(?<compatibility>.+))?$"
+    }
   ]
 }
