@@ -166,6 +166,7 @@ const titlesInFile = async (path: string): Promise<string[]> => {
 /**
  * 実行されるテストの宣言 `test("…")` がある行（1 始まり）。
  * esbuild の出力は行が変わるので、元のソースからタイトルで探す（コメントアウトした行は飛ばす）。
+ * 同じ名前のテストが複数あれば、出現順に別々の宣言行に対応づける（1 行に畳み込むと、2 件目のバッジ漏れを見逃す）。
  * 宣言行が見つからないテストがあれば例外を投げる
  */
 export const declaredTests = async (app: string, file: string): Promise<Map<number, string>> => {
@@ -175,6 +176,7 @@ export const declaredTests = async (app: string, file: string): Promise<Map<numb
   for (const title of await titlesInFile(path)) {
     const index = lines.findIndex(
       (line, i) =>
+        !byLine.has(i + 1) &&
         !line.trimStart().startsWith("//") &&
         (line.includes(`test("${title}"`) ||
           (/^\s*test\(\s*$/u.test(line) && lines[i + 1]?.includes(`"${title}"`) === true)),

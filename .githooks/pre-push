@@ -17,7 +17,8 @@ if [ "${CRE_PUSH_REVIEWED:-}" = "1" ]; then
 fi
 
 # push するコミットの差分（追加行だけ）とメッセージを集める。lockfile は除く。
-# 送信先に既にある行（番号を振り直した・別のファイルへ移した・公開済みの文を引用した行）は、公開済みなので審査から除く
+# 送信先に既にある行（番号を振り直した・別のファイルへ移した・公開済みの文を引用した行）には [公開済み] の印を付けて、
+# その行だけでは指摘しないようにする（行は落とさない。公開済みの値でも、新しい文脈に置くと非公開の意味を持つことがある）
 content=""
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue # ブランチの削除
@@ -49,7 +50,7 @@ $messages"
   }
   # 差分からは削除行を落とす（メッセージには適用しない。箇条書きの「- 」が消えるため）
   patch=$(printf '%s\n' "$patch" | grep -v '^-' || true)
-  # 送信先に既にある行を落とす。比べる先は、送信先のブランチ（あれば）か、送信先の main との分岐点
+  # 送信先に既にある行に印を付ける。比べる先は、送信先のブランチ（あれば）か、送信先の main との分岐点
   if [ "$remote_sha" != "$zero" ]; then
     base="$remote_sha"
   else
@@ -59,9 +60,9 @@ $messages"
     patch=$(printf '%s\n' "$patch" | awk -v base="$base" '
       BEGIN { cmd = "git grep -I -h -e \"\" " base; while ((cmd | getline line) > 0) seen[line] = 1; close(cmd) }
       /^\+\+\+ / { print; next }
-      /^\+/ { if (substr($0, 2) in seen) { dropped++; next } }
+      /^\+/ { if (substr($0, 2) in seen) { marked++; print "+[公開済み]" substr($0, 2); next } }
       { print }
-      END { if (dropped) printf "pre-push: 送信先に既にある行 %d 行を審査から除きました\n", dropped > "/dev/stderr" }')
+      END { if (marked) printf "pre-push: 送信先に既にある行 %d 行に [公開済み] の印を付けました\n", marked > "/dev/stderr" }')
   fi
   content="$content
 push 先: $remote_ref
@@ -76,6 +77,7 @@ fi
 
 system='あなたは、比較的小規模な企業が公開している GitHub リポジトリ cre-run/cre（製品 CRE / cre.run のコードとドキュメント）への push を、公開前に審査するレビュアーです。
 これから push されるコミットのメッセージと追加行を読み、公開してはいけない内容が含まれていないかを判断してください。
+行頭に [公開済み] が付いた追加行は、push 先に既にある行（番号の振り直し、移動、引用）です。その行の内容だけでは指摘せず、前後の新しい行と合わせて新しい非公開の意味（たとえば見本の名前を実在の取引先として書く）が生まれるときだけ指摘してください。
 
 公開してはいけない内容:
 - 顧客・見込み顧客・取引先の名前や、それを推測できる情報。商談・契約・売上・価格の検討
