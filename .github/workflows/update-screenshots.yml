@@ -49,14 +49,18 @@ jobs:
           cache: true
 
       - name: Update guide screenshots
+        id: update
         working-directory: apps/message-editor
         run: vp exec playwright test e2e/guide- --update-snapshots
 
       # 撮り直した画像で、クリティカルパスを含めてすべて通ることを確かめてからコミットする
       - name: Run E2E
+        id: e2e
         working-directory: apps/message-editor
         run: vp exec playwright test
 
+      # 確かめたコミット（tested）の上にだけ画像を積む。実行中にブランチが動いて push が拒否されたら、
+      # 新しいコードでは確かめていないので rebase せず、moved として失敗させる（コメントで付け直しを促す）
       - name: Commit and push
         id: commit
         run: |
@@ -66,10 +70,20 @@ jobs:
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          tested=$(git rev-parse HEAD)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "docs(message-editor): update guide screenshots"
-          git push origin "HEAD:$HEAD_REF"
+          if ! git push origin "HEAD:$HEAD_REF"; then
+            git fetch --depth=1 origin "$HEAD_REF"
+            remote=$(git rev-parse FETCH_HEAD)
+            if [ "$remote" != "$tested" ]; then
+              echo "push=moved" >> "$GITHUB_OUTPUT"
+              echo "remote_sha=$(git rev-parse --short FETCH_HEAD)" >> "$GITHUB_OUTPUT"
+              echo "::error::実行中に $HEAD_REF が $(git rev-parse --short "$tested") から $(git rev-parse --short "$remote") に進んだため、push が拒否されました"
+            fi
+            exit 1
+          fi
           echo "changed=true" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
@@ -77,6 +91,7 @@ jobs:
       # 承認なしで新しいコミットを確かめられるよう、workflow_dispatch で直接呼び出す。
       # 画像だけの変更なので、message-editor のプレビューは変わらず呼び出さない
       - name: Rerun CI, E2E and docs preview on the new commit
+        id: dispatch
         if: steps.commit.outputs.changed == 'true'
         run: |
           dispatch() {
@@ -90,21 +105,41 @@ jobs:
           dispatch e2e.yml "$(jq -n --arg ref "$HEAD_REF" '{ref: $ref}')"
           dispatch preview-docs.yml "$(jq -n --arg ref "$HEAD_REF" --arg pr "$PR_NUMBER" '{ref: $ref, inputs: {pr: $pr}}')"
 
+      # どのステップで止まったかを、各ステップの outcome から判断してコメントする
       - name: Comment result
         if: always()
         env:
-          OUTCOME: ${{ job.status }}
+          JOB_STATUS: ${{ job.status }}
+          UPDATE_OUTCOME: ${{ steps.update.outcome }}
+          E2E_OUTCOME: ${{ steps.e2e.outcome }}
+          COMMIT_OUTCOME: ${{ steps.commit.outcome }}
+          DISPATCH_OUTCOME: ${{ steps.dispatch.outcome }}
+          PUSH: ${{ steps.commit.outputs.push }}
+          REMOTE_SHA: ${{ steps.commit.outputs.remote_sha }}
           CHANGED: ${{ steps.commit.outputs.changed }}
           SHA: ${{ steps.commit.outputs.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ "$OUTCOME" != "success" ]; then
-            body="ガイドの画像を撮り直せませんでした（E2E が失敗したため、コミットしていません）。[実行ログ]($RUN_URL)"
+          if [ "$JOB_STATUS" = "cancelled" ]; then
+            body="ガイドの画像の撮り直しを中断しました（ラベルの付け直しなどで新しい実行に置き換わったか、手動で取り消されました）。コミットしていません。"
+          elif [ "$UPDATE_OUTCOME" = "failure" ]; then
+            body="ガイドの画像を撮り直せませんでした（撮り直しのステップが失敗したため、コミットしていません）。"
+          elif [ "$E2E_OUTCOME" = "failure" ]; then
+            body="ガイドの画像を撮り直しましたが、撮り直した画像で E2E が失敗したため、コミットしていません。"
+          elif [ "$PUSH" = "moved" ]; then
+            body="ガイドの画像の撮り直しと E2E は通りましたが、実行中に PR のブランチへ新しいコミット（${REMOTE_SHA}）が push されたため、push が拒否されました。確かめていないコードに画像を載せないよう、PR には反映していません。新しいコードで撮り直すには \`$LABEL\` ラベルを付け直してください。"
+          elif [ "$COMMIT_OUTCOME" = "failure" ]; then
+            body="ガイドの画像の撮り直しと E2E は通りましたが、コミットか push に失敗しました。"
+          elif [ "$DISPATCH_OUTCOME" = "failure" ]; then
+            body="ガイドの画像を撮り直して ${SHA} をコミットしましたが、CI・E2E・ドキュメントのプレビューの呼び出しに失敗しました。Actions から手動で実行してください。"
+          elif [ "$JOB_STATUS" != "success" ]; then
+            body="ガイドの画像を撮り直せませんでした（撮り直しの前の準備で失敗したため、コミットしていません）。"
           elif [ "$CHANGED" = "true" ]; then
-            body="ガイドの画像を撮り直して ${SHA} をコミットしました。Files changed の画像差分が意図どおりか確認してください。[実行ログ]($RUN_URL)"
+            body="ガイドの画像を撮り直して ${SHA} をコミットしました。Files changed の画像差分が意図どおりか確認してください。"
           else
-            body="ガイドの画像に差分はありませんでした。[実行ログ]($RUN_URL)"
+            body="ガイドの画像に差分はありませんでした。"
           fi
+          body="$body [実行ログ]($RUN_URL)"
           curl -fsS -X POST \
             -H "Authorization: Bearer $GH_TOKEN" \
             -H "Accept: application/vnd.github+json" \
