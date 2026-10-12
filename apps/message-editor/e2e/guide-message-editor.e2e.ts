@@ -9,7 +9,7 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Message Editor ガイド", () => {
   // Step 1/2: 画面の見方（確認済みの段落を選んだところ）
-  test("段落を選ぶと、右側に「この段落の根拠」が表示される", async ({ page }) => {
+  test("段落を選ぶと、右側にその段落の根拠が表示される", async ({ page }) => {
     await page.goto("/#p=r1");
     const panel = page.getByRole("complementary");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(

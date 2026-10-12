@@ -178,7 +178,7 @@ h1 {
   cursor: pointer;
 }
 
-/* 2 カラム: 本文（注釈は段落の下に 1 行）と、選んだ段落の根拠 */
+/* 2 カラム: 本文と、選んだ段落の根拠。確認状況は本文に書かず、右の根拠パネルに任せる */
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -310,28 +310,7 @@ h1 {
 }
 
 .reply-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-bottom: 12px;
-}
-
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--muted);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.toggle.is-on {
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 
 .reply-plain {
@@ -340,22 +319,15 @@ h1 {
 }
 
 .paragraph {
-  display: grid;
-  gap: 2px;
   margin: 0 -14px;
   padding: 10px 14px;
   border-left: 2px solid transparent;
   cursor: pointer;
-  transition: opacity 0.15s;
 }
 
 .paragraph.is-selected {
   border-left-color: var(--accent);
   background: linear-gradient(to right, var(--accent-soft), transparent 40%);
-}
-
-.paragraph.is-dimmed {
-  opacity: 0.4;
 }
 
 .paragraph-text {
@@ -365,50 +337,12 @@ h1 {
   white-space: pre-wrap;
 }
 
-/* 段落の直下の注釈: 確認状況・根拠の種類・根拠パネルへの入口を 1 行に */
-.annotation {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  align-items: center;
-  width: fit-content;
-  max-width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  font-size: 12px;
-  line-height: 1.6;
-  text-align: left;
-  cursor: pointer;
-}
-
-.annotation-types {
-  color: var(--muted);
-}
-
-.annotation-cta {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--muted);
-}
-
-/* 選んでいない段落では、触れたときだけ入口を見せて本文を静かに保つ */
-.paragraph:not(.is-selected):not(:hover) .annotation:not(:focus-visible) .annotation-cta {
-  visibility: hidden;
-}
-
-.paragraph.is-selected .annotation-cta {
-  color: var(--accent);
-}
-
 .status-label {
   font-size: 12px;
   font-weight: 600;
 }
 
-.status-label.status-verified,
-.dot.status-verified {
+.status-label.status-verified {
   color: var(--verified);
 }
 .status-label.status-conditional {
@@ -528,50 +462,7 @@ h1 {
   top: 16px;
   display: grid;
   gap: 12px;
-}
-
-.panel-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-}
-
-.panel-title {
-  color: var(--text);
-  font-size: 14px;
-}
-
-.panel-nav {
-  display: inline-flex;
-  gap: 2px;
-}
-
-.panel-position {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.dot.status-conditional {
-  color: var(--conditional);
-}
-.dot.status-recheck {
-  color: var(--recheck);
-}
-.dot.status-unverified {
-  color: var(--unverified);
+  padding-top: 8px;
 }
 
 .panel-topic {
@@ -581,7 +472,7 @@ h1 {
 .question {
   display: grid;
   gap: 4px;
-  margin: 4px 0;
+  margin: 8px 0 2px;
   padding: 2px 0 2px 14px;
   border-left: 2px solid var(--border);
   color: var(--muted);
@@ -619,6 +510,12 @@ h1 {
 }
 
 .panel-summary {
+  font-size: 13px;
+}
+
+.panel-conditions {
+  display: flex;
+  gap: 8px;
   font-size: 13px;
 }
 
@@ -783,11 +680,13 @@ h1 {
 }
 
 .next {
+  display: grid;
+  gap: 4px;
   margin-top: 4px;
   padding: 12px 14px;
-  border: 0;
   border-radius: 6px;
   background: var(--accent-soft);
+  font-size: 13px;
 }
 
 .next .section-label {

@@ -1,5 +1,4 @@
 import { collectActions } from "../actions.ts";
-import { EVIDENCE_TYPE, STATUS } from "../labels.ts";
 import type { Reply } from "@cre/editor-payload";
 import { ActionList } from "./ActionList.tsx";
 import { Icon } from "./Icon.tsx";
@@ -10,8 +9,6 @@ export const ReplyEditor = ({
   onEdit,
   selectedId,
   onSelect,
-  emphasize,
-  onToggleEmphasize,
   isSample,
   done,
   onToggleDone,
@@ -21,8 +18,6 @@ export const ReplyEditor = ({
   onEdit: (id: string, text: string) => void;
   selectedId: string | undefined;
   onSelect: (id: string) => void;
-  emphasize: boolean;
-  onToggleEmphasize: () => void;
   /** 見本データを表示しているとき（URL のデータがない・読み込めない） */
   isSample: boolean;
   /** アクションを確認済みにした段落 ID（画面を開いている間だけ保持） */
@@ -51,31 +46,20 @@ export const ReplyEditor = ({
       </dl>
 
       <div className="reply-body">
-        <div className="reply-toolbar">
-          <span className="muted small">
-            本文を直接編集できます。段落の下の注釈はお客様に送る文面には含まれません
-          </span>
-          <button
-            type="button"
-            className={`toggle ${emphasize ? "is-on" : ""}`}
-            aria-pressed={emphasize}
-            onClick={onToggleEmphasize}
-          >
-            <Icon name="shield" size={14} />
-            要確認を強調
-          </button>
-        </div>
+        <p className="reply-toolbar muted small">
+          本文を直接編集できます。右の根拠はお客様に送る文面には含まれません
+        </p>
 
         {reply.opening && <p className="reply-plain">{reply.opening}</p>}
 
         {paragraphs.map((p) => {
-          const types = [...new Set(p.evidence.map((e) => EVIDENCE_TYPE[e.type]))];
           const selected = p.id === selectedId;
-          const dimmed = emphasize && p.status === "verified";
           return (
             <div
               key={p.id}
-              className={`paragraph status-${p.status} ${selected ? "is-selected" : ""} ${dimmed ? "is-dimmed" : ""}`}
+              className={`paragraph status-${p.status} ${selected ? "is-selected" : ""}`}
+              aria-label={`段落 ${p.topic}`}
+              aria-current={selected ? "true" : undefined}
               onClick={() => onSelect(p.id)}
             >
               <p
@@ -87,23 +71,6 @@ export const ReplyEditor = ({
               >
                 {texts[p.id] ?? p.text}
               </p>
-              {/* 段落の直下に 1 行で、確認状況と根拠の種類を示す（右の根拠パネルへの入口） */}
-              <button
-                type="button"
-                className="annotation"
-                aria-label={`段落 ${p.topic} の根拠を見る`}
-                aria-current={selected ? "true" : undefined}
-                onClick={() => onSelect(p.id)}
-              >
-                <span className={`status-label status-${p.status}`}>
-                  <span aria-hidden="true">{STATUS[p.status].icon}</span> {STATUS[p.status].label}
-                </span>
-                <span className="annotation-types">{types.join("・")}</span>
-                <span className="annotation-cta" aria-hidden="true">
-                  {selected ? "根拠を表示中" : "根拠を見る"}
-                  {!selected && <Icon name="arrowRight" size={12} />}
-                </span>
-              </button>
             </div>
           );
         })}

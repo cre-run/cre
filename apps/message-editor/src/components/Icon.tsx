@@ -1,8 +1,7 @@
 const PATHS = {
   arrowRight: "M5 12h14M13 6l6 6-6 6",
   chevronDown: "M6 9l6 6 6-6",
-  chevronLeft: "M15 6l-6 6 6 6",
-  chevronRight: "M9 6l6 6-6 6",
+  chevronUp: "M6 15l6-6 6 6",
   chat: "M4 5h16v11H9l-5 4z",
   shield: "M12 3l7 3v6c0 4-3 7.5-7 9-4-1.5-7-5-7-9V6z",
   clock: "M12 7v5l3 2M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z",
