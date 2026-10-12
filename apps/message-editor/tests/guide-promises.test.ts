@@ -180,7 +180,10 @@ const skipsScope = (statements: unknown[], functions: Map<string, AstNode>): boo
       return !(isNode(first) && first.type === "Literal");
     }
     if (/^(?:test\.)?(?:beforeEach|beforeAll)$/u.test(callee)) {
-      return (call.arguments as unknown[]).some((argument) => hookSkips(argument, functions));
+      // test.beforeEach("タイトル", fn) のタイトルは飛ばし、フック関数だけを調べる
+      return (call.arguments as unknown[])
+        .filter((argument) => !(isNode(argument) && argument.type === "Literal"))
+        .some((argument) => hookSkips(argument, functions));
     }
     return false;
   });
