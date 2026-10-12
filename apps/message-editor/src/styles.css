@@ -340,12 +340,14 @@ h1 {
   white-space: pre-wrap;
 }
 
-/* 本文の上の右端に置き、右の詳細カラムへ視線がつながるようにする。
-   幅をそろえた箱の中で左詰めにし、文字数が違ってもバッジの左端を縦一直線にする */
-.paragraph > .status-label {
+/* 本文の上の右端に、右の詳細カラムと同じ背景色付きのバッジで置く。
+   幅をそろえて文字を中央に置き、文字数が違ってもバッジの左右の端を縦一直線にする */
+.paragraph > .status-chip {
   justify-self: end;
-  width: 80px;
-  line-height: 1.6;
+  width: 84px;
+  margin-bottom: 4px;
+  line-height: 1.7;
+  text-align: center;
   white-space: nowrap;
 }
 
