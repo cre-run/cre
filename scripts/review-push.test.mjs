@@ -29,9 +29,10 @@ function makeRepo() {
  * 自前のレビュアー: 受け取った依頼文を prompt.txt に書き、決めておいた答えを返す。
  * verdict が無ければ呼ばれてはいけない（呼ばれたら prompt.txt ができる）
  */
-function fakeReviewer(dir, verdict) {
-  const promptFile = path.join(dir, "prompt.txt");
-  const answerFile = path.join(dir, "answer.txt");
+function fakeReviewer(_dir, verdict) {
+  const work = mkdtempSync(path.join(tmpdir(), "rp-reviewer-")); // 呼び出しごとに別の場所（呼ばれたかどうかを個別に見る）
+  const promptFile = path.join(work, "prompt.txt");
+  const answerFile = path.join(work, "answer.txt");
   writeFileSync(answerFile, verdict ?? "");
   return {
     command: `cat > "${promptFile}" && cat "${answerFile}"`,
@@ -235,6 +236,36 @@ test("注釈付きタグの名前とメッセージもレビュアーに渡す�
   assert.match(r.stderr, /0 コミット、1 タグ/);
   const prompt = fake.prompt();
   assert.match(prompt, /タグ customer-zorblax\nZorblax 社向けの納品版/);
+});
+
+test("一度「要確認」になったコミットは、次の push でモデルに聞き直さず人の確認を求め、人が確認すると忘れる", () => {
+  const { dir, git, head } = makeRepo();
+  writeFileSync(path.join(dir, "memo.md"), "大口顧客 Zorblax 社との契約\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: memo");
+  const stdin = newBranchLine(head());
+  const first = fakeReviewer(
+    dir,
+    '{"risk":"review","findings":[{"where":"memo.md","what":"Zorblax 社","why":"顧客名"}]}',
+  );
+  assert.equal(push(dir, { stdin, command: first.command }).status, 1);
+
+  // 2 回目: モデルが「問題なし」と答えても通さない（呼ばれもしない）
+  const second = fakeReviewer(dir, '{"risk":"none","findings":[]}');
+  const r2 = push(dir, { stdin, command: second.command });
+  assert.equal(r2.status, 1);
+  assert.match(r2.stderr, /前回の指摘/);
+  assert.match(r2.stderr, /memo\.md: 「Zorblax 社」 — 顧客名/);
+  assert.equal(second.prompt(), null);
+
+  // 人が確認して push すると忘れ、その後に同じコミットを再び push するときはモデルに聞く
+  assert.equal(
+    push(dir, { stdin, command: second.command, env: { CRE_PUSH_REVIEWED: "1" } }).status,
+    0,
+  );
+  const third = fakeReviewer(dir, '{"risk":"none","findings":[]}');
+  assert.equal(push(dir, { stdin, command: third.command }).status, 0);
+  assert.notEqual(third.prompt(), null);
 });
 
 test("CRE_PUSH_REVIEWED=1 なら AI レビューを飛ばして push する（人が付ける）", () => {

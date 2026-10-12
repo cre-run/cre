@@ -327,6 +327,39 @@ function parseVerdict(output) {
   }
 }
 
+/**
+ * 「要確認」になったコミット・タグを .git の中に覚えておく。モデルの答えは毎回同じとは限らないので、
+ * 覚えていなければ「通るまで push をやり直す」だけで人の確認をすり抜けられる。
+ * 人が確認（端末で y、または CRE_PUSH_REVIEWED=1）したときに消す
+ */
+function flaggedFile(root) {
+  const gitDir = git(root, ["rev-parse", "--git-dir"]).trim();
+  return path.resolve(root, gitDir, "cre-push-review-flagged.json");
+}
+
+function readFlagged(root) {
+  try {
+    const v = JSON.parse(readFileSync(flaggedFile(root), "utf8"));
+    return Array.isArray(v) ? v : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFlagged(root, entries) {
+  try {
+    if (entries.length === 0) rmSync(flaggedFile(root), { force: true });
+    else writeFileSync(flaggedFile(root), JSON.stringify(entries));
+  } catch {
+    // 書けなくてもレビュー自体は続ける
+  }
+}
+
+/** 今回の push の対象を表すキー（コミットの SHA とタグ名） */
+function keysOf(shas, tags) {
+  return [...shas, ...tags.map((t) => `tag:${t.name}`)];
+}
+
 /** 端末で人に y/N を聞く。端末が無ければ null */
 function askHuman(question) {
   let fd;
@@ -382,58 +415,92 @@ function main() {
   }
 
   // 2. AI レビュー
+  const keys = keysOf(shas, tags);
+  const flagged = readFlagged(root);
+  const remembered = flagged.filter((e) => keys.includes(e.key));
+  const forget = () =>
+    writeFlagged(
+      root,
+      flagged.filter((e) => !keys.includes(e.key)),
+    );
   if (process.env.CRE_PUSH_REVIEWED === "1") {
     console.error(
       `push 前の AI レビュー: CRE_PUSH_REVIEWED=1 なので人が確認済みとして push します（${shas.length} コミット、${tags.length} タグ）`,
     );
+    forget();
     process.exit(0);
   }
   if (process.env.CRE_PUSH_REVIEWER === "off") {
     console.error("push 前の AI レビュー: CRE_PUSH_REVIEWER=off なので飛ばします");
-    process.exit(0);
-  }
-  const { text, truncated } = buildReviewText(root, shas, tags);
-  const r = askReviewer(text);
-  if (r.error) {
-    console.error(`push 前の AI レビューができませんでした: ${r.error}`);
-    console.error(
-      "内容を人が確かめたうえで push するなら、人が CRE_PUSH_REVIEWED=1 を付けて git push してください",
-    );
-    process.exit(1);
-  }
-  const verdict = parseVerdict(r.output);
-  if (!verdict) {
-    console.error(`push 前の AI レビュー（${r.label}）の出力を JSON として読めませんでした:`);
-    console.error(r.output.trim().slice(0, 2000));
-    console.error("もう一度 push するか、人が内容を確かめて CRE_PUSH_REVIEWED=1 を付けてください");
-    process.exit(1);
-  }
-  if (verdict.risk === "none" && !truncated) {
-    console.error(
-      `push 前の AI レビュー（${r.label}）: 問題なし（${shas.length} コミット${tags.length ? `、${tags.length} タグ` : ""}）`,
-    );
+    forget();
     process.exit(0);
   }
 
-  console.error(`push 前の AI レビュー（${r.label}）: 人の確認が必要です`);
+  let label;
+  let findings;
+  let truncated = false;
+  if (remembered.length > 0) {
+    // 前回「要確認」になった対象。モデルに聞き直さず、そのまま人の確認を求める（答えが変わるのを待つ再試行を防ぐ）
+    label = "前回の指摘";
+    findings = remembered.flatMap((e) => e.findings);
+    truncated = remembered.some((e) => e.truncated);
+  } else {
+    const built = buildReviewText(root, shas, tags);
+    truncated = built.truncated;
+    const r = askReviewer(built.text);
+    if (r.error) {
+      console.error(`push 前の AI レビューができませんでした: ${r.error}`);
+      console.error(
+        "内容を人が確かめたうえで push するなら、人が CRE_PUSH_REVIEWED=1 を付けて git push してください",
+      );
+      process.exit(1);
+    }
+    const verdict = parseVerdict(r.output);
+    if (!verdict) {
+      console.error(`push 前の AI レビュー（${r.label}）の出力を JSON として読めませんでした:`);
+      console.error(r.output.trim().slice(0, 2000));
+      console.error(
+        "もう一度 push するか、人が内容を確かめて CRE_PUSH_REVIEWED=1 を付けてください",
+      );
+      process.exit(1);
+    }
+    if (verdict.risk === "none" && !truncated) {
+      console.error(
+        `push 前の AI レビュー（${r.label}）: 問題なし（${shas.length} コミット${tags.length ? `、${tags.length} タグ` : ""}）`,
+      );
+      process.exit(0);
+    }
+    label = r.label;
+    findings = verdict.findings.map((f) => ({
+      where: typeof f?.where === "string" ? f.where : "(場所不明)",
+      what: typeof f?.what === "string" ? f.what : "",
+      why: typeof f?.why === "string" ? f.why : "",
+    }));
+    // 覚えておく（対象のキーごとに同じ指摘を付ける）
+    writeFlagged(root, [
+      ...flagged.filter((e) => !keys.includes(e.key)),
+      ...keys.map((key) => ({ key, findings, truncated })),
+    ]);
+  }
+
+  console.error(`push 前の AI レビュー（${label}）: 人の確認が必要です`);
   if (truncated)
     console.error(
       `- 差分が大きく、先頭 ${MAX_CHARS} 文字しか読ませていません。残りは人が確かめてください`,
     );
-  for (const f of verdict.findings) {
-    const where = typeof f?.where === "string" ? f.where : "(場所不明)";
-    const what = typeof f?.what === "string" && f.what ? `「${f.what}」` : "";
-    const why = typeof f?.why === "string" ? f.why : "";
-    console.error(`- ${where}: ${what}${what && why ? " — " : ""}${why}`);
+  for (const f of findings) {
+    const what = f.what ? `「${f.what}」` : "";
+    console.error(`- ${f.where}: ${what}${what && f.why ? " — " : ""}${f.why}`);
   }
   const answer = askHuman("\n公開リポジトリに push してよいですか？ [y/N] ");
   if (answer === true) {
     console.error("人の確認を得たので push します");
+    forget();
     process.exit(0);
   }
   if (answer === null) {
     console.error(
-      "\n端末が無いので人に確認できません。push を止めました。人が上の指摘を確かめ、問題なければ人が端末から git push するか、CRE_PUSH_REVIEWED=1 を付けて push してください（AI エージェントは付けないこと）",
+      "\n端末が無いので人に確認できません。push を止めました。人が上の指摘を確かめ、問題なければ人が端末から git push するか、CRE_PUSH_REVIEWED=1 を付けて push してください（AI エージェントは付けないこと）。同じコミットをもう一度 push しても、モデルには聞き直さず人の確認を求めます",
     );
   } else {
     console.error("push を止めました");
