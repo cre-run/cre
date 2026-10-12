@@ -32,8 +32,11 @@ dist-ssr
 # AI agent worktrees
 .claude/worktrees/
 
-# Cloudflare Wrangler
+# Cloudflare Wrangler（.dev.vars はローカルの設定、.dev-access.json は短縮 URL のローカル用の Access の鍵）
 .wrangler
+.dev.vars
+.dev-access.json
+worker-configuration.d.ts
 
 # Blume
 .blume

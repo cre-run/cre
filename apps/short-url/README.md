@@ -1,6 +1,6 @@
-# apps/short-url（設計）
+# apps/short-url
 
-Message Editor 専用の短縮 URL サービスの設計です。**まだ実装していません。** プロトタイプとして、一定のセキュリティを保ちながら、仕様をできるだけ小さくしています。
+Message Editor 専用の短縮 URL サービスの設計と実装です。**実装中で、まだデプロイしていません**（Worker・D1・単体テストはあり、デプロイの CI と本番の設定・E2E はこれから）。プロトタイプとして、一定のセキュリティを保ちながら、仕様をできるだけ小さくしています。
 
 ガイド（すべて `planned`）: `apps/docs/docs/short-url/` の `index.mdx`（使い方）・`data-handling.mdx`（約束）・`self-hosting.mdx`（設定の手順）。
 このドキュメントとガイドが食い違ったら、ガイドが正です。
@@ -32,7 +32,7 @@ Slack Block Kit のボタン `url`・section `text`（どちらも 3,000 文字�
   1. リクエストヘッダー `Cf-Access-Jwt-Assertion` から JWT を読む。なければ `503`（Access がかかっていない）。ヘッダーは誰でも付けられるので、次の署名の検証を省かない。`Cf-Access-Authenticated-User-Email` ヘッダーは署名がないので使わない
   2. `<teamDomain>/cdn-cgi/access/certs` の公開鍵（`kid` で選ぶ）で RS256 の署名を確かめ、`iss` が `<teamDomain>` と一致し、`aud` に `ACCESS.aud` が含まれ、`exp` が切れていないことを確かめる。満たさなければ `403`
   3. `email` クレームの `@` より後ろ（小文字にする）が、`allowedEmailDomains` のどれかと完全に一致することを確かめる（サブドメインは含めない）。`email` がない（サービストークンなど）か、一致しなければ `403`
-  - 公開鍵は取得して Worker のメモリに短く持つ（Access は約 6 週間ごとに鍵を入れ替え、古い鍵も 7 日は有効）。検証には `jose`（Cloudflare の例と同じ。足すときは `minimumReleaseAge` に注意）か Web Crypto を使う
+  - 公開鍵は取得して Worker のメモリに 10 分持つ（Access は約 6 週間ごとに鍵を入れ替え、古い鍵も 7 日は有効）。知らない `kid` が来たら 60 秒に 1 回まで取り直す。検証は Web Crypto だけで行い、`jose` などの依存は足さない（`src/access.ts`）
   - Access のポリシーでドメインを絞っていても、Worker でもう一度確かめます。ポリシーを誤って広げたり、Access を外したりしても、判定データは返りません
 - **保存。** `data`（`#d=` より後ろの値）をそのまま D1 に保存します。D1 を読める人と、バックアップ（Time Travel、消した後も最長 30 日）からは読めます。自組織のアカウントの中なので、プロトタイプではこれを許容します
 - **302 で転送する。** `/id/*` は Access の後ろにあるので、展開ボットやクローラーは転送先（判定データ）まで届きません。応答には `Cache-Control: no-store`・`Referrer-Policy: no-referrer`・`X-Robots-Tag: noindex` を付けます。転送先は設定の `EDITOR_URL` だけです（オープンリダイレクトにしない）。`404`・`403`・`503` の HTML は固定の文言だけで、UUID やリクエストの内容を埋め込みません
@@ -62,7 +62,7 @@ Slack Block Kit のボタン `url`・section `text`（どちらも 3,000 文字�
 
 コマンドは `vp exec` で実行します。`vp run` は環境変数を引き継がず出力をキャッシュするので使いません。
 
-## D1 のスキーマ（案: `migrations/0001_init.sql`）
+## D1 のスキーマ（`migrations/0001_init.sql`）
 
 ```sql
 CREATE TABLE links (
@@ -75,9 +75,41 @@ CREATE TABLE links (
 ## 運用
 
 - デプロイ: `main` への push で `deploy-short-url.yml` が `vp exec wrangler d1 migrations apply cre-short --remote` → `vp exec wrangler deploy` を実行します（CI の API トークンに D1 の編集権限を足す）
-- PR ごとのプレビュー: プロトタイプのあいだは作りません（`preview_urls: false`。古い版の Version URL も出ない）。確認はローカルと E2E で行います。ローカルには Access がないので、テスト用の鍵で署名した JWT をヘッダーに付け、`ACCESS.teamDomain` をテスト用の公開鍵を返すローカルのサーバーに向けます（実装時にスクリプトを用意する）
+- PR ごとのプレビュー: プロトタイプのあいだは作りません（`preview_urls: false`。古い版の Version URL も出ない）。確認はローカルと E2E で行います。ローカルには Access がないので、テスト用の鍵で署名した JWT をヘッダーに付け、`ACCESS.teamDomain` をテスト用の公開鍵を返すローカルのサーバーに向けます（`scripts/dev-access.ts`。下記「開発」）
 - 消したいとき: 削除の API はありません。ID が分かれば `vp exec wrangler d1 execute cre-short --remote --command "DELETE FROM links WHERE id = '…'"`、すべてなら `DELETE FROM links`
 - Message Editor のガイド（`message-editor/data-handling.mdx`）とテストは変わりません
+
+## 開発
+
+| 場所                     | 内容                                                                                                                                |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`           | 入口。`fetch`（HTTP）と、RPC の `ShortUrl.create(data)`                                                                             |
+| `src/app.ts`             | `GET /id/<UUID>` の処理と、`403`・`404`・`503` の固定の画面（文言はガイド `index.mdx` の表と単体テストで突き合わせる）              |
+| `src/access.ts`          | Access の JWT の検証（署名・`iss`・`aud`・`exp`・`nbf`・メールのドメイン）と公開鍵のキャッシュ                                      |
+| `src/config.ts`          | `vars` の検査（fail closed）                                                                                                        |
+| `src/links.ts`           | `data` の検査と D1 の読み書き                                                                                                       |
+| `scripts/access-stub.ts` | テスト用の鍵・JWT・JWKS（単体テストと `dev-access.ts` が使う）                                                                      |
+| `scripts/dev-access.ts`  | ローカルで Access の代わりをする CLI                                                                                                |
+| `tests/`                 | 単体テスト。約束のテストは `tests/data-handling.test.ts` だけに置き、ガイドのバッジと `tests/guide-promises.test.ts` で突き合わせる |
+
+- `vp test`・`vp check`・`vp run build`（`wrangler deploy --dry-run`）は、リポジトリの `vp run ready` に含まれる
+- Workers の型は `@cloudflare/workers-types`（最新のランタイムの型。Renovate で上がる）。`wrangler types` が作る `worker-configuration.d.ts` は 600 KB あり push の AI レビューに載らないので、コミットしない（`.gitignore`）
+- ローカルで動かす（別々の端末で）
+
+  ```bash
+  cp .dev.vars.example .dev.vars                              # 1 回だけ。.dev.vars はコミットしない
+  node scripts/dev-access.ts serve                            # Access の代わり（公開鍵を http://localhost:8788 で返す）
+  vp exec wrangler d1 migrations apply cre-short --local      # 1 回だけ
+  vp exec wrangler dev                                        # http://localhost:8787
+  ```
+
+  登録の RPC は HTTP から呼べないので、手で試すときは行を直接入れます（`data` は `apps/message-editor` の `node scripts/encode.ts` で作れる）。
+  開くときは、`node scripts/dev-access.ts token --email dev@example.com` が出す JWT を `Cf-Access-Jwt-Assertion` ヘッダーに付けます
+
+  ```bash
+  vp exec wrangler d1 execute cre-short --local --command "INSERT INTO links (id, data, created_at) VALUES ('<UUID>', '<data>', 0)"
+  curl -i http://localhost:8787/id/<UUID> -H "Cf-Access-Jwt-Assertion: $(node scripts/dev-access.ts token --email dev@example.com)"
+  ```
 
 ## 後回しにしたこと
 
@@ -112,6 +144,6 @@ CREATE TABLE links (
 
 1. このガイドと設計を人と合意する（この PR）
 2. `payload.ts` を `packages/editor-payload` に切り出す（済）
-3. 約束のテストとガイドの E2E を赤から書く
-4. Worker・D1・CLI を実装して緑にする（`.gitignore` に `.dev.vars` を足す）
+3. 約束のテストを赤から書く（単体は済。ガイドの E2E は Playwright で 5 の前に別の PR で足し、`e2e.yml` にジョブを足す）
+4. Worker・D1・ローカル用の CLI を実装して緑にする（済。`.gitignore` に `.dev.vars` を足した）
 5. デプロイの CI を足し、本番の D1・Access を用意し、Bot の Worker に Service Binding を張る

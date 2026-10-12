@@ -1,0 +1,5 @@
+# ローカル（wrangler dev）の設定。.dev.vars にコピーして使う（.dev.vars はコミットしない）。
+# Access の代わりは scripts/dev-access.ts（teamDomain をそのサーバーに向ける）。
+BASE_URL=http://localhost:8787
+ACCESS={"allowedEmailDomains":["example.com"],"teamDomain":"http://localhost:8788","aud":"short-url-dev"}
+EDITOR_URL=http://localhost:4173/

@@ -7,9 +7,10 @@
 - `apps/docs` (`@cre/docs`) — Blume で構築し Cloudflare Workers (`cre-docs`) で配信するドキュメントサイト
 - `apps/lp` (`@cre/lp`) — Cloudflare Workers (`cre-lp`) で配信する準備中ページ
 - `apps/message-editor` (`@cre/message-editor`) — 返信の段落ごとに根拠を表示する Message Editor のモック（SPA、データは URL の `#d=` で渡す）。Cloudflare Workers (`cre-editor`) で `editor.cre.run` に配信
-- `apps/short-url` — （準備中・設計のみ）Message Editor 専用の短縮 URL サービス。Cloudflare Workers (`cre-short`) + D1 で、セルフホストして使う。設計は `apps/short-url/README.md`
+- `apps/short-url` — （実装中・デプロイ準備中）Message Editor 専用の短縮 URL サービス。Cloudflare Workers (`cre-short`) + D1 で、セルフホストして使う。設計は `apps/short-url/README.md`
 - `apps/sample` (`@cre/app-sample`) — Vite アプリの見本
-- `packages/editor-payload` (`@cre/editor-payload`) — Message Editor の判定データの型と、URL の `#d=` に載せる圧縮・展開・検証。Message Editor と短縮 URL（準備中）で共有する
+- `packages/guide-promises` (`@cre/guide-promises`) — 約束のガイドの「テスト」列のバッジと実際のテストを突き合わせる道具。各アプリの `tests/guide-promises.test.ts` から使う
+- `packages/editor-payload` (`@cre/editor-payload`) — Message Editor の判定データの型と、URL の `#d=` に載せる圧縮・展開・検証。Message Editor と短縮 URL で共有する
 - `packages/sample` (`@cre/sample`) — `vp pack` でビルドするライブラリの見本
 
 ## 開発
