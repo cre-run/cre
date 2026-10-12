@@ -34,8 +34,9 @@ import {
 const DEFAULT_CLAUDE_MODEL = "claude-haiku-5-5";
 /** モデルに渡す上限（文字）。超えた分は省略し、人の確認を求める */
 const MAX_CHARS = 150_000;
-/** 生成物は読ませない（量が多く、機密が入る余地もない） */
-const SKIP_FILES = [/(^|\/)pnpm-lock\.yaml$/, /(^|\/)package-lock\.json$/, /\.snap$/];
+/** lockfile は量が多いので、機密が入り得る行（registry や tarball の URL）だけを読ませる */
+const LOCKFILES = [/(^|\/)pnpm-lock\.yaml$/, /(^|\/)package-lock\.json$/, /(^|\/)yarn\.lock$/];
+const LOCKFILE_KEEP = /:\/\//;
 const REVIEW_TIMEOUT_MS = 180_000;
 
 const SYSTEM_PROMPT = `あなたは、ソロの小さな会社が公開している GitHub リポジトリ cre-run/cre（製品 CRE / cre.run のコードとドキュメント）への push を、公開前に審査するレビュアーです。
@@ -68,15 +69,16 @@ function git(root, args, options = {}) {
 }
 
 /** pre-push の標準入力から、これから push するコミットを集める */
-function commitsToPush(root, stdin) {
+function commitsToPush(root, remote, stdin) {
   const shas = new Set();
   for (const line of stdin.split("\n")) {
     const [, localSha, , remoteSha] = line.trim().split(/\s+/);
     if (!localSha || localSha === ZERO) continue; // ブランチの削除
-    // リモートにまだ無いブランチなら、どのリモート追跡ブランチにも無いコミットが対象
+    // リモートにまだ無いブランチなら、送信先リモートの追跡ブランチのどれにも無いコミットが対象。
+    // 他のリモート（非公開のミラーなど）にあるかどうかは関係ない（--remotes 全体で除外すると検査が抜ける）
     const revs =
       !remoteSha || remoteSha === ZERO
-        ? [localSha, "--not", "--remotes"]
+        ? [localSha, "--not", `--remotes=${remote}`]
         : [`${remoteSha}..${localSha}`];
     for (const sha of git(root, ["rev-list", "--reverse", ...revs]).split("\n")) {
       if (sha) shas.add(sha);
@@ -85,10 +87,27 @@ function commitsToPush(root, stdin) {
   return [...shas];
 }
 
-/** モデルに読ませる本文: コミットメッセージと、各コミットの追加行（削除行と生成物は除く） */
+/** モデルに読ませる本文: コミットメッセージ、追加・変更・改名されたパス、各コミットの追加行（削除行は除く） */
 function buildReviewText(root, shas) {
   const revisions = ["--no-walk", ...shas];
   const messages = readCommitMessages(root, revisions) ?? "";
+  // パスは --name-only から取る。内容を変えない rename は patch に "+++ b/" 行が出ず、新しい名前が本文に現れない
+  const paths = [
+    ...new Set(
+      git(root, [
+        "log",
+        "-m",
+        "-z",
+        "--name-only",
+        "--diff-filter=ACMRT",
+        "--format=",
+        ...revisions,
+      ])
+        .split(/[\0\n]/)
+        .map((l) => l.trim())
+        .filter(Boolean),
+    ),
+  ];
   const patch = git(root, [
     "-c",
     "core.quotePath=false",
@@ -105,6 +124,7 @@ function buildReviewText(root, shas) {
   ]);
   const out = [];
   let skipping = false;
+  let lockfile = false;
   let inHeader = false;
   for (const line of patch.split("\n")) {
     if (line.startsWith("commit ")) {
@@ -119,17 +139,18 @@ function buildReviewText(root, shas) {
     if (inHeader) {
       if (line.startsWith("+++ b/")) {
         const file = line.slice(6);
-        skipping = SKIP_FILES.some((re) => re.test(file));
-        if (!skipping) out.push(`\n### ${file}`);
+        lockfile = LOCKFILES.some((re) => re.test(file));
+        out.push(`\n### ${file}${lockfile ? "（URL を含む行だけ）" : ""}`);
       } else if (line.startsWith("+++ ")) {
         skipping = true; // 削除されたファイル（追加行は無い）
       }
       if (line.startsWith("@@")) inHeader = false;
       continue;
     }
-    if (!skipping && line.startsWith("+")) out.push(line);
+    if (skipping || !line.startsWith("+")) continue;
+    if (!lockfile || LOCKFILE_KEEP.test(line)) out.push(line);
   }
-  const text = `# コミットメッセージ\n\n${messages}\n# 追加行\n${out.join("\n")}\n`;
+  const text = `# コミットメッセージ\n\n${messages}\n# 追加・変更・改名されたファイルのパス\n\n${paths.join("\n")}\n\n# 追加行\n${out.join("\n")}\n`;
   if (text.length <= MAX_CHARS) return { text, truncated: false };
   return {
     text: `${text.slice(0, MAX_CHARS)}\n\n（以降 ${text.length - MAX_CHARS} 文字は省略）\n`,
@@ -254,7 +275,8 @@ function main() {
       return "";
     }
   })();
-  const shas = commitsToPush(root, stdin);
+  const remote = process.argv[2] || "origin"; // pre-push の第 1 引数（リモート名。URL 指定の push ならその URL）
+  const shas = commitsToPush(root, remote, stdin);
   if (shas.length === 0) process.exit(0);
 
   // 1. 確定的な印。ここは人の確認でも通さない

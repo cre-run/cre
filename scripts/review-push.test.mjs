@@ -80,10 +80,13 @@ test("レビュアーが要確認と答え、端末が無ければ push を止�
   assert.match(r.stderr, /CRE_PUSH_REVIEWED=1/);
 });
 
-test("レビュアーには追加行とコミットメッセージを渡し、削除行と lockfile は渡さない", () => {
+test("レビュアーには追加行とコミットメッセージとパスを渡し、削除行と lockfile の URL 以外の行は渡さない", () => {
   const { dir, git, head } = makeRepo();
   writeFileSync(path.join(dir, "README.md"), "# clean\nnew line\n");
-  writeFileSync(path.join(dir, "pnpm-lock.yaml"), "lockfileVersion: 9\nsecret-looking: value\n");
+  writeFileSync(
+    path.join(dir, "pnpm-lock.yaml"),
+    "lockfileVersion: 9\nsecret-looking: value\n  resolution: {tarball: https://npm.internal.example/x.tgz}\n",
+  );
   git("add", "-A");
   git("commit", "-q", "-m", "chore: update readme\n\n本文の説明");
   const fake = fakeReviewer(dir, '{"risk":"none","findings":[]}');
@@ -95,7 +98,31 @@ test("レビュアーには追加行とコミットメッセージを渡し、�
   assert.match(prompt, /### README\.md\n\+new line/);
   assert.doesNotMatch(prompt, /old line/);
   assert.doesNotMatch(prompt, /secret-looking/);
+  assert.match(prompt, /npm\.internal\.example/); // lockfile でも URL の行は読ませる
   assert.match(prompt, /公開してはいけない内容/); // 指示も本文の先頭に入る
+});
+
+test("内容を変えない rename でも、新しいパスをレビュアーに渡す", () => {
+  const { dir, git, head } = makeRepo();
+  git("mv", "README.md", "customer-zorblax-memo.md");
+  git("commit", "-q", "-m", "docs: rename");
+  const fake = fakeReviewer(dir, '{"risk":"none","findings":[]}');
+  const r = push(dir, { stdin: newBranchLine(head()), command: fake.command });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(fake.prompt(), /customer-zorblax-memo\.md/);
+});
+
+test("新規ブランチでは、送信先のリモートに無いコミットを対象にする（他のリモートにあっても除外しない）", () => {
+  const { dir, git, head } = makeRepo();
+  writeFileSync(path.join(dir, "a.md"), "# first\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: first");
+  git("update-ref", "refs/remotes/private/main", head()); // 非公開のミラーには push 済み
+  const fake = fakeReviewer(dir, '{"risk":"none","findings":[]}');
+  const r = push(dir, { stdin: newBranchLine(head()), command: fake.command });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /1 コミット/);
+  assert.match(fake.prompt(), /docs: first/);
 });
 
 test("CRE_PUSH_REVIEWED=1 なら AI レビューを飛ばして push する（人が付ける）", () => {
