@@ -20,6 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # 非公開の内容の印が混ざっていないか。ファイルの内容をログに出しうる他の step（lint など）より先に見る
+      - run: node scripts/check-confidential.mjs --ci
+
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
           node-version: "v24.21.0"
@@ -27,8 +30,6 @@ jobs:
 
       # format + lint + typecheck
       - run: vp check
-      # 非公開の内容の印が混ざっていないか（スクリプトのテストも）
-      - run: node scripts/check-confidential.mjs --ci
       - run: node --test scripts/check-confidential.test.mjs scripts/review-push.test.mjs
       - run: vp run -r test
       - run: vp run -r build

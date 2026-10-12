@@ -281,7 +281,7 @@ export function bypassReason(command) {
     return "push 前の AI レビューの環境変数 CRE_PUSH_*（確認済み・無効化・レビュアーやモデルの差し替え）は人だけが設定する";
   if (!/\bgit\b/.test(command)) return null;
   if (/--no-verify\b/.test(command)) return "git の hook を --no-verify で飛ばすのは人だけ";
-  if (/\bcore\.hooksPath\b/.test(command)) return "core.hooksPath の変更は人だけ";
+  if (/\bcore\.hookspath\b/i.test(command)) return "core.hooksPath の変更は人だけ"; // Git の設定名は大文字小文字を区別しない
   return null;
 }
 

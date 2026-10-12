@@ -121,6 +121,7 @@ test("Claude Code の Bash hook: CRE_PUSH_* を触るコマンドと hook を迂
     "CRE_PUSH_REVIEW_MODEL=x git push",
     "git commit --no-verify -m x",
     "git -c core.hooksPath=/dev/null push",
+    "git -c core.hookspath=/dev/null push", // 設定名は大文字小文字を区別しない
     "git config core.hooksPath /dev/null",
   ]) {
     const json = JSON.stringify({ tool_name: "Bash", tool_input: { command } });

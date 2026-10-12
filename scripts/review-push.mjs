@@ -486,6 +486,15 @@ function main() {
         what: typeof f?.what === "string" ? f.what : "",
         why: typeof f?.why === "string" ? f.why : "",
       }));
+      // 「要確認」なのに指摘が無い（または差分を読み切れていない）ときも、指摘ゼロとして通さない
+      if (newFindings.length === 0)
+        newFindings.push({
+          where: "(全体)",
+          what: "",
+          why: built.truncated
+            ? "差分が大きく読み切れていません"
+            : "モデルが理由を示さずに要確認と答えました",
+        });
       findings.push(...newFindings);
       truncated ||= built.truncated;
       label = label ? `${r.label} と${label}` : r.label;

@@ -405,6 +405,18 @@ test("中間コミットで追加して削除した内容も、履歴に残る�
   assert.equal(fake.prompt(), null);
 });
 
+test("レビュアーが指摘ゼロで「要確認」と答えても、人の確認なしには通さない", () => {
+  const { dir, git, head } = makeRepo();
+  writeFileSync(path.join(dir, "a.md"), "# ok\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: add a");
+  const fake = fakeReviewer(dir, '{"risk":"review","findings":[]}');
+  const r = push(dir, { stdin: newBranchLine(head()), command: fake.command });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /人の確認が必要/);
+  assert.match(r.stderr, /理由を示さずに要確認/);
+});
+
 test("レビュアーの出力が JSON でなければ push を止める", () => {
   const { dir, git, head } = makeRepo();
   writeFileSync(path.join(dir, "a.md"), "# ok\n");
