@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# コミットメッセージに非公開の内容が混ざっていないかを確かめる
+exec node "$(git rev-parse --show-toplevel)/scripts/check-confidential.mjs" --message "$1"

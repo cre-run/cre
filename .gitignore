@@ -45,3 +45,6 @@ playwright-report/
 # Claude Code の個人設定（チーム共通の設定は .claude/settings.json）
 .claude/settings.local.json
 CLAUDE.local.md
+
+# 機密の検査の禁止語（平文で公開リポジトリに置かない。CI は Secret から読む）
+.confidential-terms.local

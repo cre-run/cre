@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# staged の差分に非公開の内容が混ざっていないかを確かめる（有効化: git config core.hooksPath .githooks。vp install で自動設定）
+exec node "$(git rev-parse --show-toplevel)/scripts/check-confidential.mjs" --staged

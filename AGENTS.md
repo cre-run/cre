@@ -12,6 +12,22 @@ Claude Code・Codex など、このリポジトリで作業する AI エージ�
 - PR を出す前に `vp run ready`（check・test・build）を通す。E2E に関わる変更では、クリティカルパスもローカルで流す
 - Codex などのレビュー指摘は、実際に起きるかを確かめてから直す。起きない・割に合わないときは、根拠を返信して人に判断を仰ぐ
 
+## 公開リポジトリとしての注意
+
+このリポジトリは public。次のものは書かない（コード・ドキュメント・コミットメッセージ・PR 本文・Issue のすべて）。
+
+- 顧客名・見込み顧客・商談・売上・価格の検討、採用計画、競合分析の結論
+- 非公開リポジトリ `cre-private` の内容。引用も要約もしない。必要なら「内部資料に基づく」とだけ書く
+- `CONFIDENTIAL` の印が付いた文書の文章、非公開パッケージ（スコープ `@cre-internal`）への依存や import
+
+迷ったら書かずに人に確認する。機械的な検査は `scripts/check-confidential.mjs` が行い、次の 3 か所から呼ばれる。
+
+- Claude Code の hooks（`.claude/settings.json`）: Write / Edit の内容と `git commit` の前に止める
+- git の hooks（`.githooks/`）: pre-commit と commit-msg。`vp install` が `core.hooksPath` を設定する。手動なら `git config core.hooksPath .githooks`
+- CI の `confidential` ジョブ（`confidential.yml`、`pull_request_target`）: 追跡中の全ファイル、PR の題名・本文、コミットメッセージ。検査スクリプトとワークフロー定義は base のものが使われ、PR の head はコードを実行せず別ディレクトリで走査する（PR 側で検査を無効化できないようにするため）。禁止語（顧客名・内部ホスト名など）は平文で置けないので、ローカルは gitignore 済みの `.confidential-terms.local` か、環境変数 `CONFIDENTIAL_TERMS_FILE` で非公開リポジトリの checkout 内の正本を指す。CI は Secret `CONFIDENTIAL_TERMS` に 1 行 1 語で置く（無いなら `# none` の 1 行。未設定だと同一リポジトリの PR と push で CI が落ちる。フォークの PR には Secret を渡さず、Dependabot も含めて組み込みパターンだけを検査して警告を出す）
+
+レビュー（Codex・Claude Code Review）でも、内部情報・内部構成・管理用の経路が含まれていないかを見る。GitHub Actions はタグではなくコミット SHA で固定する（タグは書き換えられる）。
+
 ## コマンドの注意点
 
 - `vp run` は環境変数をほとんど引き継がず、結果をキャッシュする（`run.cache: true`）
