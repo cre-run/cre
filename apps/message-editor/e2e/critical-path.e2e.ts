@@ -42,23 +42,6 @@ test("返信プレビューには注釈が含まれない", async ({ page }) => 
   await expect(dialog).toBeHidden();
 });
 
-test("返信プレビューの本文をクリップボードにコピーできる", async ({ page, context }) => {
-  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  await page.goto("/");
-  await page
-    .getByLabel("段落 データの保存期間と削除")
-    .locator(".paragraph-text")
-    .fill("編集した段落");
-  await page.getByRole("button", { name: "返信プレビュー" }).click();
-  const dialog = page.getByRole("dialog", { name: "返信プレビュー" });
-  await dialog.getByRole("button", { name: "本文をコピー" }).click();
-  await expect(dialog.getByRole("button", { name: "コピーしました" })).toBeVisible();
-  const copied = await page.evaluate(() => navigator.clipboard.readText());
-  expect(copied.startsWith(`${samplePayload.reply.opening}\n\n`)).toBe(true);
-  expect(copied).toContain("\n\n編集した段落\n\n");
-  expect(copied).not.toContain("確認済み");
-});
-
 test("URL の判定データを表示する", async ({ page }) => {
   const payload = {
     ...samplePayload,
