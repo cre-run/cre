@@ -28,10 +28,14 @@ const APP = fileURLToPath(new URL("..", import.meta.url));
 const README = join(APP, "README.md");
 const GUIDE = join(APP, "../docs/docs/message-editor/index.mdx");
 
+/** 画面のコードと、画面にバンドルされる共有パッケージ（@cre/message-payload）の両方を走査する */
+const SOURCE_ROOTS = ["src", "../../packages/message-payload/src"];
 const sourceFiles = (): string[] =>
-  readdirSync(join(APP, "src"), { recursive: true, encoding: "utf8" })
-    .filter((name) => /\.(ts|tsx|css)$/u.test(name))
-    .map((name) => join("src", name));
+  SOURCE_ROOTS.flatMap((root) =>
+    readdirSync(join(APP, root), { recursive: true, encoding: "utf8" })
+      .filter((name) => /\.(ts|tsx|css)$/u.test(name))
+      .map((name) => join(root, name)),
+  );
 
 /** 使っていたら「送らない・保存しない」が崩れる API。必要になったらガイドを直してから外す */
 const FORBIDDEN: Record<string, RegExp> = {
