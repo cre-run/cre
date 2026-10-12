@@ -1,6 +1,6 @@
 ---
 title: 短縮 URL のセルフホストの設定
-description: 短縮 URL を自組織の Cloudflare で動かすときに設定する Secret・環境変数・設定ファイルの一覧と、設定のしかた。（計画中）
+description: 短縮 URL を自組織の Cloudflare で動かすための設定の手順。（計画中）
 sidebar:
   label: セルフホストの設定
   badge: Planned
@@ -8,203 +8,98 @@ sidebar:
 
 <Badge variant="warning">planned</Badge>
 この機能はまだありません。[短縮 URL](/short-url) を自組織の Cloudflare
-で動かすときに、何をどこに設定するかを決めるための下書きです。
-名前や手順は、実装までに変わることがあります。
+で動かすための手順の下書きです。名前や手順は実装までに変わることがあります。
 
-## 設定するものの一覧
+コマンドは `apps/short-url` で、`vp exec` を付けて実行します（`vp run` は環境変数を引き継がず、出力をキャッシュするため使いません）。
 
-設定は 6 種類あり、それぞれ置き場所が違います。秘密のものをリポジトリやチャットに書かないよう、まずこの表で区別してください。
-
-| 種類                                                                           | 置き場所                                   | 秘密か     | 名前                                            |
-| ------------------------------------------------------------------------------ | ------------------------------------------ | ---------- | ----------------------------------------------- |
-| [Worker の Secret](#worker-の-secret)                                          | Cloudflare（`wrangler secret put` で登録） | **秘密**   | `LINK_MASTER_KEY`                               |
-| [Worker の環境変数](#worker-の環境変数)                                        | `wrangler.jsonc` の `vars`                 | 秘密でない | `ALLOWED_EMAIL_DOMAINS`・`EDITOR_URL`           |
-| [`wrangler.jsonc` のそのほかの項目](#wranglerjsonc-で自組織のものに変える項目) | `wrangler.jsonc`                           | 秘密でない | Worker 名・ドメイン・データベース・レート制限   |
-| [Cloudflare Access](#cloudflare-access組織のメールでのログイン)                | Cloudflare のダッシュボード（または API）  | 秘密でない | 開ける人のメールのドメイン、`/api/` の除外      |
-| [デプロイと管理に使う資格情報](#デプロイと管理に使う資格情報)                  | CI のシークレット、管理者の手元の環境変数  | **秘密**   | `CLOUDFLARE_API_TOKEN`・`CLOUDFLARE_ACCOUNT_ID` |
-| [クライアントの Secret](#クライアントの-secret)                                | Bot など、短縮 URL を作る側                | **秘密**   | `crs_…`（Bot 側では例: `CRE_SHORT_URL_SECRET`） |
-
-Worker（短縮 URL のサーバー）が動くときに読むのは、`LINK_MASTER_KEY`・`ALLOWED_EMAIL_DOMAINS`・`EDITOR_URL` と `wrangler.jsonc`、それに Cloudflare Access が渡すログインした人の情報だけです。
-`CLOUDFLARE_API_TOKEN` などは、デプロイや管理のコマンドが使うもので、Worker には登録しません。
-
-コマンドは `apps/short-url` で実行します。`vp run` ではなく `vp exec` を使ってください。
-`vp run` は環境変数をほとんど引き継がず（`CLOUDFLARE_API_TOKEN` が届かない）、出力をキャッシュするため、表示した Secret が手元のキャッシュに残ります。
-
-## Worker の Secret
-
-### `LINK_MASTER_KEY`（必須）
-
-判定データを暗号化する鍵です。サーバーに 1 つだけ設定します。
-
-| 項目                | 内容                                                                                                                                                                                            |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 使い道              | 判定データの暗号化と、短縮 URL の ID からデータを探すため                                                                                                                                       |
-| 形式                | 32 バイトの乱数を base64url（`=` なし）にした 43 文字                                                                                                                                           |
-| 設定していないとき  | 作る・開く・削除がすべてできません。API は `503`（`not_configured`）、開くページは「短縮 URL の設定が終わっていません」を表示します                                                             |
-| 形式が違うとき      | 設定していないときと同じです                                                                                                                                                                    |
-| 値を変えたとき      | 本番の URL では、それまでに作った短縮 URL が開けなくなります。ただし、古い版の Worker の URL（Version URL）は古い鍵を持ったままなので、すべてを消すときはデータベースからも消します（下を参照） |
-| なくしたとき        | Cloudflare からは読み出せません。新しく作って登録し直します（それまでの短縮 URL は開けなくなります）                                                                                            |
-| PR ごとのプレビュー | 本番とは別の値を登録します                                                                                                                                                                      |
-
-作って登録します。値は画面にもシェルの履歴にも出しません。
+## 1. データベースを作る
 
 ```bash
-cd apps/short-url
+vp exec wrangler d1 create short-url                      # 表示された database_id を wrangler.jsonc に書く
+vp exec wrangler d1 migrations apply short-url --remote   # テーブルを作る（更新のたびにも実行する）
+```
+
+## 2. `wrangler.jsonc` を書き換える
+
+| 項目                         | 書くもの                                                                                            |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| `name`                       | Worker の名前                                                                                       |
+| `routes`                     | 短縮 URL のドメイン（Cloudflare で管理しているゾーンのもの）                                        |
+| `d1_databases`               | 1 で作ったデータベースの名前と `database_id`                                                        |
+| `vars.ALLOWED_EMAIL_DOMAINS` | **必須。** 短縮 URL を開けるメールアドレスのドメイン（例: `example.com`）。カンマ区切りで複数       |
+| `vars.ACCESS_TEAM_DOMAIN`    | **必須。** Cloudflare Access のチームのドメイン（例: `example.cloudflareaccess.com`）。5 で確かめる |
+| `vars.ACCESS_AUD`            | **必須。** Access のアプリケーションの AUD タグ。5 でかけた Access の画面からコピーする             |
+| `vars.EDITOR_URL`            | 移る先の Message Editor。書かなければ `https://editor.cre.run/`                                     |
+
+秘密の値は、ここには書きません（`wrangler.jsonc` はリポジトリに入ります）。
+
+## 3. サーバーの鍵を登録する
+
+判定データを暗号化する鍵 `LINK_MASTER_KEY` を、Worker の Secret に登録します。値は画面にもシェルの履歴にも出しません。
+
+```bash
 node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))" \
   | vp exec wrangler secret put LINK_MASTER_KEY
 ```
 
-PR ごとのプレビューを使う場合は、別の値を作って登録します。
+- 鍵がないあいだは、作ることも開くこともできません
+- 鍵を変えると、それまでの短縮 URL はすべて開けなくなります（すべてを消したいときにも使えます）
+
+## 4. デプロイする
+
+`CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を環境変数（CI ならシークレット）に入れて、デプロイします。
+API トークンは、テンプレート「Edit Cloudflare Workers」に D1 の編集を足し、対象を 1 つのアカウントに絞って作ります。
 
 ```bash
-node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))" \
-  | vp exec wrangler preview base-config secret put LINK_MASTER_KEY
+vp exec wrangler deploy
 ```
 
-- 登録できたかは `vp exec wrangler secret list` で確かめます（名前だけが表示され、値は表示されません）
-- `wrangler.jsonc` の `vars` には書かないでください。`wrangler.jsonc` はリポジトリに入ります
-- 値を手で入力したり、`echo` の引数に書いたりしないでください。シェルの履歴に残ります
-- 控えは要りません。なくしても、作り直せば短縮 URL をまた作れます。控える場合は組織のシークレット管理に置き、チャットやチケットに貼らないでください
-- すべての短縮 URL を消したいときは、この値を変えたうえで、`vp exec node scripts/links.ts delete --all` でデータベースからも消します。Worker の古い版の URL（Version URL）は、その版の古い鍵と本番のデータベースを使えるので、鍵を変えるだけでは足りません
+## 5. Cloudflare Access をかける
 
-## Worker の環境変数
+短縮 URL を開けるのを、組織のメールアドレスでログインした人だけにします。Access は `wrangler.jsonc` では設定できないので、ダッシュボードで行います。
 
-`wrangler.jsonc` の `vars` に書きます。秘密ではありません。
+1. Worker の「Access」タブで「Protect this Worker behind Access」を選び、ポリシーに「メールアドレスのドメインが一致する」（2 の `ALLOWED_EMAIL_DOMAINS` と同じ）を設定します
+2. Bot が使う `/api/` だけを外します。Zero Trust の「Access」→「Applications」で `short.example.com/api/*` のアプリケーションを作り、ポリシーを **Bypass** にします
 
-| 名前                    | 必須 | 書かないとき                 | 説明                                                                                                                                                           |
-| ----------------------- | ---- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ALLOWED_EMAIL_DOMAINS` | ○    | 短縮 URL を開けない（`503`） | 短縮 URL を開けるメールアドレスのドメイン。カンマ区切りで複数書けます（例: `example.com,example.co.jp`）。Cloudflare Access のポリシーと同じドメインを書きます |
-| `EDITOR_URL`            | —    | `https://editor.cre.run/`    | 短縮 URL を開いたあとに移る Message Editor の URL です。`https://` で始まり、`#` を含まない URL を書きます。形式が違うと `503` になります                      |
+3. 1 の Access の設定画面で「Application Audience (AUD) Tag」をコピーし、`vars.ACCESS_AUD` に書いて、もう一度デプロイします
 
-```jsonc
-"vars": {
-  "ALLOWED_EMAIL_DOMAINS": "example.com",
-  "EDITOR_URL": "https://editor.example.com/",
-},
-```
+サーバーは、Access がリクエストに付ける JWT（`Cf-Access-Jwt-Assertion` ヘッダー）の署名を確かめ、その中のメールアドレスのドメインが `ALLOWED_EMAIL_DOMAINS` に入っているときだけ判定データを返します。Access をかけ忘れたり、ポリシーを誤って広げたりしても、組織の外の人には開けません。
 
-- 判定データは `#d=` に載せて渡すので、`EDITOR_URL` のサーバーには届きません
-- Message Editor も自組織で動かしたいときは、自前でデプロイした Message Editor の URL を書きます
+## 6. Bot に Secret を渡す
 
-## Cloudflare Access（組織のメールでのログイン）
-
-短縮 URL を開けるのは、組織のメールアドレスでログインした人だけにします。これが前提の設定で、**Access と `ALLOWED_EMAIL_DOMAINS` の両方がそろうまで、短縮 URL は開けません。**
-
-1. Cloudflare のダッシュボードで、短縮 URL の Worker の「Access」タブを開き、「Protect this Worker behind Access」で **All traffic** を選びます。カスタムドメイン、`workers.dev`、PR ごとのプレビューのすべてが対象になります
-2. ポリシーに「メールアドレスのドメインが一致する」（例: `example.com`）を設定します。ログインの方法は、ワンタイム PIN か、組織のシングルサインオンです
-3. Bot が使う `/api/` だけを、Access の対象から外します。Zero Trust の「Access」→「Applications」で、`short.example.com/api/*` を対象にしたアプリケーションを作り、ポリシーの動作を **Bypass** にします（細かいパスの設定が優先されます）。`/api/` は、これまでどおりクライアントの Secret で守られます
-4. `wrangler.jsonc` の `ALLOWED_EMAIL_DOMAINS` に、2 と同じドメインを書いてデプロイします
-
-- Access を有効にする設定は `wrangler.jsonc` にはないため、ダッシュボード（または API）で設定します。その代わり、サーバーは Access を通ったリクエストだけに判定データを返します。Access を設定し忘れたり外したりすると、短縮 URL は開けなくなります（判定データが Access なしで出ることはありません）
-- サーバーは、ログインした人のメールアドレスのドメインが `ALLOWED_EMAIL_DOMAINS` に入っているかも確かめます。Access のポリシーを誤って広げても、組織の外の人には判定データを返しません
-- 外すのは `/api/` だけにしてください。`/` や `/data/` を Bypass にすると、ログインなしで開けてしまいます（サーバーが断るので判定データは出ませんが、設定の誤りです）
-- 細かい画面の名前や、Bypass の効き方は、実装のときに実際に設定して確かめ、このページに書きます
-
-## `wrangler.jsonc` で自組織のものに変える項目
-
-| 項目                        | CRE のインスタンスの値          | 自組織で設定するもの                                                                                                                   |
-| --------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                      | `cre-short`                     | Worker の名前                                                                                                                          |
-| `routes`                    | `s.cre.run`（カスタムドメイン） | 短縮 URL のドメイン（Cloudflare で管理しているゾーンのもの）                                                                           |
-| `d1_databases`              | `cre-short`                     | `vp exec wrangler d1 create <名前>` で作ったデータベースの名前と `database_id`                                                         |
-| `ratelimits[].namespace_id` | —                               | アカウントの中で重ならない数（ほかの Worker のレート制限と同じ数にしない）                                                             |
-| `previews.d1_databases`     | `cre-short-preview`             | PR ごとのプレビュー用のデータベース。テーブルの用意は下の手順。プレビューを使わないなら消す                                            |
-| `access.dev`                | `aud` と `identity.email`       | ローカル開発だけで使う、Access のログインの代わり（下の「ローカルで動かすとき」）。本番には効きません                                  |
-| `previews.ratelimits`       | —                               | プレビュー用のレート制限。プレビューは本番の設定を引き継がないので、本番と別の `namespace_id` で定義する。プレビューを使わないなら消す |
-
-データベースを作り、テーブルを用意します。
+Bot ごとに Secret を発行します。Secret は一度だけ表示され、サーバーにはハッシュだけが残ります。
 
 ```bash
-vp exec wrangler d1 create short-url                       # 表示された database_id を wrangler.jsonc に書く
-vp exec wrangler d1 migrations apply short-url --remote    # テーブルを作る（更新のたびにも実行する）
+vp exec node scripts/clients.ts create slack-bot   # Secret（crs_…）を表示する
+vp exec node scripts/clients.ts disable <ID>       # 使わなくなった・漏れたときに無効にする
 ```
 
-PR ごとのプレビューを使う場合は、プレビュー用のデータベースも作り、テーブルを用意します。
-`previews.d1_databases` のデータベースには `migrations apply` が直接効かないので、プレビュー用のデータベースをトップレベルの `d1_databases` に書いた別の設定ファイル（`wrangler.preview-migrations.jsonc`。名前と `database_id` は `previews.d1_databases` と同じにする）を使います。
+Bot の側では、Secret をシークレットの管理機能か環境変数（例: `CRE_SHORT_URL_SECRET`）に置きます。
+
+## 7. 確かめる
 
 ```bash
-vp exec wrangler d1 create short-url-preview   # 表示された database_id を previews.d1_databases と wrangler.preview-migrations.jsonc に書く
-vp exec wrangler d1 migrations apply short-url-preview --remote --config wrangler.preview-migrations.jsonc
+curl -i -X POST https://short.example.com/api/links
 ```
 
-- プレビューはすべての PR で同じデータベースを使うので、マイグレーションは 1 回流せば足ります
-- プレビューを使わないなら、`preview_urls` を `false` にします。Worker の古い版の URL（Version URL）も出なくなります
+`401` が返れば、`/api/` が Access から外れていて、鍵も設定されています（Secret がないので断られた）。
+`503` なら鍵か `vars` の必須の項目が、`302`（Access のログインへの転送）なら 5 の `/api/` の除外が、正しく設定されていません。
 
-## デプロイと管理に使う資格情報
-
-デプロイ、データベースの更新、Secret の登録、クライアントの発行で、wrangler が使います。Worker には登録しません。
-
-| 名前                    | 使う場面                                | 置き場所                                                                 |
-| ----------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
-| `CLOUDFLARE_API_TOKEN`  | CI でのデプロイ、手元での管理のコマンド | CI のシークレット。手元では環境変数（`vp exec wrangler login` でもよい） |
-| `CLOUDFLARE_ACCOUNT_ID` | 同上（どの Cloudflare アカウントか）    | 同上                                                                     |
-
-API トークンは、Cloudflare のダッシュボードでテンプレート「Edit Cloudflare Workers」から作り、次のように絞ります。
-
-- 対象は、短縮 URL を動かす 1 つのアカウントだけにする
-- D1 の編集の権限を足す（データベースの更新とクライアントの発行に使う）
-- 短縮 URL のドメインのゾーンを対象に含める（カスタムドメインの設定に使う）
-
-必要な権限の細かい内訳は、実装のときに実際にデプロイして確かめ、このページに書きます。
-
-## クライアントの Secret
-
-短縮 URL を作る Bot などに 1 つずつ発行します。Worker ではなく、Bot の側に置きます。
-
-```bash
-vp exec node scripts/clients.ts create slack-bot    # Secret（crs_…）が一度だけ表示される
-vp exec node scripts/clients.ts list                # 発行したクライアントの一覧（Secret は表示されない）
-vp exec node scripts/clients.ts disable <client_id> # 無効にする
-```
-
-- 表示された Secret は、Bot のシークレット管理か環境変数（例: `CRE_SHORT_URL_SECRET`）に入れます。名前は Bot の側で決めてかまいません
-- サーバーにはハッシュだけが残るので、あとから表示し直すことはできません。なくしたら新しく発行します
-- Bot ごとに別のクライアントにします。共有すると、1 つだけ無効にすることができません
-- 入れ替えるときは「新しく発行する → Bot を切り替える → 古いものを無効にする」の順にします
-- 漏れたときは、すぐに無効にします。漏れた Secret で短縮 URL を作ったり消したりはできますが、中身を読むことはできません
+最後に、見本データで短縮 URL を 1 つ作り、組織のメールアドレスでは開け、外のメールアドレスでは開けないことを確かめてから削除します。
 
 ## ローカルで動かすとき
 
-ローカルでは、`apps/short-url/.dev.vars` に書きます（リポジトリには入れません）。
+`apps/short-url/.dev.vars`（リポジトリに入れない）に、ローカル用に作った鍵とドメインを書きます。ローカルには Access がないので、テスト用の鍵で署名した JWT をヘッダーに付けて開きます（そのためのスクリプトは実装時に用意します）。
 
 ```dotenv
 LINK_MASTER_KEY=<ローカル用に作った値>
 ALLOWED_EMAIL_DOMAINS=example.com
-EDITOR_URL=http://localhost:4173/
+ACCESS_TEAM_DOMAIN=localhost:8788   # テスト用の公開鍵を返すローカルのサーバー
+ACCESS_AUD=short-url-dev
 ```
-
-- `LINK_MASTER_KEY` は、上と同じ手順でローカル用に新しく作ります。本番やプレビューの値を使わないでください
-- クライアントは `vp exec node scripts/clients.ts create dev --local` で、ローカルのデータベースに発行します
-- ローカルには Cloudflare Access がないので、`wrangler.jsonc` の `access.dev` でログインした人を代わりに決めます（`ALLOWED_EMAIL_DOMAINS` に入るドメインのメールアドレスにする）
-
-```jsonc
-"access": { "dev": { "aud": "short-url-dev", "identity": { "email": "dev@example.com" } } },
-```
-
-## 設定を確かめる
-
-ログインせず、Secret も付けずに試すと、設定がそろっているかが分かります。
 
 ```bash
-curl -i https://short.example.com/00000000-0000-4000-8000-000000000000   # 開くページ（Access の対象）
-curl -i -X POST https://short.example.com/api/links                       # 登録 API（Access の対象外）
+vp exec wrangler d1 migrations apply short-url --local
+vp exec node scripts/clients.ts create dev --local
+vp exec wrangler dev
 ```
-
-| 試したもの | 返ってきたもの                                    | 状態                                                                                          |
-| ---------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| 開くページ | `302` で `<チーム名>.cloudflareaccess.com` に転送 | Access がかかっています                                                                       |
-| 開くページ | `503`（短縮 URL の設定が終わっていません）        | Access がかかっていません。Worker の「Access」タブを確かめてください                          |
-| 登録 API   | `401` と `{"error":"unauthorized"}`               | 正しい状態です（`/api/` が Access の対象外で、鍵も設定されている。Secret がないので断られた） |
-| 登録 API   | `302` で `<チーム名>.cloudflareaccess.com` に転送 | `/api/` が Access の対象から外れていません（Bypass の設定を確かめてください）                 |
-| どちらも   | `503` と `{"error":"not_configured"}`             | `LINK_MASTER_KEY`・`ALLOWED_EMAIL_DOMAINS`・`EDITOR_URL` のどれかが正しく設定されていません   |
-
-最後に、発行したクライアントの Secret で見本データの短縮 URL を 1 つ作り、組織のメールアドレスでログインして開けること、組織の外のメールアドレスでは開けないことを確かめてから削除します（[短縮 URL を作る](/short-url#短縮-url-を作るbot連携の開発者向け)）。
-見本データは、`apps/message-editor` で `node scripts/encode.ts` を実行して表示される URL の、`#d=` より後ろです。
-
-## やってはいけないこと
-
-- Secret（`LINK_MASTER_KEY`・クライアントの Secret・API トークン）を、`wrangler.jsonc`、リポジトリ、CI のログ、チャット、チケットに書く
-- 本番の `LINK_MASTER_KEY` を、プレビューやローカルで使う
-- `/api/` 以外（`/` や `/data/`）を、Access の対象から外す（Bypass にする）
-- `ALLOWED_EMAIL_DOMAINS` に、組織の外のドメインや、誰でも取れるメールのドメインを書く
-- PR ごとのプレビューに、実際のお客様の判定データを登録する
