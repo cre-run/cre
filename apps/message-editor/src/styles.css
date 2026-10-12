@@ -790,6 +790,11 @@ h1 {
   justify-content: space-between;
 }
 
+.dialog-actions {
+  display: flex;
+  gap: 4px;
+}
+
 .dialog-head h2 {
   font-size: 16px;
 }
