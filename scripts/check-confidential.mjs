@@ -164,9 +164,13 @@ function scanPatch(patch, patterns, labelFor) {
 }
 
 function scanStagedDiff(root, patterns) {
-  const diff = execFileSync("git", ["-C", root, "diff", "--cached", "--unified=0", "--no-color"], {
-    encoding: "utf8",
-  });
+  const diff = execFileSync(
+    "git",
+    ["-C", root, "diff", "--cached", "--unified=0", "--no-color", "--text", "--no-ext-diff"],
+    {
+      encoding: "utf8",
+    },
+  );
   const hits = [];
   // パスは --name-only から取る。内容を変えない rename は patch に "+++ b/" 行が出ないため、diff 本文からでは新しい名前を拾えない
   const names = execFileSync("git", [
@@ -198,10 +202,23 @@ function scanRangeCommits(root, range, patterns) {
   let patch;
   let names;
   try {
-    // -m で merge commit も各親との差分を出す。--unified=0 で追加行だけを見る
+    // -m で merge commit も各親との差分を出す。--unified=0 で追加行だけを見る。
+    // --text と --no-ext-diff で、.gitattributes の -diff や外部 diff ドライバに左右されずテキストとして出す
     patch = execFileSync(
       "git",
-      ["-C", root, "log", "-p", "-m", "--unified=0", "--no-color", "--format=commit %H", ...target],
+      [
+        "-C",
+        root,
+        "log",
+        "-p",
+        "-m",
+        "--unified=0",
+        "--no-color",
+        "--text",
+        "--no-ext-diff",
+        "--format=commit %H",
+        ...target,
+      ],
       { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
     );
     names = execFileSync(

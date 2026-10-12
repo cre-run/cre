@@ -429,3 +429,29 @@ test("CONFIDENTIAL_TERMS_FILE が指すファイルが無ければ終了コー�
   assert.equal(r.status, 2);
   assert.match(r.stderr, /CONFIDENTIAL_TERMS_FILE/);
 });
+
+test("--ci: 最終コミットの .gitattributes で -diff を付けても、中間コミットの追加内容を検査する", () => {
+  const { dir, git } = makeRepo();
+  const base = git("rev-parse", "HEAD").stdout.trim();
+  writeFileSync(path.join(dir, "oops.md"), `${marker}\n`);
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: oops");
+  git("rm", "-q", "oops.md");
+  writeFileSync(path.join(dir, ".gitattributes"), "oops.md -diff\n*.md -diff\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "chore: attributes");
+  const head = git("rev-parse", "HEAD").stdout.trim();
+  const r = runIn(dir, ["--ci"], { CONFIDENTIAL_COMMIT_RANGE: `${base}..${head}` });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /コミット [0-9a-f]{8} で追加/);
+});
+
+test("--staged: .gitattributes で -diff を付けた staged ファイルの追加行も検査する", () => {
+  const { dir, git } = makeRepo();
+  writeFileSync(path.join(dir, ".gitattributes"), "*.md -diff\n");
+  writeFileSync(path.join(dir, "notes.md"), `${privateRepo}\n`);
+  git("add", "-A");
+  const r = runIn(dir, ["--staged"]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /notes\.md:1/);
+});
