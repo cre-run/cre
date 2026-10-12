@@ -289,6 +289,40 @@ test("一度「要確認」になったコミットは、次の push でモデ�
   assert.notEqual(third.prompt(), null);
 });
 
+test("要確認のコミットの上に足した新しいコミットは、新しい分だけモデルに読ませ、指摘を合わせて人に見せる", () => {
+  const { dir, git, head } = makeRepo();
+  writeFileSync(path.join(dir, "memo.md"), "大口顧客 Zorblax 社との契約\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: memo");
+  const first = fakeReviewer(
+    dir,
+    '{"risk":"review","findings":[{"where":"memo.md","what":"Zorblax 社","why":"顧客名"}]}',
+  );
+  assert.equal(push(dir, { stdin: newBranchLine(head()), command: first.command }).status, 1);
+
+  writeFileSync(path.join(dir, "price.md"), "月額 999 万円で合意\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: price");
+  const second = fakeReviewer(
+    dir,
+    '{"risk":"review","findings":[{"where":"price.md","what":"999 万円","why":"契約金額"}]}',
+  );
+  const r = push(dir, { stdin: newBranchLine(head()), command: second.command });
+  assert.equal(r.status, 1);
+  const prompt = second.prompt();
+  assert.match(prompt, /docs: price/);
+  assert.doesNotMatch(prompt, /docs: memo/); // 要確認済みのコミットは読ませ直さない
+  assert.match(r.stderr, /memo\.md: 「Zorblax 社」 — 顧客名/);
+  assert.match(r.stderr, /price\.md: 「999 万円」 — 契約金額/);
+
+  // 3 回目はどちらも記憶済みなので、モデルは呼ばれない
+  const third = fakeReviewer(dir, '{"risk":"none","findings":[]}');
+  const r3 = push(dir, { stdin: newBranchLine(head()), command: third.command });
+  assert.equal(r3.status, 1);
+  assert.equal(third.prompt(), null);
+  assert.match(r3.stderr, /price\.md: 「999 万円」/);
+});
+
 test("CRE_PUSH_REVIEWED=1 なら AI レビューを飛ばして push する（人が付ける）", () => {
   const { dir, git, head } = makeRepo();
   writeFileSync(path.join(dir, "a.md"), "# ok\n");

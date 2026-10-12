@@ -445,17 +445,18 @@ function main() {
     process.exit(0);
   }
 
-  let label;
-  let findings;
-  let truncated = false;
-  if (remembered.length > 0) {
-    // 前回「要確認」になった対象。モデルに聞き直さず、そのまま人の確認を求める（答えが変わるのを待つ再試行を防ぐ）
-    label = "前回の指摘";
-    findings = remembered.flatMap((e) => e.findings);
-    truncated = remembered.some((e) => e.truncated);
-  } else {
-    const built = buildReviewText(root, shas, tags, refs);
-    truncated = built.truncated;
+  // 前回「要確認」になった対象はモデルに聞き直さず、その指摘をそのまま使う（答えが変わるのを待つ再試行を防ぐ）。
+  // まだ聞いていない対象（あとから足したコミットなど）だけをモデルに読ませる
+  const rememberedKeys = new Set(remembered.map((e) => e.key));
+  const newShas = shas.filter((sha) => !rememberedKeys.has(sha));
+  const newTags = tags.filter((t) => !rememberedKeys.has(`tag:${t.name}`));
+  const findings = [
+    ...new Map(remembered.flatMap((e) => e.findings).map((f) => [JSON.stringify(f), f])).values(),
+  ];
+  let truncated = remembered.some((e) => e.truncated);
+  let label = remembered.length > 0 ? "前回の指摘" : "";
+  if (newShas.length > 0 || newTags.length > 0) {
+    const built = buildReviewText(root, newShas, newTags, refs);
     const r = askReviewer(built.text);
     if (r.error) {
       console.error(`push 前の AI レビューができませんでした: ${r.error}`);
@@ -473,23 +474,33 @@ function main() {
       );
       process.exit(1);
     }
-    if (verdict.risk === "none" && !truncated) {
-      console.error(
-        `push 前の AI レビュー（${r.label}）: 問題なし（${shas.length} コミット${tags.length ? `、${tags.length} タグ` : ""}）`,
-      );
-      process.exit(0);
+    if (verdict.risk === "none" && !built.truncated) {
+      if (remembered.length === 0) {
+        console.error(
+          `push 前の AI レビュー（${r.label}）: 問題なし（${shas.length} コミット${tags.length ? `、${tags.length} タグ` : ""}）`,
+        );
+        process.exit(0);
+      }
+    } else {
+      const newFindings = verdict.findings.map((f) => ({
+        where: typeof f?.where === "string" ? f.where : "(場所不明)",
+        what: typeof f?.what === "string" ? f.what : "",
+        why: typeof f?.why === "string" ? f.why : "",
+      }));
+      findings.push(...newFindings);
+      truncated ||= built.truncated;
+      label = label ? `${r.label} と${label}` : r.label;
+      // 覚えておく（対象のキーごとに同じ指摘を付ける）
+      writeFlagged(root, [
+        ...flagged.filter((e) => !keys.includes(e.key)),
+        ...remembered,
+        ...keysOf(newShas, newTags).map((key) => ({
+          key,
+          findings: newFindings,
+          truncated: built.truncated,
+        })),
+      ]);
     }
-    label = r.label;
-    findings = verdict.findings.map((f) => ({
-      where: typeof f?.where === "string" ? f.where : "(場所不明)",
-      what: typeof f?.what === "string" ? f.what : "",
-      why: typeof f?.why === "string" ? f.why : "",
-    }));
-    // 覚えておく（対象のキーごとに同じ指摘を付ける）
-    writeFlagged(root, [
-      ...flagged.filter((e) => !keys.includes(e.key)),
-      ...keys.map((key) => ({ key, findings, truncated })),
-    ]);
   }
 
   console.error(`push 前の AI レビュー（${label}）: 人の確認が必要です`);
