@@ -28,6 +28,7 @@
 | `<app>/*.png`      | ガイドの画像（VRT の基準）                        | `toHaveScreenshot("<name>.png")` |
 
 - ページを動かしたら、`blume.config.ts` の `redirects` に古い URL からの転送を足す（公開済みの URL を壊さない）
+- サイドバーの表示名は frontmatter の `sidebar.label` で付ける（`index.mdx` は「使い方」など。グループ名とページ名を重複させない）
 - 例: `message-editor/index.mdx`・`message-editor/data-handling.mdx`・`message-editor/*.png`
 
 ## CI
