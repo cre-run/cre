@@ -3,10 +3,11 @@
 Message Editor 専用の短縮 URL サービスの設計ドキュメントです。**まだ実装していません**（コードはありません）。
 Cloudflare Workers と D1 で動かし、長い `#d=` の判定データを `https://<自組織のドメイン>/<UUID>` の短い URL にします。
 
-ガイド（使う人向け。どちらも `planned`）:
+ガイド（使う人向け。すべて `planned`）:
 
 - `apps/docs/docs/short-url/index.mdx` — 何ができるか、URL の形、開いたときの動き、有効期限、API の使い方
 - `apps/docs/docs/short-url/data-handling.mdx` — 約束の表（何がサーバーに届き、何が残り、何が残らないか）
+- `apps/docs/docs/short-url/self-hosting.mdx` — セルフホストで設定する Secret・環境変数・`wrangler.jsonc` の項目と、その設定のしかた
 
 このドキュメントとガイドが食い違ったら、ガイドが正です（ガイドを先に直して人と合意してから、ここを直す）。
 
@@ -156,6 +157,14 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('b
 - リポジトリにも CI にも置きません。管理用のトークンは作りません（Secret の発行は CLI と `wrangler d1 execute` で足りるため）
 - なくしたら、それまでのリンクは開けなくなります。最長 90 日で消えるデータで、元のデータは Bot 側にあるので、鍵を作り直して登録し直せば済みます
 - 期限内のリンクを生かしたまま鍵を入れ替える仕組みは、初版では作りません（未決事項を参照）
+
+### Worker の環境変数（`vars`）
+
+| 名前         | 書かないとき              | 検査                                                                                                       |
+| ------------ | ------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `EDITOR_URL` | `https://editor.cre.run/` | `https:`（ローカルでは `http://localhost`）で始まり、`#` を含まないこと。満たさないと `503 not_configured` |
+
+セルフホストで設定するもの（Secret・環境変数・`wrangler.jsonc`・CI の資格情報・クライアントの Secret）の一覧と手順は、ガイドの `self-hosting.mdx` にまとめています。
 
 ### レート制限
 
