@@ -9,6 +9,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { parseAst, transformWithEsbuild } from "vite";
 import { expect, test } from "vite-plus/test";
 
 const APP = fileURLToPath(new URL("..", import.meta.url));
@@ -37,28 +38,75 @@ const listedInGuide = (): Listed[] => {
   }));
 };
 
-/**
- * テストファイルに書かれた test("…") の名前。行頭（字下げのみ）から始まる宣言だけを数え、
- * コメントアウトした `// test("…")` や test.skip("…") は「実在しない」扱いにする
- */
-const titlesInFile = (file: string): string[] =>
-  [...readFileSync(join(APP, file), "utf8").matchAll(/^[ \t]*test\(\s*"([^"]+)"/gmu)].map(
-    (m) => m[1]!,
-  );
+/** ESTree のノード。必要な項目だけを見る */
+interface AstNode {
+  type: string;
+  [key: string]: unknown;
+}
 
-test("ガイドに挙げたテストは、書かれたファイルに同じ名前で実在する", () => {
+const isNode = (value: unknown): value is AstNode =>
+  typeof value === "object" && value !== null && typeof (value as AstNode).type === "string";
+
+/** `test` や `test.describe.skip` のような呼び出し先を文字列にする */
+const calleeName = (node: AstNode): string | undefined => {
+  if (node.type === "Identifier") {
+    return node.name as string;
+  }
+  if (node.type === "MemberExpression" && isNode(node.object) && isNode(node.property)) {
+    const object = calleeName(node.object);
+    return object && node.property.type === "Identifier"
+      ? `${object}.${node.property.name as string}`
+      : undefined;
+  }
+  return undefined;
+};
+
+/**
+ * テストファイルで実際に実行される test("…") の名前。
+ * esbuild で型とコメントを落としてから構文木にするので、行コメントとブロックコメントの中は数えない。
+ * test.skip / test.only は呼び出し先が `test` ではないので数えず、describe.skip / describe.fixme の配下も数えない。
+ */
+const titlesInFile = async (file: string): Promise<string[]> => {
+  const path = join(APP, file);
+  const { code } = await transformWithEsbuild(readFileSync(path, "utf8"), path);
+  const titles: string[] = [];
+  const visit = (node: AstNode, inSkippedSuite: boolean): void => {
+    let skipped = inSkippedSuite;
+    if (node.type === "CallExpression" && isNode(node.callee)) {
+      const callee = calleeName(node.callee);
+      const [first] = node.arguments as unknown[];
+      if (callee === "test" && !skipped && isNode(first) && first.type === "Literal") {
+        titles.push(first.value as string);
+      }
+      if (callee && /^(?:test\.)?describe\.(?:skip|fixme)$/u.test(callee)) {
+        skipped = true;
+      }
+    }
+    for (const value of Object.values(node)) {
+      for (const child of Array.isArray(value) ? value : [value]) {
+        if (isNode(child)) {
+          visit(child, skipped);
+        }
+      }
+    }
+  };
+  visit(parseAst(code) as unknown as AstNode, false);
+  return titles;
+};
+
+test("ガイドに挙げたテストは、書かれたファイルに同じ名前で実在する", async () => {
   const listed = listedInGuide();
   expect(listed.length).toBeGreaterThan(0);
   for (const { title, file } of listed) {
-    expect(titlesInFile(file), `${file}: 「${title}」`).toContain(title);
+    expect(await titlesInFile(file), `${file}: 「${title}」`).toContain(title);
   }
 });
 
-test("約束のためだけにあるテストファイルは、すべてのテストがガイドに載っている", () => {
+test("約束のためだけにあるテストファイルは、すべてのテストがガイドに載っている", async () => {
   const listed = listedInGuide();
   for (const file of PROMISE_ONLY_FILES) {
     const inGuide = listed.filter((item) => item.file === file).map((item) => item.title);
-    expect(inGuide.sort(), file).toEqual(titlesInFile(file).sort());
+    expect(inGuide.sort(), file).toEqual((await titlesInFile(file)).sort());
   }
 });
 
