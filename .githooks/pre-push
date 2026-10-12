@@ -1,0 +1,104 @@
+#!/usr/bin/env sh
+# push 前に、これから push する差分とコミットメッセージを安価なモデル（既定は Claude Haiku）に読ませ、
+# 公開リポジトリに出せない内容（顧客名・商談・価格・内部構成など）がありそうなら人に確認を求める。
+#
+# - 端末があれば y/N を聞く。無ければ（AI エージェントの実行など）push を止める
+# - 人が内容を確かめて push すると決めたときだけ、人が CRE_PUSH_REVIEWED=1 git push を実行する。AI は付けない
+# - レビュアーは claude CLI（無ければ codex CLI）。CRE_PUSH_REVIEWER=claude|codex、CRE_PUSH_REVIEW_MODEL で変えられる
+# 有効化: vp install（package.json の prepare が core.hooksPath を設定する）
+set -u
+
+remote="$1"
+zero=0000000000000000000000000000000000000000
+
+if [ "${CRE_PUSH_REVIEWED:-}" = "1" ]; then
+  echo "pre-push: CRE_PUSH_REVIEWED=1 なので、人が確認済みとして push します" >&2
+  exit 0
+fi
+
+# push するコミットの差分（追加行だけ）とメッセージを集める。lockfile は除く
+content=""
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$zero" ] && continue # ブランチの削除
+  if [ "$remote_sha" = "$zero" ]; then
+    range="$local_sha --not --remotes=$remote" # 新しいブランチ: 送信先に無いコミット
+  else
+    range="$remote_sha..$local_sha"
+  fi
+  # shellcheck disable=SC2086
+  part=$(git log -p --unified=0 --no-color --format='commit %h%n%s%n%b' $range -- . ':(exclude)pnpm-lock.yaml' | grep -v '^-')
+  content="$content
+push 先: $remote_ref
+$part"
+done
+if [ -z "$(printf '%s' "$content" | tr -d '[:space:]')" ]; then
+  exit 0
+fi
+
+system='あなたは、小さな会社が公開している GitHub リポジトリ cre-run/cre（製品 CRE / cre.run のコードとドキュメント）への push を、公開前に審査するレビュアーです。
+これから push されるコミットのメッセージと追加行を読み、公開してはいけない内容が含まれていないかを判断してください。
+
+公開してはいけない内容:
+- 顧客・見込み顧客・取引先の名前や、それを推測できる情報。商談・契約・売上・価格の検討
+- 採用計画、資金、競合分析の結論などの経営情報
+- 内部のホスト名・アカウント ID・トークン・鍵・メールアドレス・個人情報
+- 非公開リポジトリ（cre-private）や内部資料の内容の引用・要約。CONFIDENTIAL の印
+- 管理用の経路（内部 API、管理画面の URL、運用手順の詳細）
+
+指摘しなくてよいもの: 製品名 CRE / cre.run、公開済みの URL、OSS のパッケージ名、example.com などの見本、テストの架空データ、コードの識別子。
+
+迷ったら指摘してください（人が最終判断します）。
+出力は次の形式だけにしてください。1 行目は OK か REVIEW のどちらか 1 語。REVIEW のときは 2 行目以降に「- 場所: 該当箇所の短い引用 — 理由」を 1 件 1 行で書く。'
+
+reviewer="${CRE_PUSH_REVIEWER:-}"
+if [ -z "$reviewer" ]; then
+  if command -v claude >/dev/null 2>&1; then reviewer=claude
+  elif command -v codex >/dev/null 2>&1; then reviewer=codex
+  else
+    echo "pre-push: AI レビューに使う claude か codex の CLI が見つかりません。入れるか、人が確かめて CRE_PUSH_REVIEWED=1 を付けてください" >&2
+    exit 1
+  fi
+fi
+
+case "$reviewer" in
+  claude)
+    model="${CRE_PUSH_REVIEW_MODEL:-claude-haiku-5-5}"
+    answer=$(printf '%s\n' "$content" | head -c 400000 | env -u CLAUDECODE claude -p "上の内容を審査してください" \
+      --model "$model" --system-prompt "$system" --output-format text --no-session-persistence --tools "") ;;
+  codex)
+    model="${CRE_PUSH_REVIEW_MODEL:-}"
+    out=$(mktemp)
+    { printf '%s\n\n---\n\n' "$system"; printf '%s\n' "$content" | head -c 400000; } |
+      codex exec --sandbox read-only --skip-git-repo-check --ephemeral --color never -o "$out" ${model:+-m "$model"} >/dev/null
+    answer=$(cat "$out"); rm -f "$out" ;;
+  off)
+    echo "pre-push: CRE_PUSH_REVIEWER=off なので AI レビューを飛ばします" >&2
+    exit 0 ;;
+  *)
+    echo "pre-push: CRE_PUSH_REVIEWER=$reviewer は不明です（claude | codex | off）" >&2
+    exit 1 ;;
+esac
+status=$?
+if [ "$status" -ne 0 ] || [ -z "$answer" ]; then
+  echo "pre-push: AI レビュー（$reviewer）を実行できませんでした。もう一度試すか、人が確かめて CRE_PUSH_REVIEWED=1 を付けてください" >&2
+  exit 1
+fi
+
+case "$(printf '%s' "$answer" | head -1 | tr -d '[:space:]')" in
+  OK)
+    echo "pre-push: AI レビュー（$reviewer ${model:-}）: 問題なし" >&2
+    exit 0 ;;
+esac
+
+echo "pre-push: AI レビュー（$reviewer ${model:-}）で、人の確認が必要です" >&2
+printf '%s\n' "$answer" | tail -n +2 >&2
+if yn=$(printf '\n公開リポジトリに push してよいですか？ [y/N] ' >&2; read -r yn </dev/tty && printf '%s' "$yn") 2>/dev/null; then
+  case "$yn" in
+    y | Y | yes) echo "人の確認を得たので push します" >&2; exit 0 ;;
+  esac
+  echo "push を止めました" >&2
+  exit 1
+fi
+echo "" >&2
+echo "端末が無いので人に確認できません。push を止めました。人が上の指摘を確かめ、問題なければ人が端末から git push するか、CRE_PUSH_REVIEWED=1 を付けて push してください（AI エージェントは付けないこと）" >&2
+exit 1

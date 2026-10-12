@@ -12,6 +12,12 @@ Claude Code・Codex など、このリポジトリで作業する AI エージ�
 - PR を出す前に `vp run ready`（check・test・build）を通す。E2E に関わる変更では、クリティカルパスもローカルで流す
 - Codex などのレビュー指摘は、実際に起きるかを確かめてから直す。起きない・割に合わないときは、根拠を返信して人に判断を仰ぐ
 
+## 公開リポジトリとしての注意
+
+このリポジトリは public。顧客名・商談・価格の検討・採用計画・競合分析の結論、非公開リポジトリ `cre-private` の内容や `CONFIDENTIAL` の印が付いた文書の文章は、コード・ドキュメント・コミットメッセージ・PR 本文・Issue のどれにも書かない。迷ったら書かずに人に確認する。
+
+push 前に `.githooks/pre-push` が、push する差分とコミットメッセージを安価なモデル（既定は `claude -p --model claude-haiku-5-5`。`CRE_PUSH_REVIEWER=codex` で codex CLI）に読ませ、怪しければ理由を表示して人に確認を求める。端末が無い AI エージェントの実行では push が止まるので、人に報告して判断を仰ぐ。`CRE_PUSH_REVIEWED=1` と `--no-verify` は人だけが使う。AI は使わない。有効化は `vp install`（`core.hooksPath` を設定する）。
+
 ## コマンドの注意点
 
 - `vp run` は環境変数をほとんど引き継がず、結果をキャッシュする（`run.cache: true`）
