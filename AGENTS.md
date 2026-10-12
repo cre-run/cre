@@ -23,11 +23,12 @@ Claude Code・Codex など、このリポジトリで作業する AI エージ�
 
 ## Cloudflare Workers
 
-| アプリ                | Worker       | 本番                     | PR ごとのプレビュー                     |
-| --------------------- | ------------ | ------------------------ | --------------------------------------- |
-| `apps/lp`             | `cre-lp`     | （準備中ページ）         | なし                                    |
-| `apps/docs`           | `cre-docs`   | `https://docs.cre.run`   | `pr-<番号>-cre-docs.toy0.workers.dev`   |
-| `apps/message-editor` | `cre-editor` | `https://editor.cre.run` | `pr-<番号>-cre-editor.toy0.workers.dev` |
+| アプリ                               | Worker       | 本番                                   | PR ごとのプレビュー                         |
+| ------------------------------------ | ------------ | -------------------------------------- | ------------------------------------------- |
+| `apps/lp`                            | `cre-lp`     | （準備中ページ）                       | なし                                        |
+| `apps/docs`                          | `cre-docs`   | `https://docs.cre.run`                 | `pr-<番号>-cre-docs.toy0.workers.dev`       |
+| `apps/message-editor`                | `cre-editor` | `https://editor.cre.run`               | `pr-<番号>-cre-editor.toy0.workers.dev`     |
+| `apps/short-url`（準備中・設計のみ） | `cre-short`  | （準備中。予定は `https://s.cre.run`） | （準備中。D1 はプレビュー専用のものを使う） |
 
 - 本番は `main` への push で `deploy-*.yml` がデプロイする。シークレットは `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID`
 - プレビューは Worker Previews（`wrangler preview`）。共通処理は `_preview-worker.yml`、PR を閉じたときの削除は `preview-cleanup.yml`
