@@ -83,15 +83,16 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('b
 
 ## `wrangler.jsonc` で自組織のものに変える項目
 
-| 項目                                 | CRE のインスタンスの値          | 自組織で設定するもの                                                               |
-| ------------------------------------ | ------------------------------- | ---------------------------------------------------------------------------------- |
-| `name`                               | `cre-short`                     | Worker の名前                                                                      |
-| `routes`                             | `s.cre.run`（カスタムドメイン） | 短縮 URL のドメイン（Cloudflare で管理しているゾーンのもの）                       |
-| `d1_databases`                       | `cre-short`                     | `vp exec wrangler d1 create <名前>` で作ったデータベースの名前と `database_id`     |
-| `ratelimits[].namespace_id`          | —                               | アカウントの中で重ならない数（ほかの Worker のレート制限と同じ数にしない）         |
-| `previews.d1_databases`              | `cre-short-preview`             | PR ごとのプレビュー用のデータベース。プレビューを使わないなら消す                  |
-| `triggers.crons`                     | `0 18 * * *`                    | 期限切れを消す時刻（UTC）。変えなくてかまいません                                  |
-| `observability.logs.invocation_logs` | `false`                         | **`false` のままにしてください。** `true` にすると、URL に入る ID がログに残ります |
+| 項目                                 | CRE のインスタンスの値          | 自組織で設定するもの                                                                                                                   |
+| ------------------------------------ | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                               | `cre-short`                     | Worker の名前                                                                                                                          |
+| `routes`                             | `s.cre.run`（カスタムドメイン） | 短縮 URL のドメイン（Cloudflare で管理しているゾーンのもの）                                                                           |
+| `d1_databases`                       | `cre-short`                     | `vp exec wrangler d1 create <名前>` で作ったデータベースの名前と `database_id`                                                         |
+| `ratelimits[].namespace_id`          | —                               | アカウントの中で重ならない数（ほかの Worker のレート制限と同じ数にしない）                                                             |
+| `previews.d1_databases`              | `cre-short-preview`             | PR ごとのプレビュー用のデータベース。プレビューを使わないなら消す                                                                      |
+| `previews.ratelimits`                | —                               | プレビュー用のレート制限。プレビューは本番の設定を引き継がないので、本番と別の `namespace_id` で定義する。プレビューを使わないなら消す |
+| `triggers.crons`                     | `0 18 * * *`                    | 期限切れを消す時刻（UTC）。変えなくてかまいません                                                                                      |
+| `observability.logs.invocation_logs` | `false`                         | **`false` のままにしてください。** `true` にすると、URL に入る ID がログに残ります                                                     |
 
 データベースを作り、テーブルを用意します。
 

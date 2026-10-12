@@ -85,7 +85,7 @@ MASTER が設定されていない、または base64url として 32 バイト�
 
 - 有効期限は登録時に `expiresIn`（秒）で指定します。範囲は 3,600〜7,776,000（1 時間〜90 日）、既定は 2,592,000（30 日）です
 - 読み出すときに `expires_at > now` を条件にするので、Cron が遅れても期限を過ぎたリンクは開けません
-- Cron Trigger（1 日 1 回）が、期限切れのリンクと、1 年を過ぎた監査ログを消します
+- Cron Trigger（1 日 1 回）が、期限切れのリンクと、保存期間（案: 1 年。未決）を過ぎた監査ログを消します
 - 削除 API は行ごと消します（`deleted_at` による論理削除はしない。消したものを残しておく理由がないため）。消した記録は監査ログに残します
 
 ### リンク展開（unfurl）・クローラー
@@ -156,7 +156,7 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('b
 
 - リポジトリにも CI にも置きません。管理用のトークンは作りません（Secret の発行は CLI と `wrangler d1 execute` で足りるため）
 - なくしたら、それまでのリンクは開けなくなります。最長 90 日で消えるデータで、元のデータは Bot 側にあるので、鍵を作り直して登録し直せば済みます
-- 期限内のリンクを生かしたまま鍵を入れ替える仕組みは、初版では作りません（未決事項を参照）
+- 期限内のリンクを生かしたまま鍵を入れ替える仕組みを初版に入れるかは未決です（案: 入れない。未決事項を参照）。入れない場合、鍵を入れ替えるとそれまでのリンクはすべて開けなくなります
 
 ### Worker の環境変数（`vars`）
 
@@ -170,10 +170,10 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('b
 
 Workers の Rate Limiting binding（`ratelimits`）を使います。カウントは Cloudflare の拠点ごとの近似値なので、厳密な上限ではなく、総当たりと使いすぎを抑えるためのものです。
 
-| binding               | キー               | 上限（初期値） | 対象                                                    |
-| --------------------- | ------------------ | -------------- | ------------------------------------------------------- |
-| `API_RATE_LIMITER`    | `CF-Connecting-IP` | 120 回 / 60 秒 | `/api/*` のすべて（認証の前。読み出しと認証失敗を含む） |
-| `CLIENT_RATE_LIMITER` | `client_id`        | 60 回 / 60 秒  | 認証が通った登録・削除                                  |
+| binding               | キー               | 上限（案。未決） | 対象                                                    |
+| --------------------- | ------------------ | ---------------- | ------------------------------------------------------- |
+| `API_RATE_LIMITER`    | `CF-Connecting-IP` | 120 回 / 60 秒   | `/api/*` のすべて（認証の前。読み出しと認証失敗を含む） |
+| `CLIENT_RATE_LIMITER` | `client_id`        | 60 回 / 60 秒    | 認証が通った登録・削除                                  |
 
 IP をキーにすると、社内の NAT の後ろの人たちがまとめて数えられます。読み出しには認証がなく、ほかにキーにできるものがないので、上限を高めにしています。
 UUID は 122 ビットの乱数なので、レート制限がなくても総当たりは現実的ではありません。
@@ -189,7 +189,7 @@ UUID は 122 ビットの乱数なので、レート制限がなくても総当�
 ### 監査ログ
 
 登録と削除のたびに `audit_log` に 1 行足します。判定データ・UUID・Secret は書きません。
-「どのクライアントが、いつ、何件作ったか（消したか）」を SQL で集計できます。1 年を過ぎた行は Cron が消します。
+「どのクライアントが、いつ、何件作ったか（消したか）」を SQL で集計できます。保存期間（案: 1 年。未決）を過ぎた行は Cron が消します。
 
 ## 3. API 仕様（案）
 
@@ -328,7 +328,7 @@ vp exec wrangler dev                                  # ローカルの D1（Min
 
 - `triggers.crons: ["0 18 * * *"]`（毎日 03:00 JST）で `scheduled` ハンドラーを動かします
   - `DELETE FROM links WHERE expires_at <= unixepoch()`
-  - `DELETE FROM audit_log WHERE at <= unixepoch() - 365 * 86400`
+  - `DELETE FROM audit_log WHERE at <= unixepoch() - <保存期間（案: 365 日）> * 86400`
 - 期限は読み出し時にも見るので、掃除は容量のためのものです。Cron は Worker Previews では動きません（プレビューでも期限切れは開けない）
 
 ## 5. Message Editor との連携
@@ -367,7 +367,7 @@ Bot ── Slack の Block Kit のボタン（url = 短縮 URL）──▶ 利�
 
 ### Worker 名・ドメイン・設定
 
-CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` です。セルフホストする組織は、`name`・`routes`・`d1_databases`・`ratelimits[].namespace_id`・`vars.EDITOR_URL` を自分のものにします。
+CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` です。セルフホストする組織は、`name`・`routes`・`d1_databases`・`ratelimits[].namespace_id`・`vars.EDITOR_URL`（プレビューを使うなら `previews` の同じ項目も）を自分のものにします。
 
 `wrangler.jsonc` の案（実装のときに作る。今はファイルを置かない）:
 
@@ -415,6 +415,19 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
         "migrations_dir": "migrations",
       },
     ],
+    // Previews は本番の設定を引き継がないので、レート制限も別の namespace で定義する
+    "ratelimits": [
+      {
+        "name": "API_RATE_LIMITER",
+        "namespace_id": "<本番と重ならない数>",
+        "simple": { "limit": 120, "period": 60 },
+      },
+      {
+        "name": "CLIENT_RATE_LIMITER",
+        "namespace_id": "<本番と重ならない数>",
+        "simple": { "limit": 60, "period": 60 },
+      },
+    ],
     "vars": { "EDITOR_URL": "https://editor.cre.run/" },
   },
 }
@@ -439,6 +452,7 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
 ### PR ごとのプレビューと D1
 
 - プレビューは、プレビュー専用の D1（`cre-short-preview`、全 PR で共有）を `previews.d1_databases` で使います。本番の D1 には触れません
+- Previews は本番の設定を引き継がないので、`ratelimits` も `previews.ratelimits` に定義します（なければ `/api/*` が実行時エラーになる）。`namespace_id` は本番と別の数にし、プレビューの呼び出しが本番の上限を使わないようにします
 - 鍵もプレビュー専用です（`wrangler preview base-config secret put LINK_MASTER_KEY`）。プレビュー用のクライアントは `clients.ts` で `cre-short-preview` に発行します
 - **プレビューに実際のお客様の判定データを登録しません。** 見本データか、架空のデータだけを使います
 - 共有の D1 なので、マイグレーションを含む PR は、ほかの PR のプレビューにも効きます（後方互換にする理由の 1 つ）
