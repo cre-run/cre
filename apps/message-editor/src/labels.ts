@@ -1,4 +1,9 @@
-import type { CheckResult, EvidenceStance, EvidenceType, ParagraphStatus } from "./types.ts";
+import type {
+  CheckResult,
+  EvidenceStance,
+  EvidenceType,
+  ParagraphStatus,
+} from "@cre/message-payload";
 
 export const STATUS: Record<ParagraphStatus, { label: string; icon: string }> = {
   verified: { label: "確認済み", icon: "✓" },

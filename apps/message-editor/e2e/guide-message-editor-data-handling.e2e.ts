@@ -8,7 +8,7 @@
  * 画像は撮らない（見た目ではなく、通信と保存の有無を見る）。
  */
 import { type Page, expect, test } from "@playwright/test";
-import { MAX_DECODED_BYTES, MAX_ENCODED_LENGTH, toHash } from "../src/payload.ts";
+import { MAX_DECODED_BYTES, MAX_ENCODED_LENGTH, toHash } from "@cre/message-payload";
 import { samplePayload } from "../src/sample.ts";
 
 /** 外部に出ていないことを探すための目印（圧縮前の JSON にだけ現れる） */

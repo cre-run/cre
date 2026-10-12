@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { CHECK_RESULT, EVIDENCE_TYPE, STANCE, STATUS, formatDate, freshness } from "../labels.ts";
-import type { Evidence, EvidenceType, InquiryParagraph, ReplyParagraph } from "../types.ts";
+import type {
+  Evidence,
+  EvidenceType,
+  InquiryParagraph,
+  ReplyParagraph,
+} from "@cre/message-payload";
 import { Icon, type IconName } from "./Icon.tsx";
 
 const TYPE_ICON: Record<EvidenceType, IconName> = {

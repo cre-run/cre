@@ -21,7 +21,7 @@ import {
   decodePayload,
   encodePayload,
   isPayload,
-} from "../src/payload.ts";
+} from "@cre/message-payload";
 import { samplePayload } from "../src/sample.ts";
 
 const APP = fileURLToPath(new URL("..", import.meta.url));
