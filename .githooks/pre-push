@@ -16,7 +16,8 @@ if [ "${CRE_PUSH_REVIEWED:-}" = "1" ]; then
   exit 0
 fi
 
-# push するコミットの差分（追加行だけ）とメッセージを集める。lockfile は除く
+# push するコミットの差分（追加行だけ）とメッセージを集める。lockfile は除く。
+# 送信先に既にある行（番号を振り直した・別のファイルへ移した・公開済みの文を引用した行）は、公開済みなので審査から除く
 content=""
 while read -r local_ref local_sha remote_ref remote_sha; do
   [ "$local_sha" = "$zero" ] && continue # ブランチの削除
@@ -48,6 +49,20 @@ $messages"
   }
   # 差分からは削除行を落とす（メッセージには適用しない。箇条書きの「- 」が消えるため）
   patch=$(printf '%s\n' "$patch" | grep -v '^-' || true)
+  # 送信先に既にある行を落とす。比べる先は、送信先のブランチ（あれば）か、送信先の main との分岐点
+  if [ "$remote_sha" != "$zero" ]; then
+    base="$remote_sha"
+  else
+    base=$(git merge-base "$local_sha" "refs/remotes/$remote/main" 2>/dev/null || git merge-base "$local_sha" "refs/remotes/$remote/HEAD" 2>/dev/null || true)
+  fi
+  if [ -n "$base" ]; then
+    patch=$(printf '%s\n' "$patch" | awk -v base="$base" '
+      BEGIN { cmd = "git grep -I -h -e \"\" " base; while ((cmd | getline line) > 0) seen[line] = 1; close(cmd) }
+      /^\+\+\+ / { print; next }
+      /^\+/ { if (substr($0, 2) in seen) { dropped++; next } }
+      { print }
+      END { if (dropped) printf "pre-push: 送信先に既にある行 %d 行を審査から除きました\n", dropped > "/dev/stderr" }')
+  fi
   content="$content
 push 先: $remote_ref
 # コミットメッセージ
@@ -67,13 +82,18 @@ system='あなたは、比較的小規模な企業が公開している GitHub �
 - 採用計画、資金、競合分析の結論などの経営情報
 - 内部のホスト名・アカウント ID・トークン・鍵・メールアドレス・個人情報
 - 非公開リポジトリ（cre-private）や内部資料の内容の引用・要約。CONFIDENTIAL の印
-- 管理用の経路（内部 API、管理画面の URL、運用手順の詳細）
+- 管理用の経路の実際の値（内部 API や管理画面の実在する URL・ホスト名、アカウント ID、社内だけの手順書の引用）
 
-指摘しなくてよいもの: 製品名 CRE / cre.run、公開済みの URL、OSS のパッケージ名、example.com などの見本、テストの架空データ、コードの識別子。
+指摘しなくてよいもの:
+- 製品名 CRE / cre.run、公開済みの URL、OSS のパッケージ名、example.com などの見本、`<...>` のプレースホルダー、テストの架空データ（偽の User-Agent・メール・UUID など）、コードの識別子
+- このリポジトリで公開している製品そのものの設計・設定・運用の説明。Cloudflare Workers・D1・Access・Service Binding の設定方法、デプロイや開発の手順、セルフホストの手順は、公開するドキュメントとして書いています
+- 外部サービスの公開されている仕様（Slack の文字数の上限など）や、公開されている技術情報
+
+指摘するのは、特定の顧客・人・内部の環境を指す固有名詞や実際の値（名前、ホスト名、ID、メールアドレス、金額、商談の内容）が書かれているときです。設計や手順の一般的な説明は、それだけでは指摘しません。
 
 バイナリ（画像・PDF など。差分には「Binary files ... differ」とだけ出ます）は内容を読めません。ファイル名やコミットメッセージから、内部の画面の撮影や社内文書など公開してはいけないものの可能性があれば REVIEW にしてください。
 
-迷ったら指摘してください（人が最終判断します）。
+迷ったら、その箇所から「誰の・どこの・どの値か」を特定できるかで決めてください。特定できるなら指摘し（人が最終判断します）、できないなら指摘しません。
 出力は次の形式だけにしてください。1 行目は OK か REVIEW のどちらか 1 語。REVIEW のときは 2 行目以降に「- 場所: 該当箇所の短い引用 — 理由」を 1 件 1 行で書く。'
 
 # 大きすぎて読ませ切れないときは、モデルに聞かずに人の確認へ回す（先頭だけ見た OK で通さない）
