@@ -337,9 +337,11 @@ h1 {
   white-space: pre-wrap;
 }
 
+/* 右下に寄せ、右の詳細カラムへ視線がつながるようにする */
 .paragraph > .status-label {
   display: block;
   line-height: 1.6;
+  text-align: right;
 }
 
 .status-label {

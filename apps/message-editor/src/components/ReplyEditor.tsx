@@ -48,7 +48,7 @@ export const ReplyEditor = ({
 
       <div className="reply-body">
         <p className="reply-toolbar muted small">
-          本文を直接編集できます。段落の下の確認状況と右の根拠は、お客様に送る文面には含まれません
+          本文を直接編集できます。段落の右下の確認状況と右の根拠は、お客様に送る文面には含まれません
         </p>
 
         {reply.opening && <p className="reply-plain">{reply.opening}</p>}
