@@ -121,12 +121,58 @@ const callStatements = (statements: unknown[]): AstNode[] =>
       : [],
   );
 
+const isFunctionNode = (node: unknown): node is AstNode =>
+  isNode(node) &&
+  ["FunctionExpression", "ArrowFunctionExpression", "FunctionDeclaration"].includes(node.type);
+
+/** ファイル直下で定義された関数（`const f = () => …` / `function f() {}`）を名前で引けるようにする */
+const localFunctions = (program: AstNode): Map<string, AstNode> => {
+  const found = new Map<string, AstNode>();
+  for (const statement of program.body as unknown[]) {
+    if (!isNode(statement)) {
+      continue;
+    }
+    if (statement.type === "FunctionDeclaration" && isNode(statement.id)) {
+      found.set(statement.id.name as string, statement);
+    }
+    if (statement.type === "VariableDeclaration") {
+      for (const declarator of statement.declarations as unknown[]) {
+        if (
+          isNode(declarator) &&
+          isNode(declarator.id) &&
+          declarator.id.type === "Identifier" &&
+          isFunctionNode(declarator.init)
+        ) {
+          found.set(declarator.id.name as string, declarator.init);
+        }
+      }
+    }
+  }
+  return found;
+};
+
+/**
+ * フックに渡した関数が、中で `….skip(…)` / `….fixme(…)` を呼ぶか。
+ * インライン関数はその場で、識別子はファイル直下の定義を引いて調べる。
+ * 解決できないもの（import した関数など）は、安全側に倒して「skip する」とみなす
+ */
+const hookSkips = (argument: unknown, functions: Map<string, AstNode>): boolean => {
+  if (isFunctionNode(argument)) {
+    return skipsAtRuntime(argument);
+  }
+  if (isNode(argument) && argument.type === "Identifier") {
+    const definition = functions.get(argument.name as string);
+    return definition ? skipsAtRuntime(definition) : true;
+  }
+  return true;
+};
+
 /**
  * ブロック直下に、その範囲のテストをすべて skip する文があるか。Playwright では次のどちらも範囲全体に効く
  * - `test.skip(条件, …)` / `test.fixme(条件, …)`（第 1 引数が文字列の `test.skip("名前", fn)` は個々のテストの宣言なので除く）
- * - `test.beforeEach(() => test.fixme(…))` のように、フックの中で `….skip(…)` / `….fixme(…)` を呼ぶもの
+ * - `test.beforeEach(fn)` / `test.beforeAll(fn)` の fn が中で `….skip(…)` / `….fixme(…)` を呼ぶもの
  */
-const skipsScope = (statements: unknown[]): boolean =>
+const skipsScope = (statements: unknown[], functions: Map<string, AstNode>): boolean =>
   callStatements(statements).some((call) => {
     const callee = calleeName(call.callee as AstNode) ?? "";
     const [first] = call.arguments as unknown[];
@@ -134,9 +180,7 @@ const skipsScope = (statements: unknown[]): boolean =>
       return !(isNode(first) && first.type === "Literal");
     }
     if (/^(?:test\.)?(?:beforeEach|beforeAll)$/u.test(callee)) {
-      return (call.arguments as unknown[]).some(
-        (argument) => isNode(argument) && skipsAtRuntime(argument),
-      );
+      return (call.arguments as unknown[]).some((argument) => hookSkips(argument, functions));
     }
     return false;
   });
@@ -146,15 +190,18 @@ const skipsScope = (statements: unknown[]): boolean =>
  * esbuild で型とコメントを落としてから構文木にするので、行コメントとブロックコメントの中は数えない。
  * test.skip / test.only は呼び出し先が `test` ではないので数えず、describe.skip / describe.fixme の配下も数えない。
  * 本文で test.skip(条件) や test.info().skip() を呼ぶテストも、約束を確かめていないので数えない。
- * ファイル直下や describe 直下の test.skip(条件, …) と、beforeEach / beforeAll の中の skip / fixme は、その範囲のテストをすべて数えない。
+ * ファイル直下や describe 直下の test.skip(条件, …) と、beforeEach / beforeAll に渡した関数（インラインでも
+ * ファイル内で定義した関数でも）の中の skip / fixme は、その範囲のテストをすべて数えない。解決できないフックは skip 扱い。
  */
 const titlesInFile = async (file: string): Promise<string[]> => {
   const path = join(APP, file);
   const { code } = await transformWithEsbuild(readFileSync(path, "utf8"), path);
+  const program = parseAst(code) as unknown as AstNode;
+  const functions = localFunctions(program);
   const titles: string[] = [];
   const visit = (node: AstNode, inSkippedSuite: boolean): void => {
     let skipped = inSkippedSuite;
-    if (Array.isArray(node.body) && skipsScope(node.body)) {
+    if (Array.isArray(node.body) && skipsScope(node.body, functions)) {
       skipped = true;
     }
     if (node.type === "CallExpression" && isNode(node.callee)) {
@@ -177,7 +224,7 @@ const titlesInFile = async (file: string): Promise<string[]> => {
       }
     }
   };
-  visit(parseAst(code) as unknown as AstNode, false);
+  visit(program, false);
   return titles;
 };
 
