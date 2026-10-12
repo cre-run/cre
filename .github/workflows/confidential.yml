@@ -2,7 +2,7 @@ name: Confidential
 
 # 非公開の内容の印（機密の印・非公開リポジトリへの参照・非公開パッケージ）が混ざっていないかを検査する。
 # 文脈依存の判断（顧客名・価格など）は push 前の AI レビュー（scripts/review-push.mjs）と
-# PR のレビュー（Codex・Claude Code Review）が行い、ここでは確定的に判定できる印だけを見る。Secret は使わない。
+# PR のレビュー（Codex・Claude Code Review）が行い、ここでは確定的に判定できる印だけを見る。
 #
 # PR では pull_request_target で動かす。ワークフロー定義と検査スクリプトは base（main）のものが使われ、
 # PR の head は別ディレクトリに checkout して「データとして走査」するだけでコードは実行しない。

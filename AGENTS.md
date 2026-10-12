@@ -20,16 +20,16 @@ Claude Code・Codex など、このリポジトリで作業する AI エージ�
 - 非公開リポジトリ `cre-private` の内容。引用も要約もしない。必要なら「内部資料に基づく」とだけ書く
 - `CONFIDENTIAL` の印が付いた文書の文章、非公開パッケージ（スコープ `@cre-internal`）への依存や import
 
-迷ったら書かずに人に確認する。機械は 2 段で止める。禁止語の一覧は持たない（平文で置けず、同期も要るため）。
+迷ったら書かずに人に確認する。機械は 2 段で止める。
 
 - 確定的な印の検査 `scripts/check-confidential.mjs`: 機密の印・`cre-private` への組織名付きの参照・`@cre-internal` スコープ・`visibility: private`。3 か所から呼ばれる
   - AI エージェントの hooks: Claude Code は `.claude/settings.json`、Codex は `.codex/hooks.json`（初回は Codex で `/hooks` を開いて信頼する。プロジェクトを信頼していないと読まれない）。Write / Edit / apply_patch の内容と `git commit` の前に止める。git の hook を迂回するコマンド（`--no-verify`、`core.hooksPath`、下の `CRE_PUSH_*` を付けた push）も拒否する
   - git の hooks（`.githooks/`）: pre-commit と commit-msg。`vp install` が `core.hooksPath` を設定する。手動なら `git config core.hooksPath .githooks`
-  - CI の `confidential` ジョブ（`confidential.yml`、`pull_request_target`）: 追跡中の全ファイル、PR の題名・本文、コミットメッセージと各コミットの追加行。検査スクリプトとワークフロー定義は base のものが使われ、PR の head はコードを実行せず別ディレクトリで走査する。Secret は使わない
+  - CI の `confidential` ジョブ（`confidential.yml`、`pull_request_target`）: 追跡中の全ファイル、PR の題名・本文、コミットメッセージと各コミットの追加行。検査スクリプトとワークフロー定義は base のものが使われ、PR の head はコードを実行せず別ディレクトリで走査する
 - push 前の AI レビュー `scripts/review-push.mjs`（`.githooks/pre-push`）: push するコミットのメッセージと追加行を安価なモデルに読ませ、顧客名・商談・価格・採用・内部構成などがあれば理由を表示して人に確認を求める。端末があれば y/N、無ければ push を止める
   - レビュアーは `claude` CLI（`-p --model claude-haiku-5-5`、ツール無効）か `codex` CLI（`exec --sandbox read-only`、`--output-schema` で JSON を強制）。入っている方を使い、両方あれば claude。`CRE_PUSH_REVIEWER=claude|codex`、`CRE_PUSH_REVIEW_MODEL` で変えられる
   - 人が確かめて push すると決めたときだけ、**人が** 端末で y と答えるか `CRE_PUSH_REVIEWED=1 git push` を実行する。AI エージェントはこれを付けない（Claude Code と Codex は hook で拒否される）。`CRE_PUSH_REVIEWER=off` も同じ
-  - 一度「要確認」になったコミットは、push をやり直してもモデルに聞き直さず同じ指摘で止まる（答えが変わるのを待つ再試行はできない）。push するタグの名前と注釈付きタグのメッセージも対象
+  - 一度「要確認」になったコミットは、push をやり直しても同じ指摘で止まる。push するタグの名前と注釈付きタグのメッセージも対象
   - 確定的な印に引っかかったコミットは、人の確認でも通さない。コミットを直す
 
 ## コマンドの注意点

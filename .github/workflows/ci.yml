@@ -27,7 +27,7 @@ jobs:
 
       # format + lint + typecheck
       - run: vp check
-      # 機密の検査スクリプトのテスト（Secret は使わない。検査そのものは confidential.yml）
+      # 機密の検査スクリプトのテスト（検査そのものは confidential.yml）
       - run: node --test scripts/check-confidential.test.mjs scripts/review-push.test.mjs
       - run: vp run -r test
       - run: vp run -r build
