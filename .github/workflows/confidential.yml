@@ -35,7 +35,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 検査対象: PR の head。コードは実行せず、ファイルとコミットメッセージを読むだけ
+      # 検査対象: PR の head。コードは実行せず、ファイルとコミットメッセージを読むだけ。
+      # checkout v7 は pull_request_target でのフォークの checkout を既定で拒否するので明示的に許可する
+      # （この後の step は target/ のコードを一切実行せず、信頼済みのスクリプトでデータとして読むだけ）
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: github.event_name == 'pull_request_target'
         with:
@@ -43,6 +45,7 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
           path: target
           fetch-depth: 0
+          allow-unsafe-pr-checkout: true
 
       # フォークの clone には base のコミットが無いので、base の checkout（このワークスペース）から取り込む
       - name: コミット範囲の検査のために base SHA を取り込む

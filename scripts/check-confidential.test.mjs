@@ -176,7 +176,7 @@ test("--ci: 読めないコミット範囲は fail closed で失敗する", () =
   assert.match(r.stdout, /::error::コミットメッセージの範囲/);
 });
 
-test("--ci: before が全ゼロ（初回 push）のときは HEAD のメッセージだけを検査する", () => {
+test("--ci: before が全ゼロ（初回 push）のときは到達可能な全履歴を検査する", () => {
   const { dir, git } = makeRepo();
   writeFileSync(path.join(dir, "a.txt"), "ok\n");
   git("add", "-A");
@@ -406,4 +406,26 @@ test("CONFIDENTIAL_TERMS_FILE が指すファイル（非公開リポジトリ�
   });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /禁止語/);
+});
+
+test("--ci: before が全ゼロでも、中間コミットで追加して削除した内容を検出する", () => {
+  const { dir, git } = makeRepo();
+  writeFileSync(path.join(dir, "oops.md"), `${marker}\n`);
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: oops");
+  git("rm", "-q", "oops.md");
+  git("commit", "-q", "-m", "docs: remove");
+  const head = git("rev-parse", "HEAD").stdout.trim();
+  const r = runIn(dir, ["--ci"], { CONFIDENTIAL_COMMIT_RANGE: `${"0".repeat(40)}..${head}` });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /コミット [0-9a-f]{8} で追加/);
+});
+
+test("CONFIDENTIAL_TERMS_FILE が指すファイルが無ければ終了コード 2 で失敗する", () => {
+  const r = run(["--stdin-text"], {
+    input: "ok\n",
+    env: { CONFIDENTIAL_TERMS_FILE: "/nonexistent/terms.txt" },
+  });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /CONFIDENTIAL_TERMS_FILE/);
 });

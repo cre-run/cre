@@ -57,7 +57,14 @@ function loadTerms(root) {
   if (existsSync(localFile)) sources.push(readFileSync(localFile, "utf8"));
   // 正本を別の場所（非公開リポジトリの checkout など）に置いているときは、環境変数でそのパスを指す。コピーして同期する必要がない
   const file = process.env.CONFIDENTIAL_TERMS_FILE;
-  if (file && existsSync(file)) sources.push(readFileSync(file, "utf8"));
+  if (file) {
+    if (!existsSync(file)) {
+      // 明示的に指された正本が読めないのに禁止語 0 件で通すと、ローカルの防御が消えたことに気付けない
+      console.error(`CONFIDENTIAL_TERMS_FILE が指すファイルがありません: ${file}`);
+      process.exit(2);
+    }
+    sources.push(readFileSync(file, "utf8"));
+  }
   if (process.env.CONFIDENTIAL_TERMS) sources.push(process.env.CONFIDENTIAL_TERMS);
   const terms = new Set();
   for (const src of sources) {
@@ -185,8 +192,9 @@ function scanStagedDiff(root, patterns) {
  * 中間コミットで追加された内容は公開された履歴から取り出せるため
  */
 function scanRangeCommits(root, range, patterns) {
+  // before が全ゼロ（ブランチの初回 push）のときは、head から到達できる全履歴を検査する
   const m = /^0{40}\.\.(.+)$/.exec(range);
-  const target = m ? [`${m[1]}^!`] : [range];
+  const target = m ? [m[1]] : [range];
   let patch;
   let names;
   try {
@@ -236,10 +244,9 @@ function scanRangeCommits(root, range, patterns) {
 
 function scanCommitMessages(root, range, patterns) {
   // 初回の push は before が全ゼロなので、HEAD のメッセージだけを検査する
+  // before が全ゼロ（ブランチの初回 push）のときは、head から到達できる全履歴のメッセージを検査する
   const m = /^0{40}\.\.(.+)$/.exec(range);
-  const args = m
-    ? ["log", "-1", "--format=%H%n%B%n----", m[1]]
-    : ["log", "--format=%H%n%B%n----", range];
+  const args = ["log", "--format=%H%n%B%n----", m ? m[1] : range];
   try {
     const log = execFileSync("git", ["-C", root, ...args], { encoding: "utf8" });
     return scanText(log, patterns, "コミットメッセージ " + range);
