@@ -5,6 +5,8 @@
  * 実際のテストが一致することを確かめる。
  * - バッジのテストは、リンク先のファイルに同じ名前で実在する（ガイドだけを変えると落ちる）
  * - 約束のテストファイルは、すべてのテストにバッジがある（テストだけを足す・バッジだけを外すと落ちる）
+ * - 約束の表の各行には、バッジか —（テストしない約束）がある。同じテストを複数の約束に付けない
+ *   （1 つの行のバッジを外しても、どこかの検査で必ず落ちる）
  * 約束のテストは PROMISE_TEST_FILES にだけ置く。他のファイルへのバッジは「実在しない」扱いで落ちる。
  */
 import { readFileSync } from "node:fs";
@@ -30,9 +32,31 @@ interface Listed {
 const BADGE =
   /<a href="https:\/\/github\.com\/cre-run\/cre\/blob\/main\/apps\/message-editor\/((?:e2e|tests)\/[^"]+\.ts)"><Badge [^>]*tooltip="([^"]+)"[^>]*>[^<]+<\/Badge><\/a>/gu;
 
-/** ガイドの tested バッジから、テスト名とファイルを取り出す */
+/** ガイドのバッジから、テスト名とファイルを取り出す */
 const listedInGuide = (): Listed[] =>
   [...readFileSync(GUIDE, "utf8").matchAll(BADGE)].map((m) => ({ file: m[1]!, title: m[2]! }));
+
+/** 「テスト」列を持つ表の本文の行（最後の列がテスト列） */
+const promiseRows = (): { label: string; tests: string }[] => {
+  const rows: { label: string; tests: string }[] = [];
+  let inPromiseTable = false;
+  for (const line of readFileSync(GUIDE, "utf8").split("\n")) {
+    if (!line.startsWith("|")) {
+      inPromiseTable = false;
+      continue;
+    }
+    const cells = line
+      .slice(1, line.lastIndexOf("|"))
+      .split("|")
+      .map((cell) => cell.trim());
+    if (cells.at(-1) === "テスト") {
+      inPromiseTable = true;
+    } else if (inPromiseTable && !/^-+$/u.test(cells[0]!)) {
+      rows.push({ label: cells[0]!, tests: cells.at(-1)! });
+    }
+  }
+  return rows;
+};
 
 /** ESTree のノード。必要な項目だけを見る */
 interface AstNode {
@@ -105,4 +129,18 @@ test("約束のテストファイルのテストには、すべてバッジが�
     const badged = new Set(listed.filter((item) => item.file === file).map((item) => item.title));
     expect([...badged].sort(), file).toEqual((await titlesInFile(file)).sort());
   }
+});
+
+test("約束の表の各行には、バッジか —（テストしない約束）がある", () => {
+  const rows = promiseRows();
+  expect(rows.length).toBeGreaterThan(0);
+  for (const { label, tests } of rows) {
+    expect(tests === "—" || BADGE.test(tests), `${label}: テスト列が空`).toBe(true);
+    BADGE.lastIndex = 0;
+  }
+});
+
+test("同じテストを複数の約束に付けていない（1 つの行のバッジを外せば落ちるようにする）", () => {
+  const keys = listedInGuide().map(({ file, title }) => `${file}:${title}`);
+  expect([...new Set(keys)].sort()).toEqual(keys.sort());
 });
