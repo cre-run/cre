@@ -102,13 +102,24 @@ function git(root, args, options = {}) {
   });
 }
 
-/** pre-push の標準入力から、これから push するコミットを集める */
-function commitsToPush(root, remote, stdin) {
+/**
+ * pre-push の標準入力から、これから push するコミットと、タグ（名前と注釈付きタグのメッセージ）を集める。
+ * タグは既に push 済みのコミットを指していてもメッセージが公開されるので、コミットが無くても検査する
+ */
+function refsToPush(root, remote, stdin) {
   const shas = new Set();
+  const tags = [];
   for (const line of stdin.split("\n")) {
-    const [, localSha, , remoteSha] = line.trim().split(/\s+/);
-    if (!localSha || localSha === ZERO) continue; // ブランチの削除
-    // リモートにまだ無いブランチなら、送信先リモートの追跡ブランチのどれにも無いコミットが対象。
+    const [localRef, localSha, , remoteSha] = line.trim().split(/\s+/);
+    if (!localSha || localSha === ZERO) continue; // ブランチ・タグの削除
+    if (localRef.startsWith("refs/tags/")) {
+      const name = localRef.slice("refs/tags/".length);
+      const type = git(root, ["cat-file", "-t", localSha]).trim();
+      // 注釈付きタグはメッセージを持つ。軽量タグは名前だけ
+      const message = type === "tag" ? git(root, ["tag", "-l", "--format=%(contents)", name]) : "";
+      tags.push({ name, message });
+    }
+    // リモートにまだ無い ref なら、送信先リモートの追跡ブランチのどれにも無いコミットが対象。
     // 他のリモート（非公開のミラーなど）にあるかどうかは関係ない（--remotes 全体で除外すると検査が抜ける）
     const revs =
       !remoteSha || remoteSha === ZERO
@@ -118,13 +129,18 @@ function commitsToPush(root, remote, stdin) {
       if (sha) shas.add(sha);
     }
   }
-  return [...shas];
+  return { shas: [...shas], tags };
+}
+
+/** タグの名前とメッセージを 1 つのテキストにする */
+function tagsText(tags) {
+  return tags.map((t) => `タグ ${t.name}\n${t.message}`).join("\n----\n");
 }
 
 /** モデルに読ませる本文: コミットメッセージ、追加・変更・改名されたパス、各コミットの追加行（削除行は除く） */
-function buildReviewText(root, shas) {
+function buildReviewText(root, shas, tags) {
   const revisions = ["--no-walk", ...shas];
-  const messages = readCommitMessages(root, revisions) ?? "";
+  const messages = shas.length > 0 ? (readCommitMessages(root, revisions) ?? "") : "";
   // パスは --name-only から取る。内容を変えない rename は patch に "+++ b/" 行が出ず、新しい名前が本文に現れない
   const paths = [
     ...new Set(
@@ -142,20 +158,23 @@ function buildReviewText(root, shas) {
         .filter(Boolean),
     ),
   ];
-  const patch = git(root, [
-    "-c",
-    "core.quotePath=false",
-    "log",
-    "-p",
-    "-m",
-    "--no-walk",
-    "--unified=0",
-    "--no-color",
-    "--text",
-    "--no-ext-diff",
-    "--format=commit %H",
-    ...shas,
-  ]);
+  const patch =
+    shas.length > 0
+      ? git(root, [
+          "-c",
+          "core.quotePath=false",
+          "log",
+          "-p",
+          "-m",
+          "--no-walk",
+          "--unified=0",
+          "--no-color",
+          "--text",
+          "--no-ext-diff",
+          "--format=commit %H",
+          ...shas,
+        ])
+      : "";
   const out = [];
   let skipping = false;
   let lockfile = false;
@@ -184,7 +203,8 @@ function buildReviewText(root, shas) {
     if (skipping || !line.startsWith("+")) continue;
     if (!lockfile || LOCKFILE_KEEP.test(line)) out.push(line);
   }
-  const text = `# コミットメッセージ\n\n${messages}\n# 追加・変更・改名されたファイルのパス\n\n${paths.join("\n")}\n\n# 追加行\n${out.join("\n")}\n`;
+  const tagSection = tags.length > 0 ? `# タグ（名前とメッセージ）\n\n${tagsText(tags)}\n\n` : "";
+  const text = `${tagSection}# コミットメッセージ\n\n${messages}\n# 追加・変更・改名されたファイルのパス\n\n${paths.join("\n")}\n\n# 追加行\n${out.join("\n")}\n`;
   if (text.length <= MAX_CHARS) return { text, truncated: false };
   return {
     text: `${text.slice(0, MAX_CHARS)}\n\n（以降 ${text.length - MAX_CHARS} 文字は省略）\n`,
@@ -337,28 +357,34 @@ function main() {
     }
   })();
   const remote = process.argv[2] || "origin"; // pre-push の第 1 引数（リモート名。URL 指定の push ならその URL）
-  const shas = commitsToPush(root, remote, stdin);
-  if (shas.length === 0) process.exit(0);
+  const { shas, tags } = refsToPush(root, remote, stdin);
+  if (shas.length === 0 && tags.length === 0) process.exit(0);
 
   // 1. 確定的な印。ここは人の確認でも通さない
   const revisions = ["--no-walk", ...shas];
-  const messages = readCommitMessages(root, revisions);
-  const commitHits = scanCommits(root, revisions, BUILTIN_PATTERNS);
+  const messages = shas.length > 0 ? readCommitMessages(root, revisions) : "";
+  const commitHits = shas.length > 0 ? scanCommits(root, revisions, BUILTIN_PATTERNS) : [];
   if (messages === null || commitHits === null) {
     console.error("push するコミットを読めませんでした。push を止めます");
     process.exit(1);
   }
-  const hits = [...scanText(messages, BUILTIN_PATTERNS, "(コミットメッセージ)"), ...commitHits];
+  const hits = [
+    ...scanText(messages, BUILTIN_PATTERNS, "(コミットメッセージ)"),
+    ...commitHits,
+    ...scanText(tagsText(tags), BUILTIN_PATTERNS, "(タグ)"),
+  ];
   if (hits.length > 0) {
     report(hits, { annotate: false });
-    console.error("push を止めました。該当のコミットを直してください（人の確認でも通しません）");
+    console.error(
+      "push を止めました。該当のコミットやタグを直してください（人の確認でも通しません）",
+    );
     process.exit(1);
   }
 
   // 2. AI レビュー
   if (process.env.CRE_PUSH_REVIEWED === "1") {
     console.error(
-      `push 前の AI レビュー: CRE_PUSH_REVIEWED=1 なので人が確認済みとして push します（${shas.length} コミット）`,
+      `push 前の AI レビュー: CRE_PUSH_REVIEWED=1 なので人が確認済みとして push します（${shas.length} コミット、${tags.length} タグ）`,
     );
     process.exit(0);
   }
@@ -366,7 +392,7 @@ function main() {
     console.error("push 前の AI レビュー: CRE_PUSH_REVIEWER=off なので飛ばします");
     process.exit(0);
   }
-  const { text, truncated } = buildReviewText(root, shas);
+  const { text, truncated } = buildReviewText(root, shas, tags);
   const r = askReviewer(text);
   if (r.error) {
     console.error(`push 前の AI レビューができませんでした: ${r.error}`);
@@ -383,7 +409,9 @@ function main() {
     process.exit(1);
   }
   if (verdict.risk === "none" && !truncated) {
-    console.error(`push 前の AI レビュー（${r.label}）: 問題なし（${shas.length} コミット）`);
+    console.error(
+      `push 前の AI レビュー（${r.label}）: 問題なし（${shas.length} コミット${tags.length ? `、${tags.length} タグ` : ""}）`,
+    );
     process.exit(0);
   }
 

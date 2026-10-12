@@ -207,6 +207,36 @@ test("codex CLI は exec で、本文を標準入力に渡し、-o のファイ�
   assert.match(stdin, /docs: add a/);
 });
 
+test("push 済みのコミットに付けた注釈付きタグでも、タグのメッセージに印があれば止める", () => {
+  const { dir, git, head } = makeRepo();
+  git("tag", "-a", "v1.0.0", "-m", `リリース。詳細は ${privateRepo} を見る`);
+  const tagSha = git("rev-parse", "refs/tags/v1.0.0").stdout.trim();
+  assert.notEqual(tagSha, head());
+  const fake = fakeReviewer(dir, null);
+  const r = push(dir, {
+    stdin: `refs/tags/v1.0.0 ${tagSha} refs/tags/v1.0.0 ${ZERO}\n`,
+    command: fake.command,
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /\(タグ\):/);
+  assert.equal(fake.prompt(), null);
+});
+
+test("注釈付きタグの名前とメッセージもレビュアーに渡す（コミットが無くても）", () => {
+  const { dir, git } = makeRepo();
+  git("tag", "-a", "customer-zorblax", "-m", "Zorblax 社向けの納品版");
+  const tagSha = git("rev-parse", "refs/tags/customer-zorblax").stdout.trim();
+  const fake = fakeReviewer(dir, '{"risk":"none","findings":[]}');
+  const r = push(dir, {
+    stdin: `refs/tags/customer-zorblax ${tagSha} refs/tags/customer-zorblax ${ZERO}\n`,
+    command: fake.command,
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /0 コミット、1 タグ/);
+  const prompt = fake.prompt();
+  assert.match(prompt, /タグ customer-zorblax\nZorblax 社向けの納品版/);
+});
+
 test("CRE_PUSH_REVIEWED=1 なら AI レビューを飛ばして push する（人が付ける）", () => {
   const { dir, git, head } = makeRepo();
   writeFileSync(path.join(dir, "a.md"), "# ok\n");
