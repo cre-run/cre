@@ -341,14 +341,27 @@ h1 {
 }
 
 /* 本文の上の右端に、右の詳細カラムと同じ背景色付きのバッジで置く。
-   幅をそろえて文字を中央に置き、文字数が違ってもバッジの左右の端を縦一直線にする */
+   幅をそろえて文字を中央に置き、文字数が違ってもバッジの左右の端を縦一直線にする。
+   押すと段落を選んで右のパネルへ移るボタン */
 .paragraph > .status-chip {
   justify-self: end;
   width: 84px;
   margin-bottom: 4px;
+  border: 0;
   line-height: 1.7;
   text-align: center;
   white-space: nowrap;
+  cursor: pointer;
+}
+
+.paragraph > .status-chip:focus-visible,
+.panel:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.panel:focus:not(:focus-visible) {
+  outline: none;
 }
 
 .status-label {

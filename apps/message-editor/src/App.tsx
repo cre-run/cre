@@ -61,6 +61,13 @@ export const App = () => {
   const [selectedId, setSelectedId] = useState(() => initialSelection(hash, payload));
   const [texts, setTexts] = useState<Record<string, string>>({});
   const [previewOpen, setPreviewOpen] = useState(false);
+  // 段落のバッジを押したら、描き直した右のパネルへフォーカスを移す（同じ段落を押し直しても移る）
+  const [panelFocusRequest, setPanelFocusRequest] = useState(0);
+  useEffect(() => {
+    if (panelFocusRequest > 0) {
+      document.getElementById("evidence-panel")?.focus();
+    }
+  }, [panelFocusRequest]);
   const [done, setDone] = useState<Set<string>>(() => new Set());
   useEffect(() => {
     setSelectedId(initialSelection(hash, payload));
@@ -124,6 +131,10 @@ export const App = () => {
               onEdit={(id, text) => setTexts((prev) => ({ ...prev, [id]: text }))}
               selectedId={selectedId}
               onSelect={setSelectedId}
+              onOpen={(id) => {
+                setSelectedId(id);
+                setPanelFocusRequest((n) => n + 1);
+              }}
               isSample={loaded.kind !== "data"}
               done={done}
               onToggleDone={toggleDone}

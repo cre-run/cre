@@ -80,7 +80,7 @@ export const EvidencePanel = ({
   }
   if (!paragraph) {
     return (
-      <aside className="panel" aria-label="この段落の根拠">
+      <aside id="evidence-panel" className="panel" aria-label="この段落の根拠" tabIndex={-1}>
         <p className="muted">返信の段落を選んでください。</p>
       </aside>
     );
@@ -113,7 +113,7 @@ export const EvidencePanel = ({
   };
 
   return (
-    <aside className="panel" aria-label="この段落の根拠">
+    <aside id="evidence-panel" className="panel" aria-label="この段落の根拠" tabIndex={-1}>
       {/* タブを切り替えても、どの段落のどんな状態かは常に見えるようにする。説明はタブの中に置く */}
       <div className="panel-head">
         <h3 className="panel-topic">{paragraph.topic}</h3>

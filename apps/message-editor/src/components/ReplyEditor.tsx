@@ -10,6 +10,7 @@ export const ReplyEditor = ({
   onEdit,
   selectedId,
   onSelect,
+  onOpen,
   isSample,
   done,
   onToggleDone,
@@ -19,6 +20,8 @@ export const ReplyEditor = ({
   onEdit: (id: string, text: string) => void;
   selectedId: string | undefined;
   onSelect: (id: string) => void;
+  /** 段落を選び、右のパネルへフォーカスを移す（キーボードで段落を選んで根拠を読むため） */
+  onOpen: (id: string) => void;
   /** 見本データを表示しているとき（URL のデータがない・読み込めない） */
   isSample: boolean;
   /** アクションを確認済みにした段落 ID（画面を開いている間だけ保持） */
@@ -59,14 +62,22 @@ export const ReplyEditor = ({
             <div
               key={p.id}
               className={`paragraph status-${p.status} ${selected ? "is-selected" : ""}`}
-              aria-label={`段落 ${p.topic}`}
-              aria-current={selected ? "true" : undefined}
               onClick={() => onSelect(p.id)}
             >
-              {/* 全段落の確認状況をひと目で追えるよう、アイコンと色付きの文字だけを目印として本文の上に置く。詳しくは右のパネル */}
-              <span className={`status-chip status-${p.status}`}>
+              {/* 全段落の確認状況をひと目で追えるよう、アイコンと色付きの文字だけを目印として本文の上に置く。
+                  キーボードでも押せるボタンにし、押すと段落を選んで右のパネルへ移る */}
+              <button
+                type="button"
+                className={`status-chip status-${p.status}`}
+                aria-label={`段落 ${p.topic} の根拠を見る（${STATUS[p.status].label}）`}
+                aria-current={selected ? "true" : undefined}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen(p.id);
+                }}
+              >
                 <span aria-hidden="true">{STATUS[p.status].icon}</span> {STATUS[p.status].label}
-              </span>
+              </button>
               <p
                 className="paragraph-text"
                 contentEditable

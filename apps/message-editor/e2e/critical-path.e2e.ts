@@ -17,10 +17,24 @@ test("段落を選ぶと右パネルがその段落の根拠に切り替わる",
   await page.goto("/");
   const panel = page.getByRole("complementary");
   await expect(panel.getByRole("heading", { level: 3 })).toHaveText("エラー行があるときの取り込み");
-  await page.getByLabel("段落 データの保存期間と削除").click();
+  await page.getByRole("button", { name: "段落 データの保存期間と削除 の根拠を見る" }).click();
   await expect(panel.getByRole("heading", { level: 3 })).toHaveText("データの保存期間と削除");
   await panel.getByRole("tab", { name: /出典/u }).click();
   await expect(panel.getByText("主張と食い違い")).toBeVisible();
+});
+
+test("キーボードだけで段落を選び、右パネルへ移れる", async ({ page }) => {
+  await page.goto("/#p=r1");
+  const panel = page.getByRole("complementary");
+  const badge = page.getByRole("button", { name: "段落 データの保存期間と削除 の根拠を見る" });
+  await badge.focus();
+  await page.keyboard.press("Enter");
+  await expect(panel.getByRole("heading", { level: 3 })).toHaveText("データの保存期間と削除");
+  // 選んだ段落の根拠にそのまま移れる（後ろの段落を通って選び直されない）
+  await expect(panel).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(panel.getByRole("tab", { name: /要点/u })).toBeFocused();
+  await expect(panel.getByRole("heading", { level: 3 })).toHaveText("データの保存期間と削除");
 });
 
 test("送る前にやることをチェックすると、送れる状態になる", async ({ page }) => {

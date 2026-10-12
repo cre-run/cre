@@ -33,7 +33,7 @@ const payload = {
 
 /** ガイドの手順を一通り行う: 段落を選ぶ・本文を編集する・チェックを付ける・プレビューを開く */
 const operate = async (page: Page): Promise<void> => {
-  await page.getByLabel("段落 データの保存期間と削除").click();
+  await page.getByRole("button", { name: "段落 データの保存期間と削除 の根拠を見る" }).click();
   const paragraph = page.locator(".paragraph-text").first();
   await paragraph.fill("編集した本文");
   await paragraph.blur();
