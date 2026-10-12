@@ -31,8 +31,18 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     echo "pre-push: push するコミットを読めません（$range）。fetch してから push し直してください" >&2
     exit 1
   }
+  # 注釈付きタグは、タグオブジェクトのメッセージも読ませる（git log はコミットしか見ない）
+  case "$local_ref" in
+    refs/tags/*)
+      if [ "$(git cat-file -t "$local_sha")" = tag ]; then
+        messages="タグ $local_ref
+$(git cat-file -p "$local_sha")
+$messages"
+      fi ;;
+  esac
+  # --diff-merges=first-parent: マージコミット（コンフリクト解消で足した行）の差分も出す
   # shellcheck disable=SC2086
-  patch=$(git log -p --unified=0 --no-color --format='commit %h' $range -- . ':(exclude)pnpm-lock.yaml') || {
+  patch=$(git log -p --unified=0 --no-color --diff-merges=first-parent --format='commit %h' $range -- . ':(exclude)pnpm-lock.yaml') || {
     echo "pre-push: push する差分を読めません（$range）。fetch してから push し直してください" >&2
     exit 1
   }
@@ -66,8 +76,18 @@ system='あなたは、比較的小規模な企業が公開している GitHub �
 迷ったら指摘してください（人が最終判断します）。
 出力は次の形式だけにしてください。1 行目は OK か REVIEW のどちらか 1 語。REVIEW のときは 2 行目以降に「- 場所: 該当箇所の短い引用 — 理由」を 1 件 1 行で書く。'
 
-reviewer="${CRE_PUSH_REVIEWER:-}"
-if [ -z "$reviewer" ]; then
+# 大きすぎて読ませ切れないときは、モデルに聞かずに人の確認へ回す（先頭だけ見た OK で通さない）
+limit=400000
+if [ "$(printf '%s' "$content" | wc -c)" -gt "$limit" ]; then
+  echo "pre-push: push する内容が $limit バイトを超えていて、モデルに読ませ切れません。人の確認が必要です" >&2
+  reviewer=none
+else
+  reviewer="${CRE_PUSH_REVIEWER:-}"
+fi
+if [ "$reviewer" = none ]; then
+  answer="REVIEW
+- 全体: 内容が大きすぎてモデルに読ませていません — 人が差分を確かめてください"
+elif [ -z "$reviewer" ]; then
   if command -v claude >/dev/null 2>&1; then reviewer=claude
   elif command -v codex >/dev/null 2>&1; then reviewer=codex
   else
@@ -77,14 +97,15 @@ if [ -z "$reviewer" ]; then
 fi
 
 case "$reviewer" in
+  none) ;;
   claude)
     model="${CRE_PUSH_REVIEW_MODEL:-claude-haiku-5-5}"
-    answer=$(printf '%s\n' "$content" | head -c 400000 | env -u CLAUDECODE claude -p "上の内容を審査してください" \
+    answer=$(printf '%s\n' "$content" | env -u CLAUDECODE claude -p "上の内容を審査してください" \
       --model "$model" --system-prompt "$system" --output-format text --no-session-persistence --tools "") ;;
   codex)
     model="${CRE_PUSH_REVIEW_MODEL:-}"
     out=$(mktemp)
-    { printf '%s\n\n---\n\n' "$system"; printf '%s\n' "$content" | head -c 400000; } |
+    { printf '%s\n\n---\n\n' "$system"; printf '%s\n' "$content"; } |
       codex exec --sandbox read-only --skip-git-repo-check --ephemeral --color never -o "$out" ${model:+-m "$model"} >/dev/null
     answer=$(cat "$out"); rm -f "$out" ;;
   off)
@@ -106,9 +127,16 @@ case "$(printf '%s' "$answer" | head -1 | tr -d '[:space:]')" in
     exit 0 ;;
 esac
 
-echo "pre-push: AI レビュー（$reviewer ${model:-}）で、人の確認が必要です" >&2
+if [ "$reviewer" = none ]; then
+  echo "pre-push: 人の確認が必要です" >&2
+else
+  echo "pre-push: AI レビュー（$reviewer ${model:-}）で、人の確認が必要です" >&2
+fi
 printf '%s\n' "$answer" | tail -n +2 >&2
-if yn=$(printf '\n公開リポジトリに push してよいですか？ [y/N] ' >&2; read -r yn </dev/tty && printf '%s' "$yn") 2>/dev/null; then
+# 端末があれば人に聞く（開けるかどうかの確認だけを静かに行い、質問は端末に出す）
+if ( : </dev/tty ) 2>/dev/null; then
+  printf '\n公開リポジトリに push してよいですか？ [y/N] ' >&2
+  read -r yn </dev/tty || yn=""
   case "$yn" in
     y | Y | yes) echo "人の確認を得たので push します" >&2; exit 0 ;;
   esac
