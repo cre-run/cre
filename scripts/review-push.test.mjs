@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,15 +40,45 @@ function fakeReviewer(dir, verdict) {
 }
 
 /** pre-push と同じ呼び方: 引数にリモート、標準入力に ref の行。端末は無い */
-function push(dir, { stdin, env = {}, command }) {
+function push(dir, { stdin, env = {}, command, pathPrefix }) {
   const base = { ...process.env };
   for (const k of Object.keys(base)) if (k.startsWith("CRE_PUSH_")) delete base[k];
+  if (pathPrefix) base.PATH = `${pathPrefix}${path.delimiter}${base.PATH ?? ""}`;
   return spawnSync(process.execPath, [script, "origin", "git@example.com:x/y.git"], {
     cwd: dir,
     input: stdin,
     encoding: "utf8",
     env: { ...base, ...env, ...(command ? { CRE_PUSH_REVIEW_COMMAND: command } : {}) },
   });
+}
+
+/**
+ * claude / codex の CLI の偽物を PATH に置く。受け取った引数と標準入力を記録し、
+ * codex なら -o のファイルに、claude なら標準出力に答えを書く
+ */
+function fakeCli(name, verdict) {
+  const bin = mkdtempSync(path.join(tmpdir(), `rp-${name}-`));
+  const argsFile = path.join(bin, "args.json");
+  const stdinFile = path.join(bin, "stdin.txt");
+  const exe = path.join(bin, name);
+  writeFileSync(
+    exe,
+    `#!/usr/bin/env node
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.writeFileSync(${JSON.stringify(argsFile)}, JSON.stringify(args));
+fs.writeFileSync(${JSON.stringify(stdinFile)}, fs.readFileSync(0, "utf8"));
+const o = args.indexOf("-o");
+if (o >= 0) fs.writeFileSync(args[o + 1], ${JSON.stringify(verdict)});
+else process.stdout.write(${JSON.stringify(verdict)});
+`,
+  );
+  chmodSync(exe, 0o755);
+  return {
+    bin,
+    args: () => JSON.parse(readFileSync(argsFile, "utf8")),
+    stdin: () => readFileSync(stdinFile, "utf8"),
+  };
 }
 
 const newBranchLine = (sha) => `refs/heads/feat ${sha} refs/heads/feat ${ZERO}\n`;
@@ -123,6 +153,58 @@ test("新規ブランチでは、送信先のリモートに無いコミット�
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stderr, /1 コミット/);
   assert.match(fake.prompt(), /docs: first/);
+});
+
+test('claude CLI は -p で、指示を system prompt に、本文を標準入力に渡し、--tools "" を最後に置く', () => {
+  const { dir, git, head } = makeRepo();
+  writeFileSync(path.join(dir, "a.md"), "# ok\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: add a");
+  const cli = fakeCli("claude", '{"risk":"none","findings":[]}');
+  const r = push(dir, {
+    stdin: newBranchLine(head()),
+    pathPrefix: cli.bin,
+    env: { CRE_PUSH_REVIEWER: "claude" },
+  });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /claude claude-haiku-5-5/);
+  const args = cli.args();
+  assert.equal(args[0], "-p");
+  assert.deepEqual(args.slice(-2), ["--tools", ""]);
+  assert.equal(args[args.indexOf("--model") + 1], "claude-haiku-5-5");
+  assert.match(args[args.indexOf("--system-prompt") + 1], /公開してはいけない内容/);
+  assert.match(cli.stdin(), /docs: add a/);
+});
+
+test("codex CLI は exec で、本文を標準入力に渡し、-o のファイルから答えを読む（モデルは CRE_PUSH_REVIEW_MODEL）", () => {
+  const { dir, git, head } = makeRepo();
+  writeFileSync(path.join(dir, "a.md"), "# ok\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: add a");
+  const cli = fakeCli(
+    "codex",
+    '{"risk":"review","findings":[{"where":"a.md","what":"x","why":"y"}]}',
+  );
+  const r = push(dir, {
+    stdin: newBranchLine(head()),
+    pathPrefix: cli.bin,
+    env: { CRE_PUSH_REVIEWER: "codex", CRE_PUSH_REVIEW_MODEL: "gpt-5-mini" },
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /codex gpt-5-mini/);
+  assert.match(r.stderr, /a\.md: 「x」 — y/);
+  const args = cli.args();
+  assert.equal(args[0], "exec");
+  assert.ok(args.includes("--skip-git-repo-check"));
+  assert.deepEqual(args.slice(args.indexOf("--sandbox"), args.indexOf("--sandbox") + 2), [
+    "--sandbox",
+    "read-only",
+  ]);
+  assert.deepEqual(args.slice(-2), ["-m", "gpt-5-mini"]);
+  assert.ok(args.includes("--output-schema"));
+  const stdin = cli.stdin();
+  assert.match(stdin, /^あなたは、/); // codex には system 相当の指示を本文の先頭に置く
+  assert.match(stdin, /docs: add a/);
 });
 
 test("CRE_PUSH_REVIEWED=1 なら AI レビューを飛ばして push する（人が付ける）", () => {

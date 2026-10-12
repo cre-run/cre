@@ -64,6 +64,29 @@ test("Claude Code の Edit hook: 問題のない new_string は通る", () => {
   assert.equal(r.status, 0, r.stderr);
 });
 
+test("Codex の apply_patch hook: 追加行に印があれば終了コード 2 で拒否する", () => {
+  const patch = `*** Begin Patch\n*** Add File: docs/x.md\n+${marker}\n+# x\n*** End Patch\n`;
+  const json = JSON.stringify({ tool_name: "apply_patch", tool_input: { command: patch } });
+  const r = run(["--tool-input"], { input: json });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /機密の印/);
+});
+
+test("Codex の apply_patch hook: 印を含む行を削除するだけの patch は通る", () => {
+  const patch = `*** Begin Patch\n*** Update File: docs/x.md\n@@\n-${privateRepo} を見る\n+内部資料に基づく\n*** End Patch\n`;
+  const json = JSON.stringify({ tool_name: "apply_patch", tool_input: { command: patch } });
+  const r = run(["--tool-input"], { input: json });
+  assert.equal(r.status, 0, r.stderr);
+});
+
+test("Codex の apply_patch hook: 非公開パッケージのパスへの Move to は拒否する", () => {
+  const patch = `*** Begin Patch\n*** Update File: docs/x.md\n*** Move to: ${internalScope}x.md\n*** End Patch\n`;
+  const json = JSON.stringify({ tool_name: "apply_patch", tool_input: { command: patch } });
+  const r = run(["--tool-input"], { input: json });
+  assert.equal(r.status, 2);
+  assert.match(r.stderr, /非公開パッケージ/);
+});
+
 test("Claude Code の Bash hook: git commit 以外のコマンドは通る", () => {
   const json = JSON.stringify({ tool_name: "Bash", tool_input: { command: "git status --short" } });
   const r = run(["--if-git-command"], { input: json });

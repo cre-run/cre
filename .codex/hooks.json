@@ -1,0 +1,29 @@
+{
+  "description": "公開リポジトリに非公開の内容を書かせない（Claude Code の .claude/settings.json と同じ検査）。初回は /hooks で信頼する",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(apply_patch|Edit|Write)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/check-confidential.mjs\" --tool-input",
+            "timeout": 30,
+            "statusMessage": "機密の印を検査"
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$(git rev-parse --show-toplevel)/scripts/check-confidential.mjs\" --if-git-command",
+            "timeout": 60,
+            "statusMessage": "git commit / push の前に検査"
+          }
+        ]
+      }
+    ]
+  }
+}

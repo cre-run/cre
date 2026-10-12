@@ -9,8 +9,9 @@
 //   - `visibility: private` の frontmatter
 //
 // 使い方（終了コード: 0 = 問題なし、1 = 検出、2 = Claude Code の hook で拒否）:
-//   --tool-input      Claude Code の PreToolUse hook（Write / Edit / MultiEdit）。標準入力の JSON から書き込み内容を検査
-//   --if-git-command  Claude Code の PreToolUse hook（Bash）。コマンドが git commit なら staged の差分とコマンド文字列を検査し、
+//   --tool-input      Claude Code（Write / Edit / MultiEdit）と Codex（apply_patch）の PreToolUse hook。
+//                     標準入力の JSON から書き込み内容を検査
+//   --if-git-command  Claude Code と Codex の PreToolUse hook（Bash）。コマンドが git commit なら staged の差分とコマンド文字列を検査し、
 //                     git の hook を迂回するコマンド（--no-verify、core.hooksPath、push の人の確認を名乗る環境変数）は拒否する
 //   --staged          git の pre-commit。staged の差分（追加行）を検査
 //   --message <file>  git の commit-msg。コミットメッセージを検査
@@ -324,7 +325,11 @@ function readStdin() {
   }
 }
 
-/** Claude Code の hook の JSON から、書き込まれる内容を取り出す */
+/**
+ * Claude Code / Codex の PreToolUse hook の JSON から、書き込まれる内容を取り出す。
+ * Claude Code の Write / Edit / MultiEdit は content / new_string / edits、
+ * Codex の apply_patch は tool_input.command に patch 全体が入る（追加行とパスだけを見る）
+ */
 function textFromToolInput(json) {
   const input = json?.tool_input ?? {};
   const parts = [];
@@ -333,6 +338,14 @@ function textFromToolInput(json) {
   if (Array.isArray(input.edits))
     for (const e of input.edits) if (typeof e?.new_string === "string") parts.push(e.new_string);
   if (typeof input.file_path === "string") parts.push(input.file_path);
+  if (typeof input.command === "string" && /^\*\*\* Begin Patch/m.test(input.command)) {
+    for (const line of input.command.split("\n")) {
+      // "*** Add File: path" / "*** Update File: path" / "*** Move to: path" と、"+" で始まる追加行
+      if (/^\*\*\* (Add File|Update File|Move to): /.test(line))
+        parts.push(line.replace(/^\*\*\* [^:]+: /, ""));
+      else if (line.startsWith("+") && !line.startsWith("*** ")) parts.push(line.slice(1));
+    }
+  }
   return {
     text: parts.join("\n"),
     label: typeof input.file_path === "string" ? input.file_path : "(tool input)",

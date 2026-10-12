@@ -20,7 +20,18 @@
 //
 // 使い方: review-push.mjs <remote> <url>  （標準入力は pre-push の "<local ref> <local sha> <remote ref> <remote sha>" 行）
 import { execFileSync, spawnSync } from "node:child_process";
-import { closeSync, openSync, readFileSync, readSync, writeSync } from "node:fs";
+import {
+  closeSync,
+  mkdtempSync,
+  openSync,
+  readFileSync,
+  readSync,
+  rmSync,
+  writeFileSync,
+  writeSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import process from "node:process";
 import {
   BUILTIN_PATTERNS,
@@ -57,6 +68,29 @@ const SYSTEM_PROMPT = `あなたは、ソロの小さな会社が公開してい
 出力は次の JSON だけにし、前後に説明や Markdown を付けないでください。
 {"risk":"none" | "review","findings":[{"where":"ファイルパスまたはコミット","what":"該当箇所の短い引用か説明","why":"公開してはいけない理由"}]}
 risk は、指摘が 1 件でもあれば "review"、なければ "none" にします。理由は日本語で書きます。`;
+
+/** codex exec の --output-schema に渡す、最終メッセージの JSON Schema */
+const VERDICT_SCHEMA = {
+  type: "object",
+  properties: {
+    risk: { type: "string", enum: ["none", "review"] },
+    findings: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          where: { type: "string" },
+          what: { type: "string" },
+          why: { type: "string" },
+        },
+        required: ["where", "what", "why"],
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["risk", "findings"],
+  additionalProperties: false,
+};
 
 const ZERO = "0".repeat(40);
 
@@ -174,6 +208,8 @@ function askReviewer(prompt) {
   let cmd;
   let args;
   let label;
+  let workDir;
+  let outputFile;
   if (custom) {
     cmd = "sh";
     args = ["-c", custom];
@@ -197,12 +233,25 @@ function askReviewer(prompt) {
     ];
     label = `claude ${m}`;
   } else if (reviewer === "codex") {
+    // 依頼文は標準入力から読ませ、最終メッセージは -o のファイルから取る（標準出力には進捗も混ざり得る）。
+    // --output-schema で JSON の形を強制し、--ephemeral でセッションを残さない
+    workDir = mkdtempSync(path.join(tmpdir(), "cre-push-review-"));
+    const schemaFile = path.join(workDir, "schema.json");
+    outputFile = path.join(workDir, "verdict.json");
+    writeFileSync(schemaFile, JSON.stringify(VERDICT_SCHEMA));
     cmd = "codex";
     args = [
       "exec",
       "--sandbox",
       "read-only",
       "--skip-git-repo-check",
+      "--ephemeral",
+      "--color",
+      "never",
+      "--output-schema",
+      schemaFile,
+      "-o",
+      outputFile,
       ...(model ? ["-m", model] : []),
     ];
     label = `codex ${model || "(既定のモデル)"}`;
@@ -216,20 +265,32 @@ function askReviewer(prompt) {
   const input = custom || reviewer === "codex" ? `${SYSTEM_PROMPT}\n\n---\n\n${prompt}` : prompt;
   const env = { ...process.env };
   delete env.CLAUDECODE; // Claude Code のセッション内から push しても、入れ子として扱わせない
-  const r = spawnSync(cmd, args, {
-    input,
-    encoding: "utf8",
-    timeout: REVIEW_TIMEOUT_MS,
-    maxBuffer: 64 * 1024 * 1024,
-    env,
-  });
-  if (r.error || r.status !== 0) {
-    return {
-      label,
-      error: `${label} の実行に失敗しました（${r.error?.message ?? `終了コード ${r.status}`}）\n${(r.stderr || "").trim().slice(-2000)}`,
-    };
+  try {
+    const r = spawnSync(cmd, args, {
+      input,
+      encoding: "utf8",
+      timeout: REVIEW_TIMEOUT_MS,
+      maxBuffer: 64 * 1024 * 1024,
+      env,
+    });
+    if (r.error || r.status !== 0) {
+      return {
+        label,
+        error: `${label} の実行に失敗しました（${r.error?.message ?? `終了コード ${r.status}`}）\n${(r.stderr || "").trim().slice(-2000)}`,
+      };
+    }
+    let output = r.stdout;
+    if (outputFile) {
+      try {
+        output = readFileSync(outputFile, "utf8");
+      } catch {
+        // -o のファイルが無ければ標準出力から拾う
+      }
+    }
+    return { label, output };
+  } finally {
+    if (workDir) rmSync(workDir, { recursive: true, force: true });
   }
-  return { label, output: r.stdout };
 }
 
 /** 出力から JSON を取り出す（前後に文章や ``` が付いても拾う） */
