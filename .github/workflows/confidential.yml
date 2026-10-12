@@ -1,16 +1,11 @@
 name: Confidential
 
 # 非公開の内容の印（機密の印・非公開リポジトリへの参照・非公開パッケージ）が混ざっていないかを検査する。
-# 文脈依存の判断（顧客名・価格など）は push 前の AI レビュー（scripts/review-push.mjs）と
-# PR のレビュー（Codex・Claude Code Review）が行い、ここでは確定的に判定できる印だけを見る。
-#
-# PR では pull_request_target で動かす。ワークフロー定義と検査スクリプトは base（main）のものが使われ、
-# PR の head は別ディレクトリに checkout して「データとして走査」するだけでコードは実行しない。
-# これにより、PR 側で検査を無効化する変更を入れても効かない。
-# PR の題名・本文の編集でも再実行する（edited）。フォークのコミット範囲は、base の checkout から base SHA を取り込んで検査する。
+# 文脈依存の判断（顧客名・価格など）は push 前の AI レビュー（scripts/review-push.mjs）と PR のレビューが行う。
+# PR の題名・本文の編集（edited）でも再実行する。
 
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened, edited]
   push:
     branches: [main]
@@ -18,44 +13,16 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: confidential-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: true
-
 jobs:
   confidential:
     runs-on: ubuntu-latest
     steps:
-      # 信頼済みの検査コード（pull_request_target では base、push では main）
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-
-      # 検査対象: PR の head。コードは実行せず、ファイルとコミットメッセージを読むだけ。
-      # checkout v7 は pull_request_target でのフォークの checkout を既定で拒否するので明示的に許可する
-      # （この後の step は target/ のコードを一切実行せず、信頼済みのスクリプトでデータとして読むだけ）
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        if: github.event_name == 'pull_request_target'
-        with:
-          repository: ${{ github.event.pull_request.head.repo.full_name }}
-          ref: ${{ github.event.pull_request.head.sha }}
-          path: target
-          fetch-depth: 0
-          allow-unsafe-pr-checkout: true
-
-      # フォークの clone には base のコミットが無いので、base の checkout（このワークスペース）から取り込む
-      - name: コミット範囲の検査のために base SHA を取り込む
-        if: github.event_name == 'pull_request_target'
-        run: git -C target fetch --no-tags "$GITHUB_WORKSPACE" "${{ github.event.pull_request.base.sha }}"
-
-      - name: base に検査スクリプトがあることを確かめる
-        run: test -f scripts/check-confidential.mjs || { echo "::error::base に scripts/check-confidential.mjs がありません"; exit 1; }
-
-      - name: 機密の印の検査（信頼済みのスクリプトで PR の内容を走査）
-        working-directory: ${{ github.event_name == 'pull_request_target' && 'target' || '.' }}
-        run: node "$GITHUB_WORKSPACE/scripts/check-confidential.mjs" --ci
+          fetch-depth: 0 # コミット範囲（中間コミットの追加行とメッセージ）も検査する
+      - run: node scripts/check-confidential.mjs --ci
         env:
           CONFIDENTIAL_EXTRA_TEXT: |
             ${{ github.event.pull_request.title }}
             ${{ github.event.pull_request.body }}
-          CONFIDENTIAL_COMMIT_RANGE: ${{ github.event_name == 'pull_request_target' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || github.event_name == 'push' && format('{0}..{1}', github.event.before, github.sha) || '' }}
+          CONFIDENTIAL_COMMIT_RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || format('{0}..{1}', github.event.before, github.sha) }}

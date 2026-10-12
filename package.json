@@ -6,8 +6,6 @@
   "scripts": {
     "ready": "vp check && vp run -r test && vp run -r build",
     "dev": "vp run @cre/app-sample#dev",
-    "check:confidential": "node scripts/check-confidential.mjs --ci",
-    "test:confidential": "node --test scripts/check-confidential.test.mjs scripts/review-push.test.mjs",
     "prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
   },
   "devDependencies": {
