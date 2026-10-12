@@ -166,7 +166,18 @@ function scanPatch(patch, patterns, labelFor) {
 function scanStagedDiff(root, patterns) {
   const diff = execFileSync(
     "git",
-    ["-C", root, "diff", "--cached", "--unified=0", "--no-color", "--text", "--no-ext-diff"],
+    [
+      "-C",
+      root,
+      "-c",
+      "core.quotePath=false",
+      "diff",
+      "--cached",
+      "--unified=0",
+      "--no-color",
+      "--text",
+      "--no-ext-diff",
+    ],
     {
       encoding: "utf8",
     },
@@ -209,6 +220,8 @@ function scanRangeCommits(root, range, patterns) {
       [
         "-C",
         root,
+        "-c",
+        "core.quotePath=false", // 非 ASCII のパスを "\347..." にクォートしない（禁止語と照合するため）
         "log",
         "-p",
         "-m",
@@ -221,9 +234,10 @@ function scanRangeCommits(root, range, patterns) {
       ],
       { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
     );
+    // -z で NUL 区切りの生のパスを取る（既定の出力は非 ASCII をクォートし、禁止語に一致しなくなる）
     names = execFileSync(
       "git",
-      ["-C", root, "log", "-m", "--name-only", "--diff-filter=ACMRT", "--format=", ...target],
+      ["-C", root, "log", "-m", "-z", "--name-only", "--diff-filter=ACMRT", "--format=", ...target],
       { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
     );
   } catch {
@@ -235,7 +249,7 @@ function scanRangeCommits(root, range, patterns) {
   const hits = [];
   for (const rel of new Set(
     names
-      .split("\n")
+      .split(/[\0\n]/)
       .map((l) => l.trim())
       .filter(Boolean),
   )) {

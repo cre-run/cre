@@ -455,3 +455,29 @@ test("--staged: .gitattributes で -diff を付けた staged ファイルの追�
   assert.equal(r.status, 1);
   assert.match(r.stderr, /notes\.md:1/);
 });
+
+test("--ci: 日本語のファイル名を履歴で追加して削除しても、禁止語に一致すれば検出する", () => {
+  const { dir, git } = makeRepo();
+  const base = git("rev-parse", "HEAD").stdout.trim();
+  writeFileSync(path.join(dir, "秘密顧客メモ.md"), "# empty\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: memo");
+  git("rm", "-q", "秘密顧客メモ.md");
+  git("commit", "-q", "-m", "docs: remove");
+  const head = git("rev-parse", "HEAD").stdout.trim();
+  const r = runIn(dir, ["--ci"], {
+    CONFIDENTIAL_COMMIT_RANGE: `${base}..${head}`,
+    CONFIDENTIAL_TERMS: "秘密顧客\n",
+  });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /ファイル名に禁止語（履歴）/);
+});
+
+test("--staged: 日本語のファイル名の追加行も、クォートされずにそのファイル名で報告される", () => {
+  const { dir, git } = makeRepo();
+  writeFileSync(path.join(dir, "メモ.md"), `${privateRepo}\n`);
+  git("add", "-A");
+  const r = runIn(dir, ["--staged"]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /メモ\.md:1/);
+});
