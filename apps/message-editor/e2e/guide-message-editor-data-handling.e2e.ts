@@ -100,7 +100,7 @@ test("根拠のリンクは新しいタブで開き、開いた先に判定デ�
 
   await page.goto(`/${toHash(payload)}`);
   const panel = page.getByRole("complementary");
-  await panel.getByRole("tab", { name: /根拠/u }).click();
+  await panel.getByRole("tab", { name: /出典/u }).click();
   await panel.getByRole("button", { name: "根拠の詳細" }).first().click();
   const link = panel.getByRole("link", { name: "利用規約 第3条" });
   await expect(link).toHaveAttribute("href", EVIDENCE_URL);
