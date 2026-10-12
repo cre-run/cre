@@ -66,7 +66,7 @@ vp exec wrangler deploy
 同じアカウントの Bot の Worker に、Service Binding を足してデプロイします（[短縮 URL を作る](/short-url#短縮-url-を作るbot-の開発者向け)）。
 
 ```jsonc
-"services": [{ "binding": "SHORT_URL", "service": "short-url", "entrypoint": "ShortUrl" }],
+"services": [{ "binding": "SHORT_URL", "service": "<短縮 URL の Worker の name>", "entrypoint": "ShortUrl" }],
 ```
 
 ## 6. 確かめる

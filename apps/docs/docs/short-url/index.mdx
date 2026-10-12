@@ -56,7 +56,7 @@ Bot の Worker から Service Binding で短縮 URL の Worker につなぎ、`c
 
 ```jsonc
 // Bot の Worker の wrangler.jsonc
-"services": [{ "binding": "SHORT_URL", "service": "short-url", "entrypoint": "ShortUrl" }],
+"services": [{ "binding": "SHORT_URL", "service": "<短縮 URL の Worker の name>", "entrypoint": "ShortUrl" }],
 ```
 
 ```ts
