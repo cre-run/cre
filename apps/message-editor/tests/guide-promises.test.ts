@@ -1,7 +1,7 @@
 /**
  * 対応ガイド: apps/docs/docs/message-editor/data-handling.mdx
  *
- * ガイドの約束に付けた tested バッジ（リンク先がテストファイル、tooltip がテスト名）と、
+ * ガイドの「テスト」列のバッジ（リンク先がテストファイル、tooltip がテスト名、表示は E2E / 単体）と、
  * 実際のテストが一致することを確かめる。
  * - バッジのテストは、リンク先のファイルに同じ名前で実在する（ガイドだけを変えると落ちる）
  * - 約束のテストファイルは、すべてのテストにバッジがある（テストだけを足す・バッジだけを外すと落ちる）
@@ -28,7 +28,7 @@ interface Listed {
 }
 
 const BADGE =
-  /<a href="https:\/\/github\.com\/cre-run\/cre\/blob\/main\/apps\/message-editor\/((?:e2e|tests)\/[^"]+\.ts)"><Badge [^>]*tooltip="([^"]+)"[^>]*>tested<\/Badge><\/a>/gu;
+  /<a href="https:\/\/github\.com\/cre-run\/cre\/blob\/main\/apps\/message-editor\/((?:e2e|tests)\/[^"]+\.ts)"><Badge [^>]*tooltip="([^"]+)"[^>]*>[^<]+<\/Badge><\/a>/gu;
 
 /** ガイドの tested バッジから、テスト名とファイルを取り出す */
 const listedInGuide = (): Listed[] =>
