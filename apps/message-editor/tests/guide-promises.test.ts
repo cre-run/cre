@@ -37,9 +37,14 @@ const listedInGuide = (): Listed[] => {
   }));
 };
 
-/** テストファイルに書かれた test("…") の名前 */
+/**
+ * テストファイルに書かれた test("…") の名前。行頭（字下げのみ）から始まる宣言だけを数え、
+ * コメントアウトした `// test("…")` や test.skip("…") は「実在しない」扱いにする
+ */
 const titlesInFile = (file: string): string[] =>
-  [...readFileSync(join(APP, file), "utf8").matchAll(/\btest\(\s*"([^"]+)"/gu)].map((m) => m[1]!);
+  [...readFileSync(join(APP, file), "utf8").matchAll(/^[ \t]*test\(\s*"([^"]+)"/gmu)].map(
+    (m) => m[1]!,
+  );
 
 test("ガイドに挙げたテストは、書かれたファイルに同じ名前で実在する", () => {
   const listed = listedInGuide();
