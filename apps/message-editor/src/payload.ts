@@ -1,8 +1,47 @@
-import { deflate, inflate } from "pako";
+import { Inflate, deflate } from "pako";
 import type { ReplyReviewPayload } from "./types.ts";
 
 /** URL ハッシュのキー（`#d=<base64url>`） */
 export const HASH_KEY = "d";
+
+/**
+ * 受け付ける圧縮データの最大長（文字数）。見本データで約 3,500 文字。
+ * deflate は 700 倍以上に展開できるので、上限がないと巨大な URL で開いたタブが固まる。
+ */
+export const MAX_ENCODED_LENGTH = 100_000;
+
+/**
+ * 展開後の JSON の最大バイト数。見本データで約 4 KB。
+ * 圧縮後の長さだけでは展開爆弾を防げない（10 万文字の圧縮データが 70 MB 以上に展開できる）ので、
+ * 展開しながら大きさを見て、超えた時点で打ち切る。
+ */
+export const MAX_DECODED_BYTES = 1_000_000;
+
+const tooLarge = (limit: string): Error => new Error(`データが大きすぎます（${limit}まで）`);
+
+/** 展開後の大きさを見ながら inflate し、上限を超えたら途中でやめる */
+const inflateBounded = (bytes: Uint8Array): Uint8Array => {
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  const inflater = new Inflate({ chunkSize: 16 * 1024 });
+  inflater.onData = (chunk) => {
+    total += chunk.length;
+    if (total > MAX_DECODED_BYTES) {
+      throw tooLarge(`展開後 ${MAX_DECODED_BYTES.toLocaleString("ja-JP")} バイト`);
+    }
+    chunks.push(chunk);
+  };
+  if (!inflater.push(bytes, true) || inflater.err) {
+    throw new Error(inflater.msg || "データを展開できません");
+  }
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return out;
+};
 
 const toBase64Url = (bytes: Uint8Array): string => {
   let binary = "";
@@ -24,7 +63,10 @@ export const encodePayload = (payload: ReplyReviewPayload): string =>
 
 /** encodePayload の逆。形式が不正なら例外を投げる */
 export const decodePayload = (encoded: string): ReplyReviewPayload => {
-  const json = new TextDecoder().decode(inflate(fromBase64Url(encoded)));
+  if (encoded.length > MAX_ENCODED_LENGTH) {
+    throw tooLarge(`${MAX_ENCODED_LENGTH.toLocaleString("ja-JP")} 文字`);
+  }
+  const json = new TextDecoder().decode(inflateBounded(fromBase64Url(encoded)));
   const data: unknown = JSON.parse(json);
   if (!isPayload(data)) {
     throw new Error("データの形式が正しくありません（version 1 の payload ではありません）");
@@ -49,6 +91,17 @@ const isOptionalString = (value: unknown): boolean => value === undefined || isS
 /** 表示時に Date として扱う項目は、解釈できる日時文字列だけを受け付ける */
 const isDate = (value: unknown): value is string =>
   isString(value) && !Number.isNaN(Date.parse(value));
+/** 根拠のリンクは http(s) だけを受け付ける（`javascript:` や `data:` を href にしない） */
+const isHttpUrl = (value: unknown): value is string => {
+  if (!isString(value)) {
+    return false;
+  }
+  try {
+    return ["http:", "https:"].includes(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+};
 const isArrayOf = <T>(value: unknown, item: (v: unknown) => v is T): value is T[] =>
   Array.isArray(value) && value.every(item);
 const oneOf =
@@ -80,7 +133,8 @@ const isEvidence = (v: unknown): v is Shape =>
   isEvidenceType(v.type) &&
   isStance(v.stance) &&
   isString(v.title) &&
-  ["excerpt", "source", "url"].every((key) => isOptionalString(v[key])) &&
+  ["excerpt", "source"].every((key) => isOptionalString(v[key])) &&
+  (v.url === undefined || isHttpUrl(v.url)) &&
   (v.checkedAt === undefined || isDate(v.checkedAt));
 
 const isReplyParagraph = (v: unknown): v is Shape =>

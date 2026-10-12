@@ -83,6 +83,7 @@ export interface Evidence {
   excerpt?: string;
   /** 出典（URL・ドキュメント名・リポジトリのパスなど） */
   source?: string;
+  /** 出典へのリンク。http(s) 以外の URL は payload ごと受け付けない */
   url?: string;
   /** 根拠を確認した日時（ISO 8601）。鮮度の表示に使う */
   checkedAt?: string;
