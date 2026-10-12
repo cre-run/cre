@@ -30,7 +30,7 @@ Slack Block Kit のボタン `url`・section `text`（どちらも 3,000 文字�
   - `/id/*` では、Access の JWT からメールのドメインを確かめる（下記）
 - **Access の JWT でメールのドメインを確かめる（`/id/*` のたびに）。** Cloudflare の [JWT の検証の手順](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/validating-json/) に従います
   1. リクエストヘッダー `Cf-Access-Jwt-Assertion` から JWT を読む。なければ `503`（Access がかかっていない）。ヘッダーは誰でも付けられるので、次の署名の検証を省かない。`Cf-Access-Authenticated-User-Email` ヘッダーは署名がないので使わない
-  2. `https://<teamDomain>/cdn-cgi/access/certs` の公開鍵（`kid` で選ぶ）で RS256 の署名を確かめ、`iss` が `https://<teamDomain>`、`aud` に `ACCESS.aud` が含まれ、`exp` が切れていないことを確かめる。満たさなければ `403`
+  2. `<teamDomain>/cdn-cgi/access/certs` の公開鍵（`kid` で選ぶ）で RS256 の署名を確かめ、`iss` が `<teamDomain>` と一致し、`aud` に `ACCESS.aud` が含まれ、`exp` が切れていないことを確かめる。満たさなければ `403`
   3. `email` クレームの `@` より後ろ（小文字にする）が、`allowedEmailDomains` のどれかと完全に一致することを確かめる（サブドメインは含めない）。`email` がない（サービストークンなど）か、一致しなければ `403`
   - 公開鍵は取得して Worker のメモリに短く持つ（Access は約 6 週間ごとに鍵を入れ替え、古い鍵も 7 日は有効）。検証には `jose`（Cloudflare の例と同じ。足すときは `minimumReleaseAge` に注意）か Web Crypto を使う
   - Access のポリシーでドメインを絞っていても、Worker でもう一度確かめます。ポリシーを誤って広げたり、Access を外したりしても、判定データは返りません
@@ -54,11 +54,11 @@ Slack Block Kit のボタン `url`・section `text`（どちらも 3,000 文字�
 
 ## 設定
 
-| 名前         | 種類           | 内容                                                                                                                                                                                                                                                                   |
-| ------------ | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `ACCESS`     | `vars`（必須） | `{"allowedEmailDomains": ["example.com"], "teamDomain": "example.cloudflareaccess.com", "aud": "…"}`。開けるメールのドメイン（JWT の `email` の `@` より後ろと完全一致）、JWT の `iss` と公開鍵の取得先、`aud` と比べる AUD タグ。`.dev.vars` では JSON の文字列で書く |
-| `EDITOR_URL` | `vars`         | 既定 `https://editor.cre.run/`。`https:` で始まり `#` を含まないこと                                                                                                                                                                                                   |
-| `BASE_URL`   | `vars`（必須） | 短縮 URL のドメイン（例: `https://short.example.com`）。`create()` が返す `url` に使う                                                                                                                                                                                 |
+| 名前         | 種類           | 内容                                                                                                                                                                                                                                                                                                                                                                                    |
+| ------------ | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ACCESS`     | `vars`（必須） | `{"allowedEmailDomains": ["example.com"], "teamDomain": "https://example.cloudflareaccess.com", "aud": "…"}`。開けるメールのドメイン（JWT の `email` の `@` より後ろと完全一致）、Access のチームの origin（スキームを含む。JWT の `iss` と公開鍵の取得先。ローカルでは `http://localhost:8788` のように HTTP でもよい）、`aud` と比べる AUD タグ。`.dev.vars` では JSON の文字列で書く |
+| `EDITOR_URL` | `vars`         | 既定 `https://editor.cre.run/`。`https:` で始まり `#` を含まないこと                                                                                                                                                                                                                                                                                                                    |
+| `BASE_URL`   | `vars`（必須） | 短縮 URL のドメイン（例: `https://short.example.com`）。`create()` が返す `url` に使う                                                                                                                                                                                                                                                                                                  |
 
 コマンドは `vp exec` で実行します。`vp run` は環境変数を引き継がず出力をキャッシュするので使いません。
 

@@ -35,7 +35,7 @@ vp exec wrangler d1 migrations apply short-url --remote   # テーブルを作�
   "BASE_URL": "https://short.example.com",
   "ACCESS": {
     "allowedEmailDomains": ["example.com"],         // 短縮 URL を開けるメールアドレスのドメイン
-    "teamDomain": "example.cloudflareaccess.com",   // Access のチームのドメイン（メールのドメインとは別）
+    "teamDomain": "https://example.cloudflareaccess.com",   // Access のチームの URL（メールのドメインとは別）
     "aud": "<4 でコピーする AUD タグ>"
   }
 }
@@ -80,7 +80,7 @@ Bot から見本データで短縮 URL を 1 つ作り、組織のメールア�
 
 ```dotenv
 BASE_URL=http://localhost:8787
-ACCESS={"allowedEmailDomains":["example.com"],"teamDomain":"localhost:8788","aud":"short-url-dev"}
+ACCESS={"allowedEmailDomains":["example.com"],"teamDomain":"http://localhost:8788","aud":"short-url-dev"}
 ```
 
 ```bash
