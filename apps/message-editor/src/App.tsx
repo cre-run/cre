@@ -5,9 +5,8 @@ import { InquiryCard } from "./components/InquiryCard.tsx";
 import { PreviewDialog } from "./components/PreviewDialog.tsx";
 import { ReplyEditor } from "./components/ReplyEditor.tsx";
 import { formatDotDate } from "./labels.ts";
-import { decodePayload, readHash } from "./payload.ts";
+import { decodePayload, readHash, type ReplyReviewPayload } from "@cre/message-payload";
 import { samplePayload } from "./sample.ts";
-import type { ReplyReviewPayload } from "./types.ts";
 
 type Loaded =
   | { kind: "data"; payload: ReplyReviewPayload }

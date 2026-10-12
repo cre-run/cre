@@ -1,6 +1,6 @@
 import { collectActions } from "../actions.ts";
 import { EVIDENCE_TYPE, STATUS } from "../labels.ts";
-import type { Reply } from "../types.ts";
+import type { Reply } from "@cre/message-payload";
 import { ActionList } from "./ActionList.tsx";
 import { Icon } from "./Icon.tsx";
 

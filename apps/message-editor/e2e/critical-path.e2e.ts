@@ -2,7 +2,7 @@
  * クリティカルパス: 壊れるとガイドの手順が成り立たなくなる操作を、画像を撮らずに速く確かめる。
  */
 import { expect, test } from "@playwright/test";
-import { toHash } from "../src/payload.ts";
+import { toHash } from "@cre/message-payload";
 import { samplePayload } from "../src/sample.ts";
 import { guideExampleHashes } from "../tests/guide-example.ts";
 

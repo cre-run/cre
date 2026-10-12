@@ -12,6 +12,7 @@ on:
       - apps/message-editor/**
       - apps/docs/docs/message-editor/**
       - packages/asset/**
+      - packages/message-payload/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - .github/workflows/e2e.yml
@@ -21,6 +22,7 @@ on:
       - apps/message-editor/**
       - apps/docs/docs/message-editor/**
       - packages/asset/**
+      - packages/message-payload/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - .github/workflows/e2e.yml

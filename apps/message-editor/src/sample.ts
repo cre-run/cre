@@ -1,4 +1,4 @@
-import type { ReplyReviewPayload } from "./types.ts";
+import type { ReplyReviewPayload } from "@cre/message-payload";
 
 /**
  * URL にデータがないときに表示する見本。ドキュメントのモック画像もこのデータで撮る。

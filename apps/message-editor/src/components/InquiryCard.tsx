@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatMonthDayTime } from "../labels.ts";
-import type { Inquiry } from "../types.ts";
+import type { Inquiry } from "@cre/message-payload";
 import { Icon } from "./Icon.tsx";
 
 export const InquiryCard = ({ inquiry }: { inquiry: Inquiry }) => {
