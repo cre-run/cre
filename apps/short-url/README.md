@@ -26,18 +26,19 @@ Slack Block Kit のボタン `url`・section `text`（どちらも 3,000 文字�
 
 - **Access 前提で fail closed にする。** Access は `wrangler.jsonc` では設定できないので、Worker の側で次を確かめ、どれかが欠ければ判定データを返しません
   - `vars.BASE_URL` がある（なければ `503`）
-  - `vars.ACCESS` の `allowedEmailDomains`・`teamDomain`・`aud` がそろっている（なければ `503`）
+  - `vars.ACCESS` の `allowedEmailDomains`（空でない配列）・`teamDomain`・`aud` がそろっている（なければ `503`）
   - `/id/*` では、Access の JWT からメールのドメインを確かめる（下記）
 - **Access の JWT でメールのドメインを確かめる（`/id/*` のたびに）。** Cloudflare の [JWT の検証の手順](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/validating-json/) に従います
-  1. リクエストヘッダー `Cf-Access-Jwt-Assertion` から JWT を読む。なければ `503`（Access がかかっていない）
+  1. リクエストヘッダー `Cf-Access-Jwt-Assertion` から JWT を読む。なければ `503`（Access がかかっていない）。ヘッダーは誰でも付けられるので、次の署名の検証を省かない。`Cf-Access-Authenticated-User-Email` ヘッダーは署名がないので使わない
   2. `https://<teamDomain>/cdn-cgi/access/certs` の公開鍵（`kid` で選ぶ）で RS256 の署名を確かめ、`iss` が `https://<teamDomain>`、`aud` に `ACCESS.aud` が含まれ、`exp` が切れていないことを確かめる。満たさなければ `403`
-  3. `email` クレームの `@` より後ろ（小文字にする）が、`allowedEmailDomains` のどれかと完全に一致することを確かめる（サブドメインは含めない）。一致しなければ `403`
+  3. `email` クレームの `@` より後ろ（小文字にする）が、`allowedEmailDomains` のどれかと完全に一致することを確かめる（サブドメインは含めない）。`email` がない（サービストークンなど）か、一致しなければ `403`
   - 公開鍵は取得して Worker のメモリに短く持つ（Access は約 6 週間ごとに鍵を入れ替え、古い鍵も 7 日は有効）。検証には `jose`（Cloudflare の例と同じ。足すときは `minimumReleaseAge` に注意）か Web Crypto を使う
   - Access のポリシーでドメインを絞っていても、Worker でもう一度確かめます。ポリシーを誤って広げたり、Access を外したりしても、判定データは返りません
 - **保存。** `data`（`#d=` より後ろの値）をそのまま D1 に保存します。D1 を読める人と、バックアップ（Time Travel、消した後も最長 30 日）からは読めます。自組織のアカウントの中なので、プロトタイプではこれを許容します
-- **302 で転送する。** `/id/*` は Access の後ろにあるので、展開ボットやクローラーは転送先（判定データ）まで届きません。応答には `Cache-Control: no-store`・`Referrer-Policy: no-referrer`・`X-Robots-Tag: noindex` を付けます。転送先は設定の `EDITOR_URL` だけです（オープンリダイレクトにしない）
+- **302 で転送する。** `/id/*` は Access の後ろにあるので、展開ボットやクローラーは転送先（判定データ）まで届きません。応答には `Cache-Control: no-store`・`Referrer-Policy: no-referrer`・`X-Robots-Tag: noindex` を付けます。転送先は設定の `EDITOR_URL` だけです（オープンリダイレクトにしない）。`404`・`403`・`503` の HTML は固定の文言だけで、UUID やリクエストの内容を埋め込みません
+- **守るのは入口だけ。** 転送先の Message Editor の URL（`#d=` に判定データ全体）は、ログインなしで開けます。開いた人のブラウザの履歴に残り、コピーして貼れば誰でも読めます。これは今の `#d=` の URL と同じで、短縮 URL が守るのは「URL を知っているだけの人が開く」ことです
 - **ログ。** 判定データ・Secret・メールアドレスはコードからログに書きません。URL（UUID）は Workers Logs に残りますが、UUID だけでは開けません
-- **検査。** 登録時に Message Editor と同じ `decodePayload` を通します（10 万文字・展開後 1 MB の上限も同じ）。実装時に `apps/message-editor/src/payload.ts` を `packages/` に切り出して共有します
+- **検査。** 登録時に、`data` が `^[A-Za-z0-9_-]+$`（base64url）だけでできていることと、Message Editor と同じ `decodePayload` を通ることを確かめます（10 万文字・展開後 1 MB の上限も同じ）。前者は、`Location` ヘッダーや `#d=` に改行や `&` などを混ぜられないようにするためです。実装時に `apps/message-editor/src/payload.ts` を `packages/` に切り出して共有します
 
 ## API
 
@@ -49,6 +50,7 @@ Slack Block Kit のボタン `url`・section `text`（どちらも 3,000 文字�
 - `create()` は `WorkerEntrypoint` を継いだ名前付きの入口 `ShortUrl` に置きます。RPC のメソッドは HTTP からは呼べず、Binding を張れるのは同じアカウントにデプロイできる人だけです。これを登録の認証とし、キーは持ちません
 - HTTP の入口は `GET /id/{uuid}` だけで、ほかのパスは `404` です。Worker の HTTP はすべて Access の後ろにあります（`/api/*` の除外は要らない）
 - `url` は `vars.BASE_URL` から作ります（RPC には呼び出し元のホスト名がないため）
+- `wrangler.jsonc` は、ほかの Worker と同じく `workers_dev: false`・`preview_urls: false` にします。入口を `routes` のドメインだけにし、Access の対象を 1 つにします
 
 ## 設定
 
@@ -104,6 +106,7 @@ CREATE TABLE links (
 - CRE 自身のインスタンスの `ACCESS.allowedEmailDomains`
 - `database_id` をリポジトリの `wrangler.jsonc` に書くか
 - Workers Free で動かすか（CPU 10 ms で、1 MB までの展開と検査が収まるか）
+- Worker 単位の Access（「Protect this Worker behind Access」）でも、`Cf-Access-Jwt-Assertion` ヘッダーがリクエストに付くことを、実際に設定して確かめる（付かなければ、ホスト名を対象にした Access のアプリケーションに切り替える）
 
 ## 実装の順番
 
