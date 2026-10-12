@@ -36,15 +36,15 @@ Worker（短縮 URL のサーバー）が動くときに読むのは、`LINK_MAS
 
 判定データを暗号化する鍵です。サーバーに 1 つだけ設定します。
 
-| 項目                | 内容                                                                                                                                |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| 使い道              | 判定データの暗号化と、短縮 URL の ID からデータを探すため                                                                           |
-| 形式                | 32 バイトの乱数を base64url（`=` なし）にした 43 文字                                                                               |
-| 設定していないとき  | 作る・開く・削除がすべてできません。API は `503`（`not_configured`）、開くページは「短縮 URL の設定が終わっていません」を表示します |
-| 形式が違うとき      | 設定していないときと同じです                                                                                                        |
-| 値を変えたとき      | それまでに作った短縮 URL が、すべて開けなくなります                                                                                 |
-| なくしたとき        | Cloudflare からは読み出せません。新しく作って登録し直します（それまでの短縮 URL は開けなくなります）                                |
-| PR ごとのプレビュー | 本番とは別の値を登録します                                                                                                          |
+| 項目                | 内容                                                                                                                                                                                            |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 使い道              | 判定データの暗号化と、短縮 URL の ID からデータを探すため                                                                                                                                       |
+| 形式                | 32 バイトの乱数を base64url（`=` なし）にした 43 文字                                                                                                                                           |
+| 設定していないとき  | 作る・開く・削除がすべてできません。API は `503`（`not_configured`）、開くページは「短縮 URL の設定が終わっていません」を表示します                                                             |
+| 形式が違うとき      | 設定していないときと同じです                                                                                                                                                                    |
+| 値を変えたとき      | 本番の URL では、それまでに作った短縮 URL が開けなくなります。ただし、古い版の Worker の URL（Version URL）は古い鍵を持ったままなので、すべてを消すときはデータベースからも消します（下を参照） |
+| なくしたとき        | Cloudflare からは読み出せません。新しく作って登録し直します（それまでの短縮 URL は開けなくなります）                                                                                            |
+| PR ごとのプレビュー | 本番とは別の値を登録します                                                                                                                                                                      |
 
 作って登録します。値は画面にもシェルの履歴にも出しません。
 
@@ -65,7 +65,7 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('b
 - `wrangler.jsonc` の `vars` には書かないでください。`wrangler.jsonc` はリポジトリに入ります
 - 値を手で入力したり、`echo` の引数に書いたりしないでください。シェルの履歴に残ります
 - 控えは要りません。なくしても、作り直せば短縮 URL をまた作れます。控える場合は組織のシークレット管理に置き、チャットやチケットに貼らないでください
-- すべての短縮 URL を一度に開けなくしたいときも、この値を変えます
+- すべての短縮 URL を消したいときは、この値を変えたうえで、`vp exec node scripts/links.ts delete --all` でデータベースからも消します。Worker の古い版の URL（Version URL）は、その版の古い鍵と本番のデータベースを使えるので、鍵を変えるだけでは足りません
 
 ## Worker の環境変数
 
@@ -108,7 +108,7 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('b
 | `routes`                    | `s.cre.run`（カスタムドメイン） | 短縮 URL のドメイン（Cloudflare で管理しているゾーンのもの）                                                                           |
 | `d1_databases`              | `cre-short`                     | `vp exec wrangler d1 create <名前>` で作ったデータベースの名前と `database_id`                                                         |
 | `ratelimits[].namespace_id` | —                               | アカウントの中で重ならない数（ほかの Worker のレート制限と同じ数にしない）                                                             |
-| `previews.d1_databases`     | `cre-short-preview`             | PR ごとのプレビュー用のデータベース。プレビューを使わないなら消す                                                                      |
+| `previews.d1_databases`     | `cre-short-preview`             | PR ごとのプレビュー用のデータベース。テーブルの用意は下の手順。プレビューを使わないなら消す                                            |
 | `access.dev`                | `aud` と `identity.email`       | ローカル開発だけで使う、Access のログインの代わり（下の「ローカルで動かすとき」）。本番には効きません                                  |
 | `previews.ratelimits`       | —                               | プレビュー用のレート制限。プレビューは本番の設定を引き継がないので、本番と別の `namespace_id` で定義する。プレビューを使わないなら消す |
 
@@ -118,6 +118,17 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('b
 vp exec wrangler d1 create short-url                       # 表示された database_id を wrangler.jsonc に書く
 vp exec wrangler d1 migrations apply short-url --remote    # テーブルを作る（更新のたびにも実行する）
 ```
+
+PR ごとのプレビューを使う場合は、プレビュー用のデータベースも作り、テーブルを用意します。
+`previews.d1_databases` のデータベースには `migrations apply` が直接効かないので、プレビュー用のデータベースをトップレベルの `d1_databases` に書いた別の設定ファイル（`wrangler.preview-migrations.jsonc`。名前と `database_id` は `previews.d1_databases` と同じにする）を使います。
+
+```bash
+vp exec wrangler d1 create short-url-preview   # 表示された database_id を previews.d1_databases と wrangler.preview-migrations.jsonc に書く
+vp exec wrangler d1 migrations apply short-url-preview --remote --config wrangler.preview-migrations.jsonc
+```
+
+- プレビューはすべての PR で同じデータベースを使うので、マイグレーションは 1 回流せば足ります
+- プレビューを使わないなら、`preview_urls` を `false` にします。Worker の古い版の URL（Version URL）も出なくなります
 
 ## デプロイと管理に使う資格情報
 

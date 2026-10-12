@@ -92,7 +92,9 @@ ciphertext = IV(12 バイトの乱数) || AES-256-GCM(encKey, IV, 平文 = UTF-8
   - D1 だけでは読めません（MASTER がない）
   - D1 と MASTER の両方があっても読めません（UUID がなく、`id_hash` からは戻せない。UUID は 122 ビットの乱数）
   - 読めるのは、短縮 URL（UUID）を知っていて、組織のメールアドレスで Access にログインした人が、動いているサーバーに問い合わせたときだけです
-- MASTER を変えると、`id_hash` も `encKey` も変わるので、それまでのリンクはすべて開けなくなります。これを「全部消す」手段としても使います（crypto-shredding）
+- MASTER を変えると、`id_hash` も `encKey` も変わるので、本番の URL ではそれまでのリンクが開けなくなります
+  - ただし、`preview_urls: true` のあいだは、Worker の古い版にも URL（Version URL）が付き、その版の古い鍵と本番の D1 を使えます（Access の後ろなので、開けるのは組織の人だけ）。そのため、鍵の入れ替えだけを「全部消す」手段にはしません。全部消すときは、鍵を入れ替えたうえで `links` の行も消します（`scripts/links.ts delete --all`）
+  - プレビューを使わない組織は `preview_urls: false` にすれば、Version URL も出ません
 - 平文は登録時と読み出し時に Worker のメモリを通ります。Worker のコードを書き換えられる人（Cloudflare アカウントの権限を持つ人）からは守れません（脅威モデルを参照）
 
 ### 鍵や設定がそろっていないとき
@@ -467,13 +469,13 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
 
 ### CI（実装のときに足す）
 
-| ファイル                        | 内容                                                                                                                                      |
-| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
-| `deploy-short-url.yml`（新規）  | `main` への push で、ビルド → `vp exec wrangler d1 migrations apply cre-short --remote` → `vp exec wrangler deploy`                       |
-| `preview-short-url.yml`（新規） | `_preview-worker.yml` を呼ぶ。`app: short-url`                                                                                            |
-| `_preview-worker.yml`           | デプロイの前にプレビューの D1 にマイグレーションを流す入力（例: `migrate`）を足す。Cloudflare のシークレットが要るので `build` とは分ける |
-| `preview-cleanup.yml`           | `matrix.app` に `short-url` を足す                                                                                                        |
-| `e2e.yml`                       | 短縮 URL → Message Editor の E2E を足す（両方の Worker をローカルで起動する）                                                             |
+| ファイル                        | 内容                                                                                                                                                                                                                                                    |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `deploy-short-url.yml`（新規）  | `main` への push で、ビルド → `vp exec wrangler d1 migrations apply cre-short --remote` → `vp exec wrangler deploy`                                                                                                                                     |
+| `preview-short-url.yml`（新規） | `_preview-worker.yml` を呼ぶ。`app: short-url`                                                                                                                                                                                                          |
+| `_preview-worker.yml`           | デプロイの前にプレビューの D1 にマイグレーションを流す入力（例: `migrate`）を足す。`vp exec wrangler d1 migrations apply cre-short-preview --remote --config wrangler.preview-migrations.jsonc`。Cloudflare のシークレットが要るので `build` とは分ける |
+| `preview-cleanup.yml`           | `matrix.app` に `short-url` を足す                                                                                                                                                                                                                      |
+| `e2e.yml`                       | 短縮 URL → Message Editor の E2E を足す（両方の Worker をローカルで起動する）                                                                                                                                                                           |
 
 - CI の `CLOUDFLARE_API_TOKEN` に D1 の編集権限が要ります（今は Workers のデプロイだけ）
 - 新しい Worker なので、AGENTS.md のとおり、プレビューより先に本番へ一度デプロイして `preview_urls` を反映させます
@@ -482,6 +484,7 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
 ### PR ごとのプレビューと D1
 
 - プレビューは、プレビュー専用の D1（`cre-short-preview`、全 PR で共有）を `previews.d1_databases` で使います。本番の D1 には触れません
+- `previews.d1_databases` のデータベースには `migrations apply` が直接効かないので、同じデータベースをトップレベルの `d1_databases` に書いた `wrangler.preview-migrations.jsonc` を置き、`--config` で指定して流します（Cloudflare の Previews のドキュメントの手順）。共有のデータベースなので、1 回流せば全 PR に効きます
 - Previews は本番の設定を引き継がないので、`ratelimits` も `previews.ratelimits` に定義します（なければ `/api/*` が実行時エラーになる）。`namespace_id` は本番と別の数にし、プレビューの呼び出しが本番の上限を使わないようにします
 - 鍵もプレビュー専用です（`wrangler preview base-config secret put LINK_MASTER_KEY`）。プレビュー用のクライアントは `clients.ts` で `cre-short-preview` に発行します
 - **プレビューに実際のお客様の判定データを登録しません。** 見本データか、架空のデータだけを使います
@@ -506,27 +509,27 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
    - スクリプトは、消す行の `link.delete` を `audit_log` に書く `INSERT … SELECT` と、`links` の `DELETE` を、同じ条件で 1 つのファイルにまとめて `wrangler d1 execute --file` で流します（D1 は 1 回の実行をまとめて適用する）
    - **`links` を SQL で直接消さないでください。** 監査ログに `link.delete` が残らず、Time Travel で戻したあとに消し直せなくなり、消したはずのリンクがまた開けるようになります
 
-3. どちらも分からないとき: 中身は暗号化されていて検索できません。期限（最長 90 日）が来れば開けなくなります（行は暗号文のまま残る）。すぐに開けなくしたいときは、`LINK_MASTER_KEY` を入れ替えてすべてを開けなくします。入れ替えた後は Time Travel で戻しても読めないので、残った行は `scripts/links.ts delete --all` で消せば足ります
+3. どちらも分からないとき: 中身は暗号化されていて検索できません。期限（最長 90 日）が来れば開けなくなります（行は暗号文のまま残る）。すぐに消したいときは、`LINK_MASTER_KEY` を入れ替え、`scripts/links.ts delete --all` で行も消します。鍵だけでは足りません（古い版の Version URL は古い鍵を持つ）。行を消しておけば、古い版からも読めません。その後に Time Travel で戻すと古い版から読めるようになるので、戻さないでください
 4. どの場合も、Time Travel には暗号文が最長 30 日残ります。読めるのは、データベースを戻し、かつ短縮 URL を知っている人だけです（鍵を入れ替えた後は誰も読めません）
 5. 依頼した人には、短縮 URL を貼った先（Slack など）と、開いた人のブラウザの履歴（Message Editor の URL）には残りうることも伝えます
 
 ## 7. 脅威モデル
 
-| 脅威                                                          | 対策                                                                                               | 残るリスク                                                      |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| 短縮 URL が漏れる（転送、スクリーンショット、ログ）           | Cloudflare Access（組織のメールのドメイン）、期限（既定 30 日、最長 90 日）、削除 API、`noindex`   | 期限内・削除前は、組織の中の人なら URL を知っていれば読める     |
-| ID の総当たり                                                 | Access の後ろ、UUID v4（122 ビットの乱数）、IP ごとのレート制限、見つからない理由を返さない        | 現実的にはない                                                  |
-| D1 の中身やバックアップが漏れる                               | 暗号化。鍵は MASTER と UUID から作り、UUID は保存しない                                            | MASTER と、短縮 URL の両方が漏れた場合                          |
-| `LINK_MASTER_KEY` が漏れる                                    | 単独では読めない（UUID が要る）。入れ替えるとすべて失効する                                        | 漏れた鍵と、別に漏れた URL・D1 を組み合わせた場合               |
-| クライアントの Secret が漏れる                                | クライアントごとに無効化、ハッシュだけを保存、レート制限、監査ログ、`crs_` の目印                  | 無効にするまでは、登録・削除ができる（Secret では読み出せない） |
-| 自組織のドメインで偽のリンクを作られる                        | 登録は Secret を持つクライアントだけ。中身は Message Editor と同じ検査を通す                       | Message Editor の URL（`#d=`）は、これまでどおり誰でも作れる    |
-| 不正なデータ（`javascript:` のリンク、展開爆弾）              | 登録時にエディターと同じ検査と上限。エディターも開くときにもう一度検査する                         | —                                                               |
-| オープンリダイレクト                                          | 遷移先は設定の `EDITOR_URL` だけ                                                                   | —                                                               |
-| 展開ボット・クローラー・リンクの検査サービス                  | Access の後ろ、静的な HTML、302 にしない、`noindex`・`robots.txt`                                  | 組織のアカウントでログインして動く検査サービスは開けうる        |
-| 鍵や Access を設定し忘れたまま公開する                        | 鍵・`ALLOWED_EMAIL_DOMAINS`・Access（`ctx.access`）のどれかがなければ、判定データを返さない（503） | —                                                               |
-| Access のポリシーを誤って広げる・`/api/` 以外を Bypass にする | Worker がメールのドメインと `ctx.access` を確かめる。読み出しは `/api/` の外に置く                 | `ALLOWED_EMAIL_DOMAINS` 自体を誤って広げた場合                  |
-| 配信する JavaScript や Worker のコードが書き換えられる        | Cloudflare アカウントの権限管理、CI の保護、外部スクリプトを読み込まない CSP                       | Worker を書き換えられる人からは守れない（Web アプリ共通の限界） |
-| 使いすぎ（費用・容量）                                        | 認証、レート制限、大きさの上限、期限                                                               | Rate Limiting は近似値なので、短時間なら上限を少し超えうる      |
+| 脅威                                                          | 対策                                                                                                                                | 残るリスク                                                      |
+| ------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 短縮 URL が漏れる（転送、スクリーンショット、ログ）           | Cloudflare Access（組織のメールのドメイン）、期限（既定 30 日、最長 90 日）、削除 API、`noindex`                                    | 期限内・削除前は、組織の中の人なら URL を知っていれば読める     |
+| ID の総当たり                                                 | Access の後ろ、UUID v4（122 ビットの乱数）、IP ごとのレート制限、見つからない理由を返さない                                         | 現実的にはない                                                  |
+| D1 の中身やバックアップが漏れる                               | 暗号化。鍵は MASTER と UUID から作り、UUID は保存しない                                                                             | MASTER と、短縮 URL の両方が漏れた場合                          |
+| `LINK_MASTER_KEY` が漏れる                                    | 単独では読めない（UUID と Access のログインが要る）。入れ替えたうえで `links` の行を消す（古い版の Version URL が古い鍵を持つため） | 漏れた鍵と、別に漏れた URL・D1 を組み合わせた場合               |
+| クライアントの Secret が漏れる                                | クライアントごとに無効化、ハッシュだけを保存、レート制限、監査ログ、`crs_` の目印                                                   | 無効にするまでは、登録・削除ができる（Secret では読み出せない） |
+| 自組織のドメインで偽のリンクを作られる                        | 登録は Secret を持つクライアントだけ。中身は Message Editor と同じ検査を通す                                                        | Message Editor の URL（`#d=`）は、これまでどおり誰でも作れる    |
+| 不正なデータ（`javascript:` のリンク、展開爆弾）              | 登録時にエディターと同じ検査と上限。エディターも開くときにもう一度検査する                                                          | —                                                               |
+| オープンリダイレクト                                          | 遷移先は設定の `EDITOR_URL` だけ                                                                                                    | —                                                               |
+| 展開ボット・クローラー・リンクの検査サービス                  | Access の後ろ、静的な HTML、302 にしない、`noindex`・`robots.txt`                                                                   | 組織のアカウントでログインして動く検査サービスは開けうる        |
+| 鍵や Access を設定し忘れたまま公開する                        | 鍵・`ALLOWED_EMAIL_DOMAINS`・Access（`ctx.access`）のどれかがなければ、判定データを返さない（503）                                  | —                                                               |
+| Access のポリシーを誤って広げる・`/api/` 以外を Bypass にする | Worker がメールのドメインと `ctx.access` を確かめる。読み出しは `/api/` の外に置く                                                  | `ALLOWED_EMAIL_DOMAINS` 自体を誤って広げた場合                  |
+| 配信する JavaScript や Worker のコードが書き換えられる        | Cloudflare アカウントの権限管理、CI の保護、外部スクリプトを読み込まない CSP                                                        | Worker を書き換えられる人からは守れない（Web アプリ共通の限界） |
+| 使いすぎ（費用・容量）                                        | 認証、レート制限、大きさの上限、期限                                                                                                | Rate Limiting は近似値なので、短時間なら上限を少し超えうる      |
 
 ## 8. 採用しなかった案と理由
 
@@ -554,7 +557,6 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
 - 期限内のリンクを生かしたまま鍵を入れ替える仕組み（例: `LINK_MASTER_KEY_PREVIOUS` も試す）を入れるか
 - Workers Free で動かすか（CPU 時間 10 ms、Time Travel 7 日）
 - 本番の `database_id` をリポジトリの `wrangler.jsonc` に書くか、CI で差し込むか
-- プレビューの D1 にマイグレーションを流す具体的なコマンド（`previews.d1_databases` をどう指定するか）
 - Access の Bypass（`/api/*`）が Worker の Access より優先されることと、ダッシュボードの手順を、実際に設定して確かめる。Access の設定をスクリプト（API）で行うか
 - 開くページの作り方（Vite でビルドするか、手書きの静的ファイルにするか）と、`@cre/message-payload` への切り出し方
 - 短縮 URL に `#p=<段落 ID>` を付けて、最初に選ぶ段落を指定できるようにするか
