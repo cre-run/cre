@@ -90,26 +90,6 @@ const calleeName = (node: AstNode): string | undefined => {
   return undefined;
 };
 
-/**
- * ブロック直下に `test.skip(条件, …)` / `test.fixme(条件, …)` の文があるか。
- * Playwright ではファイル直下や describe 直下に置くと、その範囲のテストがすべて skip される
- */
-const skipsScope = (statements: unknown[]): boolean =>
-  statements.some(
-    (statement) =>
-      isNode(statement) &&
-      statement.type === "ExpressionStatement" &&
-      isNode(statement.expression) &&
-      statement.expression.type === "CallExpression" &&
-      isNode(statement.expression.callee) &&
-      /^test\.(?:skip|fixme)$/u.test(calleeName(statement.expression.callee) ?? "") &&
-      // test.skip("名前", fn) は個々のテストの宣言なので、ここでは数えない
-      !(
-        isNode((statement.expression.arguments as unknown[])[0]) &&
-        ((statement.expression.arguments as unknown[])[0] as AstNode).type === "Literal"
-      ),
-  );
-
 /** 本文のどこかで `….skip(…)` / `….fixme(…)` を呼ぶ（実行時に skip する）テストか */
 const skipsAtRuntime = (node: AstNode): boolean => {
   if (
@@ -129,12 +109,44 @@ const skipsAtRuntime = (node: AstNode): boolean => {
   );
 };
 
+/** ブロック直下の文のうち、関数呼び出しのもの */
+const callStatements = (statements: unknown[]): AstNode[] =>
+  statements.flatMap((statement) =>
+    isNode(statement) &&
+    statement.type === "ExpressionStatement" &&
+    isNode(statement.expression) &&
+    statement.expression.type === "CallExpression" &&
+    isNode(statement.expression.callee)
+      ? [statement.expression]
+      : [],
+  );
+
+/**
+ * ブロック直下に、その範囲のテストをすべて skip する文があるか。Playwright では次のどちらも範囲全体に効く
+ * - `test.skip(条件, …)` / `test.fixme(条件, …)`（第 1 引数が文字列の `test.skip("名前", fn)` は個々のテストの宣言なので除く）
+ * - `test.beforeEach(() => test.fixme(…))` のように、フックの中で `….skip(…)` / `….fixme(…)` を呼ぶもの
+ */
+const skipsScope = (statements: unknown[]): boolean =>
+  callStatements(statements).some((call) => {
+    const callee = calleeName(call.callee as AstNode) ?? "";
+    const [first] = call.arguments as unknown[];
+    if (/^test\.(?:skip|fixme)$/u.test(callee)) {
+      return !(isNode(first) && first.type === "Literal");
+    }
+    if (/^(?:test\.)?(?:beforeEach|beforeAll)$/u.test(callee)) {
+      return (call.arguments as unknown[]).some(
+        (argument) => isNode(argument) && skipsAtRuntime(argument),
+      );
+    }
+    return false;
+  });
+
 /**
  * テストファイルで実際に実行される test("…") の名前。
  * esbuild で型とコメントを落としてから構文木にするので、行コメントとブロックコメントの中は数えない。
  * test.skip / test.only は呼び出し先が `test` ではないので数えず、describe.skip / describe.fixme の配下も数えない。
  * 本文で test.skip(条件) や test.info().skip() を呼ぶテストも、約束を確かめていないので数えない。
- * ファイル直下や describe 直下の test.skip(条件, …) は、その範囲のテストをすべて数えない。
+ * ファイル直下や describe 直下の test.skip(条件, …) と、beforeEach / beforeAll の中の skip / fixme は、その範囲のテストをすべて数えない。
  */
 const titlesInFile = async (file: string): Promise<string[]> => {
   const path = join(APP, file);
