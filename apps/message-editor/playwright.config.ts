@@ -7,7 +7,7 @@ const PORT = 4173;
  * - e2e/critical-path.e2e.ts: 壊れたら困る操作の確認（毎回の PR で実行）
  * - e2e/guide-*.e2e.ts: ガイドの手順を 1:1 でなぞり、ガイドの画像を撮って比較する（VRT）
  *
- * ガイドの画像は apps/docs/docs/features/ に直接置き、それを比較の基準にする。
+ * ガイドの画像は apps/docs/docs/message-editor/ に直接置き、それを比較の基準にする。
  * 基準の更新は CI の update-screenshots（PR に `update-screenshots` ラベル）でのみ行い、人がマージで承認する。
  * フォントなどの差をなくすため、基準画像は CI のコンテナ（.github/workflows/e2e.yml）で撮る。
  */
@@ -15,7 +15,7 @@ export default defineConfig({
   testDir: "e2e",
   testMatch: "**/*.e2e.ts",
   // ガイドの画像を {arg}.png として apps/docs のガイドの隣に置く
-  snapshotPathTemplate: "../docs/docs/features/{arg}{ext}",
+  snapshotPathTemplate: "../docs/docs/message-editor/{arg}{ext}",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

@@ -3,7 +3,7 @@
 Message Editor のモック（SPA）です。返信の下書きを段落ごとに編集しながら、
 各段落の確認状況（確認済み・条件あり・再確認・根拠なし）と、根拠（種類・立場・確認日時の鮮度）を表示します。
 
-ドキュメント: `apps/docs/docs/features/message-editor.mdx`（`preview`）
+ドキュメント: `apps/docs/docs/message-editor/`（`index.mdx` がガイド、`data-handling.mdx` がデータの取り扱い。どちらも `preview`）
 
 ## データの渡し方
 
@@ -31,7 +31,7 @@ vp run @cre/message-editor#build
 
 ### セキュリティとプライバシー
 
-ガイドの「判定データの扱いについて」と `apps/docs/docs/features/message-editor-data-handling.mdx` で約束している内容です。`tests/data-handling.test.ts` と
+ガイドの「判定データの扱いについて」と `apps/docs/docs/message-editor/data-handling.mdx` で約束している内容です。`tests/data-handling.test.ts` と
 `e2e/guide-message-editor-data-handling.e2e.ts` で確かめ続けています。
 
 - 判定データは URL の `#` 以降に載るため、サーバー（Cloudflare）には送られません。Worker にロジックはなく、静的ファイルを返すだけです
@@ -56,8 +56,8 @@ Cloudflare Workers の `cre-editor` として、静的ファイル（`dist/`）�
 E2E は Playwright です（`playwright.config.ts`、`e2e/`）。
 
 - `e2e/critical-path.e2e.ts` — 壊れるとガイドの手順が成り立たなくなる操作（画像は撮らない）
-- `e2e/guide-message-editor.e2e.ts` — ガイド（`apps/docs/docs/features/message-editor.mdx`）の手順をなぞり、
-  ガイドの画像 `apps/docs/docs/features/message-editor*.png` と比べる（VRT）
+- `e2e/guide-message-editor.e2e.ts` — ガイド（`apps/docs/docs/message-editor/index.mdx`）の手順をなぞり、
+  ガイドの画像 `apps/docs/docs/message-editor/*.png` と比べる（VRT）
 - `e2e/guide-message-editor-data-handling.e2e.ts` — ガイドの「判定データの扱いについて」のとおり、判定データが外部に送られず、ブラウザにも残らないことを確かめる（画像は撮らない）
 
 ```bash

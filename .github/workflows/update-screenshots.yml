@@ -1,6 +1,6 @@
 name: Update Screenshots
 
-# PR に `update-screenshots` ラベルが付いたら、ガイドの画像（apps/docs/docs/features/*.png）を
+# PR に `update-screenshots` ラベルが付いたら、ガイドの画像（apps/docs/docs/message-editor/*.png）を
 # E2E のコンテナで撮り直し、E2E がすべて通ったときだけ PR のブランチにコミットする。
 # 差分が意図どおりかは、人が PR の画像差分（Files changed）とプレビューで確かめ、マージで承認する。
 
@@ -61,7 +61,7 @@ jobs:
         id: commit
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git add apps/docs/docs/features/*.png
+          git add apps/docs/docs/message-editor/*.png
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0

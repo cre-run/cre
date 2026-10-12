@@ -2,7 +2,7 @@ name: E2E
 
 # apps/message-editor の E2E（Playwright）。
 # - e2e/critical-path.e2e.ts: 壊れるとガイドの手順が成り立たなくなる操作
-# - e2e/guide-*.e2e.ts: ガイドの手順をなぞり、ガイドの画像（apps/docs/docs/features/*.png）と比べる（VRT）
+# - e2e/guide-*.e2e.ts: ガイドの手順をなぞり、ガイドの画像（apps/docs/docs/message-editor/*.png）と比べる（VRT）
 # 画像の差分で失敗したら、意図した変更なら PR に `update-screenshots` ラベルを付けて撮り直す（update-screenshots.yml）。
 # フォントなどの描画差をなくすため、基準画像を撮るときと同じコンテナで実行する。
 
@@ -10,7 +10,7 @@ on:
   pull_request:
     paths:
       - apps/message-editor/**
-      - apps/docs/docs/features/**
+      - apps/docs/docs/message-editor/**
       - packages/asset/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
@@ -19,7 +19,7 @@ on:
     branches: [main]
     paths:
       - apps/message-editor/**
-      - apps/docs/docs/features/**
+      - apps/docs/docs/message-editor/**
       - packages/asset/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml

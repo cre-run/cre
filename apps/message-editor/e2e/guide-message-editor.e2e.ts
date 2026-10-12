@@ -1,8 +1,8 @@
 /**
- * 対応ガイド: apps/docs/docs/features/message-editor.mdx
+ * 対応ガイド: apps/docs/docs/message-editor/index.mdx
  *
  * ガイドの手順・画像と 1:1 で対応させる。ガイドの画像はこのテストが撮り、
- * apps/docs/docs/features/<name>.png を比較の基準にする（差分があれば失敗）。
+ * apps/docs/docs/message-editor/<name>.png を比較の基準にする（差分があれば失敗）。
  * 基準を更新できるのは、PR に `update-screenshots` ラベルを付けて CI に撮り直させたときだけ。
  */
 import { expect, test } from "@playwright/test";
