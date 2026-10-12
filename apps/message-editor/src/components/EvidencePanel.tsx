@@ -65,12 +65,15 @@ export const EvidencePanel = ({
   total,
   questions,
   generatedAt,
+  onMove,
 }: {
   paragraph: ReplyParagraph | undefined;
   index: number;
   total: number;
   questions: InquiryParagraph[];
   generatedAt: string;
+  /** 前後の段落へ移る（-1 / +1）。本文に戻らず、パネルの中だけで段落を順に確かめられる */
+  onMove: (step: -1 | 1) => void;
 }) => {
   const [checksOpen, setChecksOpen] = useState(paragraph?.status !== "verified");
   if (!paragraph) {
@@ -87,7 +90,26 @@ export const EvidencePanel = ({
         <h2 id="panel-title" className="panel-title">
           この段落の根拠
         </h2>
-        <Icon name="sliders" />
+        <span className="panel-nav">
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="前の段落"
+            disabled={index <= 0}
+            onClick={() => onMove(-1)}
+          >
+            <Icon name="chevronLeft" size={14} />
+          </button>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="次の段落"
+            disabled={index >= total - 1}
+            onClick={() => onMove(1)}
+          >
+            <Icon name="chevronRight" size={14} />
+          </button>
+        </span>
       </div>
 
       <p className="panel-position">
@@ -112,6 +134,23 @@ export const EvidencePanel = ({
         {paragraph.method && <span>{paragraph.method}</span>}
       </p>
       <p className="panel-summary">{paragraph.summary}</p>
+
+      {/* 忙しいときは要点だけで判断できるよう、何をすべきかを内訳より先に置く */}
+      {paragraph.nextAction && (
+        <div className="panel-section next">
+          <p className="section-label">
+            <Icon name="check" size={14} />
+            次のアクション
+          </p>
+          <p>{paragraph.nextAction}</p>
+          {paragraph.owners && (
+            <p className="muted small owners">
+              <Icon name="shield" size={12} />
+              {paragraph.owners.join("・")}
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="panel-section">
         <button
@@ -160,22 +199,6 @@ export const EvidencePanel = ({
           ))}
         </ul>
       </div>
-
-      {paragraph.nextAction && (
-        <div className="panel-section next">
-          <p className="section-label">
-            <Icon name="check" size={14} />
-            次のアクション
-          </p>
-          <p>{paragraph.nextAction}</p>
-          {paragraph.owners && (
-            <p className="muted small owners">
-              <Icon name="shield" size={12} />
-              {paragraph.owners.join("・")}
-            </p>
-          )}
-        </div>
-      )}
     </aside>
   );
 };

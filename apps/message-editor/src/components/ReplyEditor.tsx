@@ -53,7 +53,7 @@ export const ReplyEditor = ({
       <div className="reply-body">
         <div className="reply-toolbar">
           <span className="muted small">
-            本文を直接編集できます。右の注釈はお客様に送る文面には含まれません
+            本文を直接編集できます。段落の下の注釈はお客様に送る文面には含まれません
           </span>
           <button
             type="button"
@@ -87,16 +87,22 @@ export const ReplyEditor = ({
               >
                 {texts[p.id] ?? p.text}
               </p>
+              {/* 段落の直下に 1 行で、確認状況と根拠の種類を示す（右の根拠パネルへの入口） */}
               <button
                 type="button"
                 className="annotation"
                 aria-label={`段落 ${p.topic} の根拠を見る`}
+                aria-current={selected ? "true" : undefined}
                 onClick={() => onSelect(p.id)}
               >
                 <span className={`status-label status-${p.status}`}>
                   <span aria-hidden="true">{STATUS[p.status].icon}</span> {STATUS[p.status].label}
                 </span>
                 <span className="annotation-types">{types.join("・")}</span>
+                <span className="annotation-cta" aria-hidden="true">
+                  {selected ? "根拠を表示中" : "根拠を見る"}
+                  {!selected && <Icon name="arrowRight" size={12} />}
+                </span>
               </button>
             </div>
           );

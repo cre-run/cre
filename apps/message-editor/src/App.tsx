@@ -144,6 +144,12 @@ export const App = () => {
             total={reply.paragraphs.length}
             questions={questions}
             generatedAt={payload.generatedAt}
+            onMove={(step) => {
+              const next = reply.paragraphs[index + step];
+              if (next) {
+                setSelectedId(next.id);
+              }
+            }}
           />
         </div>
 

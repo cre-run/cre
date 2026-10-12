@@ -22,6 +22,19 @@ test("段落を選ぶと右パネルがその段落の根拠に切り替わる",
   await expect(panel.getByText("主張と食い違い")).toBeVisible();
 });
 
+test("右パネルの「次の段落」「前の段落」で、本文に戻らずに段落を順に確かめられる", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const panel = page.getByRole("complementary");
+  await expect(panel.getByRole("button", { name: "前の段落" })).toBeDisabled();
+  await panel.getByRole("button", { name: "次の段落" }).click();
+  await expect(panel.getByRole("heading", { level: 3 })).toHaveText("SSO 環境での API キー発行");
+  await expect(panel.getByRole("button", { name: "前の段落" })).toBeEnabled();
+  await panel.getByRole("button", { name: "前の段落" }).click();
+  await expect(panel.getByRole("heading", { level: 3 })).toHaveText("エラー行があるときの取り込み");
+});
+
 test("送る前にやることをチェックすると、送れる状態になる", async ({ page }) => {
   await page.goto("/");
   const actions = page.getByLabel("改善アクション");

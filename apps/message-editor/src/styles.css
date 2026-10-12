@@ -178,9 +178,10 @@ h1 {
   cursor: pointer;
 }
 
+/* 2 カラム: 本文（注釈は段落の下に 1 行）と、選んだ段落の根拠 */
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 316px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 32px;
   align-items: start;
 }
@@ -221,6 +222,11 @@ h1 {
   background: none;
   color: var(--muted);
   cursor: pointer;
+}
+
+.icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* inquiry */
@@ -335,8 +341,7 @@ h1 {
 
 .paragraph {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 132px;
-  gap: 24px;
+  gap: 2px;
   margin: 0 -14px;
   padding: 10px 14px;
   border-left: 2px solid transparent;
@@ -360,21 +365,41 @@ h1 {
   white-space: pre-wrap;
 }
 
+/* 段落の直下の注釈: 確認状況・根拠の種類・根拠パネルへの入口を 1 行に */
 .annotation {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  padding: 4px 0 4px 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
   border: 0;
-  border-left: 1px solid var(--border);
   background: none;
+  font-size: 12px;
+  line-height: 1.6;
   text-align: left;
   cursor: pointer;
 }
 
 .annotation-types {
   color: var(--muted);
-  font-size: 11px;
+}
+
+.annotation-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+
+/* 選んでいない段落では、触れたときだけ入口を見せて本文を静かに保つ */
+.paragraph:not(.is-selected):not(:hover) .annotation:not(:focus-visible) .annotation-cta {
+  visibility: hidden;
+}
+
+.paragraph.is-selected .annotation-cta {
+  color: var(--accent);
 }
 
 .status-label {
@@ -517,6 +542,11 @@ h1 {
 .panel-title {
   color: var(--text);
   font-size: 14px;
+}
+
+.panel-nav {
+  display: inline-flex;
+  gap: 2px;
 }
 
 .panel-position {
@@ -752,8 +782,16 @@ h1 {
   font-size: 11px;
 }
 
+.next {
+  margin-top: 4px;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent-soft);
+}
+
 .next .section-label {
-  color: var(--verified);
+  color: var(--accent);
 }
 
 .owners {
@@ -832,17 +870,6 @@ h1 {
 
   .panel {
     position: static;
-  }
-
-  .paragraph {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .annotation {
-    display: flex;
-    padding-left: 0;
-    border-left: 0;
   }
 
   .topbar-user {
