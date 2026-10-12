@@ -51,6 +51,24 @@ test("URL の判定データを表示する", async ({ page }) => {
   await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
 });
 
+test("確認の内訳がない段落では、内訳の区画を出さない（「すべて OK」と見せない）", async ({
+  page,
+}) => {
+  const [first, ...rest] = samplePayload.reply.paragraphs;
+  const payload = {
+    ...samplePayload,
+    reply: {
+      ...samplePayload.reply,
+      paragraphs: [{ ...first!, status: "unverified" as const, checks: [] }, ...rest],
+    },
+  };
+  await page.goto(`/${toHash(payload)}`);
+  const panel = page.getByRole("complementary");
+  await expect(panel.getByText("根拠なし")).toBeVisible();
+  await expect(panel.getByRole("button", { name: /確認の内訳/u })).toHaveCount(0);
+  await expect(panel.getByText(/すべて OK/u)).toHaveCount(0);
+});
+
 test("ガイドに載せた URL の例を開くと、見本と同じ内容が表示される", async ({ page }) => {
   const [encoded] = guideExampleHashes();
   await page.goto(`/#d=${encoded}`);

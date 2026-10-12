@@ -158,20 +158,23 @@ export const EvidencePanel = ({
         </Section>
       )}
 
-      {/* NG・要確認があるときだけ最初から開き、問題がなければ要約だけ見せる */}
-      <Section title="確認の内訳" hint={checksHint} defaultOpen={ng + warn > 0}>
-        <ul className="checks">
-          {paragraph.checks.map((check) => (
-            <li key={check.label} className={`check result-${check.result}`}>
-              <span className="check-result">{CHECK_RESULT[check.result]}</span>
-              <span>
-                {check.label}
-                {check.note && <span className="check-note">{check.note}</span>}
-              </span>
-            </li>
-          ))}
-        </ul>
-      </Section>
+      {/* NG・要確認があるときだけ最初から開き、問題がなければ要約だけ見せる。
+          内訳が空のときは「すべて OK」と誤って見せないよう、区画ごと出さない */}
+      {paragraph.checks.length > 0 && (
+        <Section title="確認の内訳" hint={checksHint} defaultOpen={ng + warn > 0}>
+          <ul className="checks">
+            {paragraph.checks.map((check) => (
+              <li key={check.label} className={`check result-${check.result}`}>
+                <span className="check-result">{CHECK_RESULT[check.result]}</span>
+                <span>
+                  {check.label}
+                  {check.note && <span className="check-note">{check.note}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Section>
+      )}
 
       <div className="panel-section">
         <p className="section-label">
