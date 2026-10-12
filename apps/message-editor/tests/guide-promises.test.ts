@@ -96,7 +96,7 @@ const calleeName = (node: AstNode): string | undefined => {
  */
 const skipsAtRuntime = (
   node: AstNode,
-  functions: Map<string, AstNode>,
+  functions: Map<string, AstNode[]>,
   seen: Set<AstNode> = new Set(),
 ): boolean => {
   if (seen.has(node)) {
@@ -114,8 +114,8 @@ const skipsAtRuntime = (
       return true;
     }
     if (callee.type === "Identifier") {
-      const definition = functions.get(callee.name as string);
-      if (definition && skipsAtRuntime(definition, functions, seen)) {
+      const definitions = functions.get(callee.name as string) ?? [];
+      if (definitions.some((definition) => skipsAtRuntime(definition, functions, seen))) {
         return true;
       }
     }
@@ -143,29 +143,34 @@ const isFunctionNode = (node: unknown): node is AstNode =>
   isNode(node) &&
   ["FunctionExpression", "ArrowFunctionExpression", "FunctionDeclaration"].includes(node.type);
 
-/** ファイル直下で定義された関数（`const f = () => …` / `function f() {}`）を名前で引けるようにする */
-const localFunctions = (program: AstNode): Map<string, AstNode> => {
-  const found = new Map<string, AstNode>();
-  for (const statement of program.body as unknown[]) {
-    if (!isNode(statement)) {
-      continue;
+/**
+ * ファイルのどこかで定義された関数（`const f = () => …` / `function f() {}`）を名前で引けるようにする。
+ * describe のコールバックの中など、入れ子の定義も集める。同じ名前が複数あれば、どれかが skip すれば
+ * 「skip する」側に倒れるよう、すべて残す
+ */
+const localFunctions = (program: AstNode): Map<string, AstNode[]> => {
+  const found = new Map<string, AstNode[]>();
+  const add = (name: string, definition: AstNode): void => {
+    found.set(name, [...(found.get(name) ?? []), definition]);
+  };
+  const visit = (node: AstNode): void => {
+    if (node.type === "FunctionDeclaration" && isNode(node.id)) {
+      add(node.id.name as string, node);
     }
-    if (statement.type === "FunctionDeclaration" && isNode(statement.id)) {
-      found.set(statement.id.name as string, statement);
+    if (node.type === "VariableDeclarator" && isNode(node.id) && node.id.type === "Identifier") {
+      if (isFunctionNode(node.init)) {
+        add(node.id.name as string, node.init);
+      }
     }
-    if (statement.type === "VariableDeclaration") {
-      for (const declarator of statement.declarations as unknown[]) {
-        if (
-          isNode(declarator) &&
-          isNode(declarator.id) &&
-          declarator.id.type === "Identifier" &&
-          isFunctionNode(declarator.init)
-        ) {
-          found.set(declarator.id.name as string, declarator.init);
+    for (const value of Object.values(node)) {
+      for (const child of Array.isArray(value) ? value : [value]) {
+        if (isNode(child)) {
+          visit(child);
         }
       }
     }
-  }
+  };
+  visit(program);
   return found;
 };
 
@@ -174,13 +179,13 @@ const localFunctions = (program: AstNode): Map<string, AstNode> => {
  * インライン関数はその場で、識別子はファイル直下の定義を引いて調べる。
  * 解決できないもの（import した関数など）は、安全側に倒して「skip する」とみなす
  */
-const hookSkips = (argument: unknown, functions: Map<string, AstNode>): boolean => {
+const hookSkips = (argument: unknown, functions: Map<string, AstNode[]>): boolean => {
   if (isFunctionNode(argument)) {
     return skipsAtRuntime(argument, functions);
   }
   if (isNode(argument) && argument.type === "Identifier") {
-    const definition = functions.get(argument.name as string);
-    return definition ? skipsAtRuntime(definition, functions) : true;
+    const definitions = functions.get(argument.name as string) ?? [];
+    return definitions.length === 0 || definitions.some((d) => skipsAtRuntime(d, functions));
   }
   return true;
 };
@@ -190,7 +195,7 @@ const hookSkips = (argument: unknown, functions: Map<string, AstNode>): boolean 
  * - `test.skip(条件, …)` / `test.fixme(条件, …)`（第 1 引数が文字列の `test.skip("名前", fn)` は個々のテストの宣言なので除く）
  * - `test.beforeEach(fn)` / `test.beforeAll(fn)` の fn が中で `….skip(…)` / `….fixme(…)` を呼ぶもの
  */
-const skipsScope = (statements: unknown[], functions: Map<string, AstNode>): boolean =>
+const skipsScope = (statements: unknown[], functions: Map<string, AstNode[]>): boolean =>
   callStatements(statements).some((call) => {
     const callee = calleeName(call.callee as AstNode) ?? "";
     const [first] = call.arguments as unknown[];
