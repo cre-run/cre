@@ -16,10 +16,9 @@ Slack のボタン（3,000 文字まで）のように長さに上限がある�
 
 - Bot などが判定データを登録すると、短縮 URL が返ってきます
 - 短縮 URL を開くと、組織のメールアドレスでログインしたうえで、Message Editor にその判定データが表示されます
-- 削除すると、開けなくなります
 
 短縮 URL のサーバーは、自組織の Cloudflare にセルフホストして使います。
-作れるのは管理者が Secret を発行した Bot などだけで、開けるのは組織のメールアドレスでログインした人だけです。
+作れるのは管理者から `BOT_KEY` を受け取った Bot だけで、開けるのは組織のメールアドレスでログインした人だけです。
 
 ## URL の形
 
@@ -43,31 +42,27 @@ ID はランダムな UUID（v4）です。長さは判定データの大きさ�
 
 | 表示                              | 理由                                                   |
 | --------------------------------- | ------------------------------------------------------ |
-| このリンクは開けません            | 削除された、または URL が間違っている                  |
+| このリンクは開けません            | URL が間違っている、またはサーバーの鍵が変わった       |
 | このメールアドレスでは開けません  | ログインしたメールアドレスのドメインが許可されていない |
 | 短縮 URL の設定が終わっていません | 管理者がサーバーの設定を終えていない                   |
 
-## 消す
-
-短縮 URL は、削除するまで開けます（有効期限はありません）。削除は Bot などから行います。
-開いたあとの Message Editor の URL はブラウザの履歴に残り、削除しても履歴からは開けます。
+短縮 URL には有効期限も削除の機能もありません。管理者がサーバーの鍵を変えると、それまでの短縮 URL はすべて開けなくなります。
+開いたあとの Message Editor の URL はブラウザの履歴に残り、そこからはいつでも開けます。
 
 ## 短縮 URL を作る（Bot の開発者向け）
 
-管理者から受け取った Secret を付けて登録します。`data` には Message Editor の URL の `#d=` より後ろを入れます。
+管理者から受け取った `BOT_KEY` を `Authorization` ヘッダーに付けて登録します。`data` には Message Editor の URL の `#d=` より後ろを入れます。
 
 ```bash
 # link.json: {"data": "<#d= より後ろの値>"}
 curl -X POST https://short.example.com/api/links \
-  -H "Authorization: Bearer $CRE_SHORT_URL_SECRET" \
+  -H "Authorization: Bearer $CRE_SHORT_URL_BOT_KEY" \
   -H "Content-Type: application/json" \
   --data-binary @link.json
 # → {"id": "0f8c…", "url": "https://short.example.com/id/0f8c…"}
-
-curl -X DELETE https://short.example.com/api/links/<ID> \
-  -H "Authorization: Bearer $CRE_SHORT_URL_SECRET"
 ```
 
-Message Editor が表示できないデータは登録しません。
+- `BOT_KEY` はコードに書かず、Bot のシークレットの管理機能か環境変数（例: `CRE_SHORT_URL_BOT_KEY`）に置きます
+- Message Editor が表示できないデータは登録しません
 
 サーバーの用意は[セルフホストの設定](/short-url/self-hosting)、データがどこに残るかは[データの取り扱い](/short-url/data-handling)にまとめています。

@@ -19,13 +19,13 @@ Slack Block Kit のボタン `url`・section `text`（どちらも 3,000 文字�
 | 短縮 URL   | `https://<ドメイン>/id/<UUID v4>`                                                                                                                  |
 | 開ける人   | Cloudflare Access で組織のメールのドメインでログインした人だけ。Worker も Access の JWT のメールのドメインを `ACCESS.allowedEmailDomains` と照らす |
 | 開いたとき | `GET /id/<UUID>` → 復号 → `302` で `<EDITOR_URL>#d=<data>` へ。Message Editor は変えない                                                           |
-| 登録・削除 | `POST /api/links` と `DELETE /api/links/<UUID>`。クライアントごとの Secret（Bearer）で認証。`/api/*` は Access の対象外                            |
-| 保存       | D1 に AES-256-GCM の暗号文だけを保存。鍵は Worker の Secret `LINK_MASTER_KEY`                                                                      |
+| 登録       | `POST /api/links`。Worker の Secret `BOT_KEY` を Bearer で付ける（Bot 共通の 1 つのキー）。`/api/*` は Access の対象外。削除の API はない          |
+| 保存       | D1 に AES-256-GCM の暗号文だけを保存。鍵は Worker の Secret `LINK_MASTER_KEY`。有効期限はなく、鍵を変えるとすべて開けなくなる                      |
 
 ## データの扱い
 
 - **Access 前提で fail closed にする。** Access は `wrangler.jsonc` では設定できないので、Worker の側で次を確かめ、どれかが欠ければ判定データを返しません
-  - `LINK_MASTER_KEY` が 32 バイトとして読める（なければ `503`）
+  - `LINK_MASTER_KEY` が 32 バイトとして読め、`BOT_KEY` がある（なければ `503`）
   - `vars.ACCESS` の `allowedEmailDomains`・`teamDomain`・`aud` がそろっている（なければ `503`）
   - `/id/*` では、Access の JWT からメールのドメインを確かめる（下記）
 - **Access の JWT でメールのドメインを確かめる（`/id/*` のたびに）。** Cloudflare の [JWT の検証の手順](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/validating-json/) に従います
@@ -41,63 +41,51 @@ Slack Block Kit のボタン `url`・section `text`（どちらも 3,000 文字�
 
 ## API
 
-| メソッドとパス             | 認証   | 内容                                                                                             |
-| -------------------------- | ------ | ------------------------------------------------------------------------------------------------ |
-| `GET /id/{uuid}`           | Access | `302` で Message Editor へ。見つからないは `404`、ドメイン違いは `403`、設定不足は `503` の HTML |
-| `POST /api/links`          | Bearer | 本文 `{"data": "…"}` → `201 {"id", "url"}`                                                       |
-| `DELETE /api/links/{uuid}` | Bearer | `204`。見つからないは `404`                                                                      |
+| メソッドとパス    | 認証   | 内容                                                                                                           |
+| ----------------- | ------ | -------------------------------------------------------------------------------------------------------------- |
+| `GET /id/{uuid}`  | Access | `302` で Message Editor へ。見つからない・復号できないは `404`、ドメイン違いは `403`、設定不足は `503` の HTML |
+| `POST /api/links` | Bearer | 本文 `{"data": "…"}` → `201 {"id", "url"}`                                                                     |
 
-`/api/*` のエラーは `{"error": "<コード>"}` だけを返します（`invalid_request`・`invalid_payload`・`unauthorized`・`not_found`・`too_large`・`not_configured`）。
-認証の失敗は理由によらず `401 unauthorized` です。
+`/api/*` のエラーは `{"error": "<コード>"}` だけを返します（`invalid_request`・`invalid_payload`・`unauthorized`・`too_large`・`not_configured`）。
+`BOT_KEY` の照合は、両方を SHA-256 にしてから `crypto.subtle.timingSafeEqual` で比べます（長さに左右されない定数時間の比較）。
 
 ## Secret と設定
 
-| 名前                  | 種類              | 内容                                                                                                                                                                                                                                                                   |
-| --------------------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `LINK_MASTER_KEY`     | Worker の Secret  | 32 バイトの乱数の base64url。`wrangler secret put` で登録                                                                                                                                                                                                              |
-| `ACCESS`              | `vars`（必須）    | `{"allowedEmailDomains": ["example.com"], "teamDomain": "example.cloudflareaccess.com", "aud": "…"}`。開けるメールのドメイン（JWT の `email` の `@` より後ろと完全一致）、JWT の `iss` と公開鍵の取得先、`aud` と比べる AUD タグ。`.dev.vars` では JSON の文字列で書く |
-| `EDITOR_URL`          | `vars`            | 既定 `https://editor.cre.run/`。`https:` で始まり `#` を含まないこと                                                                                                                                                                                                   |
-| クライアントの Secret | D1 にハッシュだけ | `crs_<client_id>_<43 文字の乱数>`。D1 には SHA-256 だけを置き、`timingSafeEqual` で比べる                                                                                                                                                                              |
+| 名前              | 種類             | 内容                                                                                                                                                                                                                                                                   |
+| ----------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `LINK_MASTER_KEY` | Worker の Secret | 32 バイトの乱数の base64url。`wrangler secret put` で登録                                                                                                                                                                                                              |
+| `ACCESS`          | `vars`（必須）   | `{"allowedEmailDomains": ["example.com"], "teamDomain": "example.cloudflareaccess.com", "aud": "…"}`。開けるメールのドメイン（JWT の `email` の `@` より後ろと完全一致）、JWT の `iss` と公開鍵の取得先、`aud` と比べる AUD タグ。`.dev.vars` では JSON の文字列で書く |
+| `EDITOR_URL`      | `vars`           | 既定 `https://editor.cre.run/`。`https:` で始まり `#` を含まないこと                                                                                                                                                                                                   |
+| `BOT_KEY`         | Worker の Secret | 32 バイトの乱数の base64url。Bot が `Authorization: Bearer` で付ける。漏れたら作り直して Bot の側も置き換える                                                                                                                                                          |
 
-クライアントの Secret は `vp exec node scripts/clients.ts create|disable` で発行・無効化します（Secret は一度だけ表示し、ハッシュだけを `wrangler d1 execute` で入れる）。
-`vp run` は環境変数を引き継がず出力をキャッシュするので使いません。
+コマンドは `vp exec` で実行します。`vp run` は環境変数を引き継がず出力をキャッシュするので使いません。
 
 ## D1 のスキーマ（案: `migrations/0001_init.sql`）
 
 ```sql
-CREATE TABLE clients (
-  id          TEXT PRIMARY KEY,      -- base62 8 文字
-  name        TEXT NOT NULL UNIQUE,
-  secret_hash TEXT NOT NULL,         -- hex(SHA-256(Secret))
-  created_at  INTEGER NOT NULL,      -- UNIX 秒
-  disabled_at INTEGER
-);
-
 CREATE TABLE links (
   id         TEXT PRIMARY KEY,       -- UUID v4
-  client_id  TEXT NOT NULL REFERENCES clients (id),
   ciphertext BLOB NOT NULL,          -- IV(12) || AES-256-GCM(data)
-  created_at INTEGER NOT NULL
+  created_at INTEGER NOT NULL        -- UNIX 秒
 );
 ```
-
-削除は行ごと消します。
 
 ## 運用
 
 - デプロイ: `main` への push で `deploy-short-url.yml` が `vp exec wrangler d1 migrations apply cre-short --remote` → `vp exec wrangler deploy` を実行します（CI の API トークンに D1 の編集権限を足す）
 - PR ごとのプレビュー: プロトタイプのあいだは作りません（`preview_urls: false`。古い版の Version URL も出ない）。確認はローカルと E2E で行います。ローカルには Access がないので、テスト用の鍵で署名した JWT をヘッダーに付け、`ACCESS.teamDomain` をテスト用の公開鍵を返すローカルのサーバーに向けます（実装時にスクリプトを用意する）
-- 削除の依頼: ID が分かれば `DELETE /api/links/{uuid}`。分からなければクライアントと期間を条件に `links` を消すか、鍵を変えてすべてを開けなくします
+- 消したいとき: 削除の API はありません。ID が分かれば `vp exec wrangler d1 execute cre-short --remote --command "DELETE FROM links WHERE id = '…'"`、すべてなら `LINK_MASTER_KEY` を変えます
 - Message Editor のガイド（`message-editor/data-handling.mdx`）とテストは変わりません
 
 ## 後回しにしたこと
 
 プロトタイプでは作りません。必要になったら足します。
 
-- レート制限（Access と Secret で、使える人が限られているため）
-- 監査ログ（`links.client_id` と `created_at` で、誰がいつ作ったかは分かる）
+- レート制限（Access と `BOT_KEY` で、使える人が限られているため）
+- Bot ごとのキー（発行・無効化の仕組みと `clients` テーブル）と監査ログ
+- 削除の API
 - PR ごとのプレビュー（プレビュー用の D1・鍵・Access が要る）
-- 有効期限（削除するまで開ける。必要になったら `expires_at` を足し、読み出し時に判定する）
+- 有効期限（鍵を変えるまで開ける。必要になったら `expires_at` を足し、読み出し時に判定する）
 - それまでのリンクを生かしたままの鍵の入れ替え
 
 ## 採用しなかった案
@@ -108,7 +96,6 @@ CREATE TABLE links (
 | 鍵を URL の `#k=` に置く（サーバーも読めない形） | URL は「ドメイン + UUID」を基本にすると決めた。Access と保存時の暗号化で足りる           |
 | Access を使わず、URL だけで開けるようにする      | URL がログや転送で漏れると、組織の外の人でも読める                                       |
 | 静的なページと JavaScript で読み出す             | 展開ボットに判定データを渡さないための仕組みだったが、Access の後ろに置けば 302 で足りる |
-| HMAC 署名で認証する                              | 検証にサーバーが Secret そのものを持つ必要があり、ハッシュだけの保存と両立しない         |
 | Message Editor に `fetch` を足す                 | エディターの「画面から送信しない」約束とテストを変えることになる                         |
 
 ## 未決事項

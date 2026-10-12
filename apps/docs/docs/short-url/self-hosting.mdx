@@ -41,17 +41,25 @@ vp exec wrangler d1 migrations apply short-url --remote   # テーブルを作�
 
 秘密の値は、ここには書きません（`wrangler.jsonc` はリポジトリに入ります）。
 
-## 3. サーバーの鍵を登録する
+## 3. 鍵を登録する
 
-判定データを暗号化する鍵 `LINK_MASTER_KEY` を、Worker の Secret に登録します。値は画面にもシェルの履歴にも出しません。
+Worker の Secret に、2 つの鍵を登録します。`LINK_MASTER_KEY` は画面にも履歴にも出しません。`BOT_KEY` は Bot に渡すので、一度だけ表示して控えます。
+
+| 名前              | 使い道                                                                      |
+| ----------------- | --------------------------------------------------------------------------- |
+| `LINK_MASTER_KEY` | 判定データを暗号化する鍵。変えると、それまでの短縮 URL はすべて開けなくなる |
+| `BOT_KEY`         | Bot が短縮 URL を作るときに付けるキー                                       |
 
 ```bash
 node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))" \
   | vp exec wrangler secret put LINK_MASTER_KEY
+
+# BOT_KEY は Bot にも渡すので、表示して控える
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+vp exec wrangler secret put BOT_KEY   # 上の値を貼る
 ```
 
-- 鍵がないあいだは、作ることも開くこともできません
-- 鍵を変えると、それまでの短縮 URL はすべて開けなくなります（すべてを消したいときにも使えます）
+どちらかがないあいだは、作ることも開くこともできません。
 
 ## 4. デプロイする
 
@@ -72,16 +80,11 @@ vp exec wrangler deploy
 
 サーバーは、Access がリクエストに付ける JWT（`Cf-Access-Jwt-Assertion` ヘッダー）の署名を確かめ、その中のメールアドレスのドメインが `allowedEmailDomains` に入っているときだけ判定データを返します。Access をかけ忘れたり、ポリシーを誤って広げたりしても、組織の外の人には開けません。
 
-## 6. Bot に Secret を渡す
+## 6. Bot に `BOT_KEY` を渡す
 
-Bot ごとに Secret を発行します。Secret は一度だけ表示され、サーバーにはハッシュだけが残ります。
-
-```bash
-vp exec node scripts/clients.ts create slack-bot   # Secret（crs_…）を表示する
-vp exec node scripts/clients.ts disable <ID>       # 使わなくなった・漏れたときに無効にする
-```
-
-Bot の側では、Secret をシークレットの管理機能か環境変数（例: `CRE_SHORT_URL_SECRET`）に置きます。
+3 で控えた `BOT_KEY` を、Bot のシークレットの管理機能か環境変数（例: `CRE_SHORT_URL_BOT_KEY`）に置きます。
+Bot は、短縮 URL を作るときに `Authorization: Bearer <BOT_KEY>` を付けます（[短縮 URL を作る](/short-url#短縮-url-を作るbot-の開発者向け)）。
+キーが漏れたら、3 と同じ手順で `BOT_KEY` を作り直し、Bot の側も置き換えます。
 
 ## 7. 確かめる
 
@@ -89,10 +92,10 @@ Bot の側では、Secret をシークレットの管理機能か環境変数（
 curl -i -X POST https://short.example.com/api/links
 ```
 
-`401` が返れば、`/api/` が Access から外れていて、鍵も設定されています（Secret がないので断られた）。
+`401` が返れば、`/api/` が Access から外れていて、鍵も設定されています（`BOT_KEY` を付けていないので断られた）。
 `503` なら鍵か `vars` の必須の項目が、`302`（Access のログインへの転送）なら 5 の `/api/` の除外が、正しく設定されていません。
 
-最後に、見本データで短縮 URL を 1 つ作り、組織のメールアドレスでは開け、外のメールアドレスでは開けないことを確かめてから削除します。
+最後に、`BOT_KEY` を付けて見本データの短縮 URL を 1 つ作り、組織のメールアドレスでは開け、外のメールアドレスでは開けないことを確かめます。
 
 ## ローカルで動かすとき
 
@@ -100,11 +103,11 @@ curl -i -X POST https://short.example.com/api/links
 
 ```dotenv
 LINK_MASTER_KEY=<ローカル用に作った値>
+BOT_KEY=<ローカル用に作った値>
 ACCESS={"allowedEmailDomains":["example.com"],"teamDomain":"localhost:8788","aud":"short-url-dev"}
 ```
 
 ```bash
 vp exec wrangler d1 migrations apply short-url --local
-vp exec node scripts/clients.ts create dev --local
 vp exec wrangler dev
 ```
