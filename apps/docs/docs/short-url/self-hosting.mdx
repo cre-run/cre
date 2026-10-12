@@ -1,0 +1,89 @@
+---
+title: 短縮 URL のセルフホストの設定
+description: 短縮 URL を自組織の Cloudflare で動かすための設定の手順。（計画中）
+sidebar:
+  label: セルフホストの設定
+  badge: Planned
+---
+
+<Badge variant="warning">planned</Badge>
+この機能はまだありません。[短縮 URL](/short-url) を自組織の Cloudflare
+で動かすための手順の下書きです。名前や手順は実装までに変わることがあります。
+
+コマンドは `apps/short-url` で、`vp exec` を付けて実行します（`vp run` は環境変数を引き継がず、出力をキャッシュするため使いません）。
+
+## 1. データベースを作る
+
+```bash
+vp exec wrangler d1 create short-url                      # 表示された database_id を wrangler.jsonc に書く
+vp exec wrangler d1 migrations apply short-url --remote   # テーブルを作る（更新のたびにも実行する）
+```
+
+## 2. `wrangler.jsonc` を書き換える
+
+| 項目              | 書くもの                                                                           |
+| ----------------- | ---------------------------------------------------------------------------------- |
+| `name`            | Worker の名前（Bot の Service Binding の `service` に書く名前）                    |
+| `routes`          | 短縮 URL のドメイン（Cloudflare で管理しているゾーンのもの）                       |
+| `d1_databases`    | 1 で作ったデータベースの名前と `database_id`                                       |
+| `vars.BASE_URL`   | **必須。** 短縮 URL のドメイン（例: `https://short.example.com`）。返す URL に使う |
+| `vars.ACCESS`     | **必須。** Cloudflare Access の設定をまとめたもの（下の例）。4 で確かめる          |
+| `vars.EDITOR_URL` | 移る先の Message Editor。書かなければ `https://editor.cre.run/`                    |
+
+```jsonc
+"vars": {
+  "BASE_URL": "https://short.example.com",
+  "ACCESS": {
+    "allowedEmailDomains": ["example.com"],         // 短縮 URL を開けるメールアドレスのドメイン
+    "teamDomain": "https://example.cloudflareaccess.com",   // Access のチームの URL（メールのドメインとは別）
+    "aud": "<4 でコピーする AUD タグ>"
+  }
+}
+```
+
+登録用のキーなどの秘密の値はありません。登録は同じアカウントの Worker からの Service Binding だけで受け付けるためです。
+
+## 3. デプロイする
+
+`CLOUDFLARE_API_TOKEN` と `CLOUDFLARE_ACCOUNT_ID` を環境変数（CI ならシークレット）に入れて、デプロイします。
+API トークンは、テンプレート「Edit Cloudflare Workers」に D1 の編集を足し、対象を 1 つのアカウントに絞って作ります。
+
+```bash
+vp exec wrangler deploy
+```
+
+## 4. Cloudflare Access をかける
+
+短縮 URL を開けるのを、組織のメールアドレスでログインした人だけにします。Access は `wrangler.jsonc` では設定できないので、ダッシュボードで行います。
+
+1. Worker の「Access」タブで「Protect this Worker behind Access」を選び、対象は **All traffic**（Previews only ではない）にします。ポリシーに「メールアドレスのドメインが一致する」（2 の `allowedEmailDomains` と同じ）を設定します
+2. 1 の Access の設定画面で「Application Audience (AUD) Tag」をコピーし、`ACCESS.aud` に書いて、もう一度デプロイします
+
+サーバーは、Access がリクエストに付ける JWT（`Cf-Access-Jwt-Assertion` ヘッダー）の署名を確かめ、その中のメールアドレスのドメインが `allowedEmailDomains` に入っているときだけ判定データを返します。Access をかけ忘れたり、ポリシーを誤って広げたりしても、組織の外の人には開けません。
+
+## 5. Bot の Worker からつなぐ
+
+同じアカウントの Bot の Worker に、Service Binding を足してデプロイします（[短縮 URL を作る](/short-url#短縮-url-を作るbot-の開発者向け)）。
+
+```jsonc
+"services": [{ "binding": "SHORT_URL", "service": "<短縮 URL の Worker の name>", "entrypoint": "ShortUrl" }],
+```
+
+## 6. 確かめる
+
+Bot から見本データで短縮 URL を 1 つ作り、組織のメールアドレスでは開け、外のメールアドレスでは開けないことを確かめます。
+ログインせずに `curl -i https://short.example.com/id/<ID>` を開くと、Access のログイン画面への `302` が返ります。`503` なら `vars` の必須の項目が正しく設定されていません。
+
+## ローカルで動かすとき
+
+`apps/short-url/.dev.vars`（リポジトリに入れない）に、ローカル用の設定（`teamDomain` はテスト用の公開鍵を返すローカルのサーバー）を書きます。ローカルには Access がないので、テスト用の鍵で署名した JWT をヘッダーに付けて開きます（そのためのスクリプトは実装時に用意します）。
+
+```dotenv
+BASE_URL=http://localhost:8787
+ACCESS={"allowedEmailDomains":["example.com"],"teamDomain":"http://localhost:8788","aud":"short-url-dev"}
+```
+
+```bash
+vp exec wrangler d1 migrations apply short-url --local
+vp exec wrangler dev
+```

@@ -1,0 +1,71 @@
+---
+title: 短縮 URL
+description: Message Editor の長い URL を、自組織のドメインの短い URL にして渡します。（計画中）
+sidebar:
+  label: 使い方
+  badge: Planned
+---
+
+<Badge variant="warning">planned</Badge>
+この機能はまだありません。作る前に「何ができればいいか」を決めるための下書きです。内容は実装までに変わることがあります。
+
+[Message Editor](/message-editor) の URL は、判定データを `#d=` に載せるため長くなります（見本データで約 3,600 文字）。
+Slack のボタン（3,000 文字まで）のように長さに上限がある場所には載りません。短縮 URL を使うと、同じ内容を短い URL で渡せます。
+
+## できること
+
+- Bot などが判定データを登録すると、短縮 URL が返ってきます
+- 短縮 URL を開くと、組織のメールアドレスでログインしたうえで、Message Editor にその判定データが表示されます
+
+短縮 URL のサーバーは、自組織の Cloudflare にセルフホストして使います。
+作れるのは同じ Cloudflare アカウントの Worker（Bot）だけで、開けるのは組織のメールアドレスでログインした人だけです。
+
+## URL の形
+
+```text
+https://short.example.com/id/0f8c3a52-6b1e-4d7a-9c25-3e4f5a6b7c8d
+```
+
+ID はランダムな UUID（v4）です。長さは判定データの大きさによらず一定です。
+
+| 渡し方                         | URL の長さ（見本データ） | Slack のボタン（3,000 文字まで） |
+| ------------------------------ | ------------------------ | -------------------------------- |
+| Message Editor の URL（`#d=`） | 3,578 文字               | 載りません                       |
+| 短縮 URL                       | 65 文字                  | 載ります                         |
+
+## 開いたときの動き
+
+1. まだログインしていなければ、Cloudflare Access のログイン画面が出ます。組織のメールアドレスでログインします
+2. Message Editor（`https://editor.cre.run/#d=…`）に移ります。移ったあとは、今の Message Editor と同じです
+
+組織の外のメールアドレスでログインしようとすると、Cloudflare Access の画面で止まり、短縮 URL のページは表示されません。
+それ以外で開けないときは、次のように表示します。
+
+| 表示                              | 理由                                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------------- |
+| このリンクは開けません            | URL が間違っている、または管理者が消した                                                      |
+| このメールアドレスでは開けません  | Access のポリシーと、サーバーに設定した許可するドメインが食い違っている（管理者の設定の誤り） |
+| 短縮 URL の設定が終わっていません | 管理者がサーバーの設定を終えていない                                                          |
+
+短縮 URL には有効期限も削除の機能もありません。消すのは管理者がデータベースから行います。
+開いたあとの Message Editor の URL はブラウザの履歴に残り、そこからはいつでも開けます。
+
+## 短縮 URL を作る（Bot の開発者向け）
+
+短縮 URL を作れるのは、短縮 URL と同じ Cloudflare アカウントの Worker（Bot）だけです。
+Bot の Worker から Service Binding で短縮 URL の Worker につなぎ、`create()` を呼びます。インターネットに公開した登録の API や、そのためのキーはありません。
+
+```jsonc
+// Bot の Worker の wrangler.jsonc
+"services": [{ "binding": "SHORT_URL", "service": "<短縮 URL の Worker の name>", "entrypoint": "ShortUrl" }],
+```
+
+```ts
+// data には Message Editor の URL の #d= より後ろを渡す
+const { id, url } = await env.SHORT_URL.create(data);
+// → url: "https://short.example.com/id/0f8c…"
+```
+
+Message Editor が表示できないデータは登録せず、エラーになります。
+
+サーバーの用意は[セルフホストの設定](/short-url/self-hosting)、データがどこに残るかは[データの取り扱い](/short-url/data-handling)にまとめています。
