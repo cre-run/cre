@@ -25,11 +25,25 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   else
     range="$remote_sha..$local_sha"
   fi
+  # 読めなければ止める（fetch していない状態での force-push など。黙って通すと未審査のまま公開される）
   # shellcheck disable=SC2086
-  part=$(git log -p --unified=0 --no-color --format='commit %h%n%s%n%b' $range -- . ':(exclude)pnpm-lock.yaml' | grep -v '^-')
+  messages=$(git log --format='commit %h%n%s%n%b' $range) || {
+    echo "pre-push: push するコミットを読めません（$range）。fetch してから push し直してください" >&2
+    exit 1
+  }
+  # shellcheck disable=SC2086
+  patch=$(git log -p --unified=0 --no-color --format='commit %h' $range -- . ':(exclude)pnpm-lock.yaml') || {
+    echo "pre-push: push する差分を読めません（$range）。fetch してから push し直してください" >&2
+    exit 1
+  }
+  # 差分からは削除行を落とす（メッセージには適用しない。箇条書きの「- 」が消えるため）
+  patch=$(printf '%s\n' "$patch" | grep -v '^-' || true)
   content="$content
 push 先: $remote_ref
-$part"
+# コミットメッセージ
+$messages
+# 追加行
+$patch"
 done
 if [ -z "$(printf '%s' "$content" | tr -d '[:space:]')" ]; then
   exit 0
