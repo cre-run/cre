@@ -18,10 +18,10 @@
   そのまま比較の基準にする（`playwright.config.ts` の `snapshotPathTemplate`）。別の場所にコピーしない
 - 約束のガイドでは、約束を表にし、「テスト」列にテストへリンクするバッジを置く（1 つの約束に複数可、
   同じテストを複数の約束に付けない。2 つの約束を 1 つのテストで確かめているなら、テストを分ける。表示は `E2E` か `単体`）:
-  `<a href="https://github.com/cre-run/cre/blob/main/apps/<app>/<file>"><Badge variant="success" size="xs" tooltip="テスト名">E2E</Badge></a>`。
+  `<a href="https://github.com/cre-run/cre/blob/main/apps/<app>/<file>#L<テストの宣言行>"><Badge variant="success" size="xs">E2E</Badge></a>`。
   約束のテストは約束専用のファイル（`tests/data-handling.test.ts`・`e2e/guide-<app>-<page>.e2e.ts`）にだけ置き、
-  `tests/guide-promises.test.ts` が、バッジのテストが実在すること、約束専用ファイルのテストにすべてバッジがあることを
-  突き合わせる（バッジを外す・名前を変える・テストを足す・skip する、のどれでも落ちる）。
+  `tests/guide-promises.test.ts` が、リンク先の行にテストの宣言があること、約束専用ファイルのテストにすべてバッジがあることを
+  突き合わせる（バッジを外す・テストの行がずれる・テストを足す・skip する、のどれでも落ち、正しい `#L<行>` を表示する）。
   テストしない約束は「テスト」列を `—` にし、その理由を「確かめ方」に書く
 
 ## ガイドの置き場（`apps/docs/docs/`）

@@ -86,7 +86,7 @@ README 駆動開発・Working Backwards（PR/FAQ）・ATDD と同じ「先に書
 - 外部ガイド: `apps/docs`（Blume）。内部ガイド: ルートの `AGENTS.md`（Claude Code・Codex 共通。`CLAUDE.md` は `@AGENTS.md` を読み込むだけ）
 - PR プレビュー: `apps/docs` と `apps/message-editor` は PR ごとに Cloudflare Worker Previews でプレビューを作り、URL を PR にコメントする（`.github/workflows/preview-*.yml`）
 - E2E・スクショ・VRT: Playwright。ガイドの画像は E2E が撮り、CI で比較する（`references/e2e-and-screenshots.md`）
-- 約束のガイド: `apps/docs/docs/message-editor/data-handling.mdx`。「テスト」列のバッジのテスト名と実際のテストは
+- 約束のガイド: `apps/docs/docs/message-editor/data-handling.mdx`。「テスト」列のバッジのリンク先と実際のテストは
   `apps/message-editor/tests/guide-promises.test.ts` が突き合わせる
 - 動画の撮影方法は **未決**
 - 未決の部分に触れる作業では、案を出して人と決め、決まったことをこのスキルに書き足す

@@ -1,10 +1,11 @@
 /**
  * 対応ガイド: apps/docs/docs/message-editor/data-handling.mdx
  *
- * ガイドの「テスト」列のバッジ（リンク先がテストファイル、tooltip がテスト名、表示は E2E / 単体）と、
+ * ガイドの「テスト」列のバッジ（リンク先が約束のテストファイルの `#L<行>`、表示は E2E / 単体）と、
  * 実際のテストが一致することを確かめる。
- * - バッジのテストは、リンク先のファイルに同じ名前で実在する（ガイドだけを変えると落ちる）
- * - 約束のテストファイルは、すべてのテストにバッジがある（テストだけを足す・バッジだけを外すと落ちる）
+ * - バッジのリンク先の行に、実行されるテストの宣言がある（ガイドだけを変える・テストの行がずれると落ちる。
+ *   落ちたときは、正しい `#L<行>` の一覧を出力する）
+ * - 約束のテストファイルのテストには、すべてバッジがある（テストだけを足す・バッジだけを外すと落ちる）
  * - 約束の表の各行には、バッジか —（テストしない約束）がある。同じテストを複数の約束に付けない
  *   （1 つの行のバッジを外しても、どこかの検査で必ず落ちる）
  * 約束のテストは PROMISE_TEST_FILES にだけ置く。他のファイルへのバッジは「実在しない」扱いで落ちる。
@@ -25,16 +26,19 @@ const PROMISE_TEST_FILES = [
 ];
 
 interface Listed {
-  title: string;
   file: string;
+  line: number;
 }
 
 const BADGE =
-  /<a href="https:\/\/github\.com\/cre-run\/cre\/blob\/main\/apps\/message-editor\/((?:e2e|tests)\/[^"]+\.ts)"><Badge [^>]*tooltip="([^"]+)"[^>]*>[^<]+<\/Badge><\/a>/gu;
+  /<a href="https:\/\/github\.com\/cre-run\/cre\/blob\/main\/apps\/message-editor\/((?:e2e|tests)\/[^"#]+\.ts)#L(\d+)"><Badge [^>]*>[^<]+<\/Badge><\/a>/gu;
 
-/** ガイドのバッジから、テスト名とファイルを取り出す */
+/** ガイドのバッジから、リンク先のファイルと行を取り出す */
 const listedInGuide = (): Listed[] =>
-  [...readFileSync(GUIDE, "utf8").matchAll(BADGE)].map((m) => ({ file: m[1]!, title: m[2]! }));
+  [...readFileSync(GUIDE, "utf8").matchAll(BADGE)].map((m) => ({
+    file: m[1]!,
+    line: Number(m[2]),
+  }));
 
 /** 「テスト」列を持つ表の本文の行（最後の列がテスト列） */
 const promiseRows = (): { label: string; tests: string }[] => {
@@ -81,10 +85,30 @@ const calleeName = (node: AstNode): string | undefined => {
   return undefined;
 };
 
+/** 本文のどこかで `….skip(…)` / `….fixme(…)` を呼ぶ（実行時に skip する）テストか */
+const skipsAtRuntime = (node: AstNode): boolean => {
+  if (
+    node.type === "CallExpression" &&
+    isNode(node.callee) &&
+    node.callee.type === "MemberExpression" &&
+    isNode(node.callee.property) &&
+    node.callee.property.type === "Identifier" &&
+    ["skip", "fixme"].includes(node.callee.property.name as string)
+  ) {
+    return true;
+  }
+  return Object.values(node).some((value) =>
+    (Array.isArray(value) ? value : [value]).some(
+      (child) => isNode(child) && skipsAtRuntime(child),
+    ),
+  );
+};
+
 /**
  * テストファイルで実際に実行される test("…") の名前。
  * esbuild で型とコメントを落としてから構文木にするので、行コメントとブロックコメントの中は数えない。
  * test.skip / test.only は呼び出し先が `test` ではないので数えず、describe.skip / describe.fixme の配下も数えない。
+ * 本文で test.skip(条件) や test.info().skip() を呼ぶテストも、約束を確かめていないので数えない。
  */
 const titlesInFile = async (file: string): Promise<string[]> => {
   const path = join(APP, file);
@@ -94,9 +118,11 @@ const titlesInFile = async (file: string): Promise<string[]> => {
     let skipped = inSkippedSuite;
     if (node.type === "CallExpression" && isNode(node.callee)) {
       const callee = calleeName(node.callee);
-      const [first] = node.arguments as unknown[];
+      const [first, body] = node.arguments as unknown[];
       if (callee === "test" && !skipped && isNode(first) && first.type === "Literal") {
-        titles.push(first.value as string);
+        if (!(isNode(body) && skipsAtRuntime(body))) {
+          titles.push(first.value as string);
+        }
       }
       if (callee && /^(?:test\.)?describe\.(?:skip|fixme)$/u.test(callee)) {
         skipped = true;
@@ -114,20 +140,50 @@ const titlesInFile = async (file: string): Promise<string[]> => {
   return titles;
 };
 
-test("バッジのテストは、リンク先のファイルに同じ名前で実在する", async () => {
+/**
+ * 実行されるテストの宣言 `test("…")` がある行（1 始まり）。
+ * esbuild の出力は行が変わるので、元のソースからタイトルで探す（コメントアウトした行は飛ばす）
+ */
+const declaredTests = async (file: string): Promise<Map<number, string>> => {
+  const lines = readFileSync(join(APP, file), "utf8").split("\n");
+  const byLine = new Map<number, string>();
+  for (const title of await titlesInFile(file)) {
+    const index = lines.findIndex(
+      (line, i) =>
+        !line.trimStart().startsWith("//") &&
+        (line.includes(`test("${title}"`) ||
+          (/^\s*test\(\s*$/u.test(line) && lines[i + 1]?.includes(`"${title}"`) === true)),
+    );
+    expect(index, `${file}: 「${title}」の宣言行`).toBeGreaterThanOrEqual(0);
+    byLine.set(index + 1, title);
+  }
+  return byLine;
+};
+
+/** 落ちたときに貼り直せるよう、正しいリンク先の一覧にする */
+const expectedAnchors = (declared: Map<number, string>): string =>
+  [...declared].map(([line, title]) => `  #L${line}  ${title}`).join("\n");
+
+test("バッジのリンク先の行に、実行されるテストの宣言がある", async () => {
   const listed = listedInGuide();
   expect(listed.length).toBeGreaterThan(0);
-  for (const { title, file } of listed) {
+  for (const { file, line } of listed) {
     expect(PROMISE_TEST_FILES, `${file}: 約束のテストはこのファイルに置く`).toContain(file);
-    expect(await titlesInFile(file), `${file}: 「${title}」`).toContain(title);
+    const declared = await declaredTests(file);
+    expect(
+      declared.has(line),
+      `${file}#L${line} にテストの宣言がない。正しいリンク先:\n${expectedAnchors(declared)}`,
+    ).toBe(true);
   }
 });
 
 test("約束のテストファイルのテストには、すべてバッジがある", async () => {
   const listed = listedInGuide();
   for (const file of PROMISE_TEST_FILES) {
-    const badged = new Set(listed.filter((item) => item.file === file).map((item) => item.title));
-    expect([...badged].sort(), file).toEqual((await titlesInFile(file)).sort());
+    const declared = await declaredTests(file);
+    const badged = new Set(listed.filter((item) => item.file === file).map((item) => item.line));
+    const missing = [...declared].filter(([line]) => !badged.has(line));
+    expect(missing, `${file}: バッジのないテスト`).toEqual([]);
   }
 });
 
@@ -141,6 +197,6 @@ test("約束の表の各行には、バッジか —（テストしない約束�
 });
 
 test("同じテストを複数の約束に付けていない（1 つの行のバッジを外せば落ちるようにする）", () => {
-  const keys = listedInGuide().map(({ file, title }) => `${file}:${title}`);
+  const keys = listedInGuide().map(({ file, line }) => `${file}#L${line}`);
   expect([...new Set(keys)].sort()).toEqual(keys.sort());
 });
