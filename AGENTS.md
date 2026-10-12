@@ -23,7 +23,7 @@ Claude Code・Codex など、このリポジトリで作業する AI エージ�
 迷ったら書かずに人に確認する。機械は 2 段で止める。
 
 - 確定的な印の検査 `scripts/check-confidential.mjs`: 機密の印・`cre-private` への組織名付きの参照・`@cre-internal` スコープ・`visibility: private`。3 か所から呼ばれる
-  - AI エージェントの hooks: Claude Code は `.claude/settings.json`、Codex は `.codex/hooks.json`（初回は Codex で `/hooks` を開いて信頼する。プロジェクトを信頼していないと読まれない）。Write / Edit / apply_patch の内容と `git commit` の前に止める。git の hook を迂回するコマンド（`--no-verify`、`core.hooksPath`、下の `CRE_PUSH_*` を付けた push）も拒否する
+  - AI エージェントの hooks: Claude Code は `.claude/settings.json`、Codex は `.codex/hooks.json`（初回は Codex で `/hooks` を開いて信頼する。プロジェクトを信頼していないと読まれない）。Write / Edit / apply_patch の内容と `git commit` の前に止める。git の hook を迂回するコマンド（`--no-verify`、`core.hooksPath`）と、下の `CRE_PUSH_*` を設定するコマンドも拒否する
   - git の hooks（`.githooks/`）: pre-commit と commit-msg。`vp install` が `core.hooksPath` を設定する。手動なら `git config core.hooksPath .githooks`
   - CI の `confidential` ジョブ（`confidential.yml`）: 追跡中の全ファイル、PR の題名・本文、コミットメッセージと各コミットの追加行
 - push 前の AI レビュー `scripts/review-push.mjs`（`.githooks/pre-push`）: push するコミットのメッセージと追加行を安価なモデルに読ませ、顧客名・商談・価格・採用・内部構成などがあれば理由を表示して人に確認を求める。端末があれば y/N、無ければ push を止める

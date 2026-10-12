@@ -109,14 +109,20 @@ function git(root, args, options = {}) {
 function refsToPush(root, remote, stdin) {
   const shas = new Set();
   const tags = [];
+  const refs = []; // 公開される側（送信先）の ref 名。refspec で別名に push できるので localRef ではなくこちらを見る
   for (const line of stdin.split("\n")) {
-    const [localRef, localSha, , remoteSha] = line.trim().split(/\s+/);
+    const [localRef, localSha, remoteRef, remoteSha] = line.trim().split(/\s+/);
     if (!localSha || localSha === ZERO) continue; // ブランチ・タグの削除
-    if (localRef.startsWith("refs/tags/")) {
-      const name = localRef.slice("refs/tags/".length);
+    const published = remoteRef || localRef;
+    refs.push(published);
+    if (published.startsWith("refs/tags/") || localRef.startsWith("refs/tags/")) {
+      const name = published.replace(/^refs\/tags\//, "");
+      // 注釈付きタグはメッセージを持つ（オブジェクトのヘッダーの後、最初の空行から先）。軽量タグは名前だけ
       const type = git(root, ["cat-file", "-t", localSha]).trim();
-      // 注釈付きタグはメッセージを持つ。軽量タグは名前だけ
-      const message = type === "tag" ? git(root, ["tag", "-l", "--format=%(contents)", name]) : "";
+      const message =
+        type === "tag"
+          ? git(root, ["cat-file", "-p", localSha]).split("\n\n").slice(1).join("\n\n")
+          : "";
       tags.push({ name, message });
     }
     // リモートにまだ無い ref なら、送信先リモートの追跡ブランチのどれにも無いコミットが対象。
@@ -129,7 +135,7 @@ function refsToPush(root, remote, stdin) {
       if (sha) shas.add(sha);
     }
   }
-  return { shas: [...shas], tags };
+  return { shas: [...shas], tags, refs };
 }
 
 /** タグの名前とメッセージを 1 つのテキストにする */
@@ -138,7 +144,7 @@ function tagsText(tags) {
 }
 
 /** モデルに読ませる本文: コミットメッセージ、追加・変更・改名されたパス、各コミットの追加行（削除行は除く） */
-function buildReviewText(root, shas, tags) {
+function buildReviewText(root, shas, tags, refs) {
   const revisions = ["--no-walk", ...shas];
   const messages = shas.length > 0 ? (readCommitMessages(root, revisions) ?? "") : "";
   // パスは --name-only から取る。内容を変えない rename は patch に "+++ b/" 行が出ず、新しい名前が本文に現れない
@@ -203,8 +209,9 @@ function buildReviewText(root, shas, tags) {
     if (skipping || !line.startsWith("+")) continue;
     if (!lockfile || LOCKFILE_KEEP.test(line)) out.push(line);
   }
+  const refSection = `# push する ref（送信先の名前）\n\n${refs.join("\n")}\n\n`;
   const tagSection = tags.length > 0 ? `# タグ（名前とメッセージ）\n\n${tagsText(tags)}\n\n` : "";
-  const text = `${tagSection}# コミットメッセージ\n\n${messages}\n# 追加・変更・改名されたファイルのパス\n\n${paths.join("\n")}\n\n# 追加行\n${out.join("\n")}\n`;
+  const text = `${refSection}${tagSection}# コミットメッセージ\n\n${messages}\n# 追加・変更・改名されたファイルのパス\n\n${paths.join("\n")}\n\n# 追加行\n${out.join("\n")}\n`;
   if (text.length <= MAX_CHARS) return { text, truncated: false };
   return {
     text: `${text.slice(0, MAX_CHARS)}\n\n（以降 ${text.length - MAX_CHARS} 文字は省略）\n`,
@@ -390,8 +397,8 @@ function main() {
     }
   })();
   const remote = process.argv[2] || "origin"; // pre-push の第 1 引数（リモート名。URL 指定の push ならその URL）
-  const { shas, tags } = refsToPush(root, remote, stdin);
-  if (shas.length === 0 && tags.length === 0) process.exit(0);
+  const { shas, tags, refs } = refsToPush(root, remote, stdin);
+  if (refs.length === 0) process.exit(0); // 削除だけの push
 
   // 1. 確定的な印。ここは人の確認でも通さない
   const revisions = ["--no-walk", ...shas];
@@ -405,6 +412,7 @@ function main() {
     ...scanText(messages, BUILTIN_PATTERNS, "(コミットメッセージ)"),
     ...commitHits,
     ...scanText(tagsText(tags), BUILTIN_PATTERNS, "(タグ)"),
+    ...scanText(refs.join("\n"), BUILTIN_PATTERNS, "(push 先の ref 名)"),
   ];
   if (hits.length > 0) {
     report(hits, { annotate: false });
@@ -415,6 +423,7 @@ function main() {
   }
 
   // 2. AI レビュー
+  if (shas.length === 0 && tags.length === 0) process.exit(0); // 既存のコミットへの軽量タグなど、読ませる内容が無い
   const keys = keysOf(shas, tags);
   const flagged = readFlagged(root);
   const remembered = flagged.filter((e) => keys.includes(e.key));
@@ -445,7 +454,7 @@ function main() {
     findings = remembered.flatMap((e) => e.findings);
     truncated = remembered.some((e) => e.truncated);
   } else {
-    const built = buildReviewText(root, shas, tags);
+    const built = buildReviewText(root, shas, tags, refs);
     truncated = built.truncated;
     const r = askReviewer(built.text);
     if (r.error) {

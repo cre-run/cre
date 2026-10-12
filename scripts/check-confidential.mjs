@@ -308,11 +308,12 @@ export function readCommitMessages(root, revisions) {
  * push 前の AI レビューで「人の確認」を求められたとき、その確認を名乗る環境変数を AI 自身が付けてはいけない
  */
 export function bypassReason(command) {
+  // CRE_PUSH_*（確認済みの宣言、レビュアーの無効化・差し替え、モデルの変更）は、export で先に設定する形も含めて人だけが触る
+  if (/\bCRE_PUSH_\w*/.test(command))
+    return "push 前の AI レビューの環境変数 CRE_PUSH_*（確認済み・無効化・レビュアーやモデルの差し替え）は人だけが設定する";
   if (!/\bgit\b/.test(command)) return null;
   if (/--no-verify\b/.test(command)) return "git の hook を --no-verify で飛ばすのは人だけ";
   if (/\bcore\.hooksPath\b/.test(command)) return "core.hooksPath の変更は人だけ";
-  if (/\bCRE_PUSH_(?:REVIEWED|REVIEWER)\b/.test(command))
-    return "push 前の AI レビューの確認（CRE_PUSH_REVIEWED）と無効化（CRE_PUSH_REVIEWER）は人だけが行う";
   return null;
 }
 

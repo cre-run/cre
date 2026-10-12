@@ -131,6 +131,7 @@ test("レビュアーには追加行とコミットメッセージとパスを�
   assert.doesNotMatch(prompt, /secret-looking/);
   assert.match(prompt, /npm\.internal\.example/); // lockfile でも URL の行は読ませる
   assert.match(prompt, /公開してはいけない内容/); // 指示も本文の先頭に入る
+  assert.match(prompt, /# push する ref（送信先の名前）\n\nrefs\/heads\/feat/);
 });
 
 test("内容を変えない rename でも、新しいパスをレビュアーに渡す", () => {
@@ -220,6 +221,25 @@ test("push 済みのコミットに付けた注釈付きタグでも、タグの
   });
   assert.equal(r.status, 1);
   assert.match(r.stderr, /\(タグ\):/);
+  assert.equal(fake.prompt(), null);
+});
+
+test("refspec で別名に push するとき、送信先のタグ名・ブランチ名を検査する", () => {
+  const { dir, git, head } = makeRepo();
+  git("tag", "clean");
+  const fake = fakeReviewer(dir, null);
+  const tag = push(dir, {
+    stdin: `refs/tags/clean ${head()} refs/tags/${privateRepo} ${ZERO}\n`,
+    command: fake.command,
+  });
+  assert.equal(tag.status, 1);
+  assert.match(tag.stderr, /\(push 先の ref 名\)/);
+  const branch = push(dir, {
+    stdin: `refs/heads/main ${head()} refs/heads/${privateRepo} ${ZERO}\n`,
+    command: fake.command,
+  });
+  assert.equal(branch.status, 1);
+  assert.match(branch.stderr, /\(push 先の ref 名\)/);
   assert.equal(fake.prompt(), null);
 });
 

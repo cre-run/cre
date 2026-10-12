@@ -111,11 +111,14 @@ test("Claude Code の Bash hook: 普通の git push は通る（AI レビュー�
   assert.equal(r.status, 0, r.stderr);
 });
 
-test("Claude Code の Bash hook: AI が人の確認を名乗る CRE_PUSH_REVIEWED 付きの push は拒否する", () => {
+test("Claude Code の Bash hook: CRE_PUSH_* を触るコマンドと hook を迂回する git コマンドは拒否する", () => {
   for (const command of [
     "CRE_PUSH_REVIEWED=1 git push",
     "git push --no-verify",
     "env CRE_PUSH_REVIEWER=off git push origin main",
+    "CRE_PUSH_REVIEW_COMMAND='echo {}' git push",
+    "export CRE_PUSH_REVIEW_COMMAND='echo {}'", // git を含まないコマンドで先に設定するのも拒否
+    "CRE_PUSH_REVIEW_MODEL=x git push",
     "git commit --no-verify -m x",
     "git -c core.hooksPath=/dev/null push",
     "git config core.hooksPath /dev/null",
