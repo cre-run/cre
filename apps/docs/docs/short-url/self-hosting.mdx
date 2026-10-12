@@ -41,25 +41,16 @@ vp exec wrangler d1 migrations apply short-url --remote   # テーブルを作�
 
 秘密の値は、ここには書きません（`wrangler.jsonc` はリポジトリに入ります）。
 
-## 3. 鍵を登録する
+## 3. `BOT_KEY` を登録する
 
-Worker の Secret に、2 つの鍵を登録します。`LINK_MASTER_KEY` は画面にも履歴にも出しません。`BOT_KEY` は Bot に渡すので、一度だけ表示して控えます。
-
-| 名前              | 使い道                                                                      |
-| ----------------- | --------------------------------------------------------------------------- |
-| `LINK_MASTER_KEY` | 判定データを暗号化する鍵。変えると、それまでの短縮 URL はすべて開けなくなる |
-| `BOT_KEY`         | Bot が短縮 URL を作るときに付けるキー                                       |
+Bot が短縮 URL を作るときに付けるキーを、Worker の Secret `BOT_KEY` に登録します。Bot にも渡すので、作った値を控えます。
 
 ```bash
-node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('base64url'))" \
-  | vp exec wrangler secret put LINK_MASTER_KEY
-
-# BOT_KEY は Bot にも渡すので、表示して控える
 node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
 vp exec wrangler secret put BOT_KEY   # 上の値を貼る
 ```
 
-どちらかがないあいだは、作ることも開くこともできません。
+`BOT_KEY` がないあいだは、作ることも開くこともできません。
 
 ## 4. デプロイする
 
@@ -92,17 +83,16 @@ Bot は、短縮 URL を作るときに `Authorization: Bearer <BOT_KEY>` を付
 curl -i -X POST https://short.example.com/api/links
 ```
 
-`401` が返れば、`/api/` が Access から外れていて、鍵も設定されています（`BOT_KEY` を付けていないので断られた）。
-`503` なら鍵か `vars` の必須の項目が、`302`（Access のログインへの転送）なら 5 の `/api/` の除外が、正しく設定されていません。
+`401` が返れば、`/api/` が Access から外れていて、`BOT_KEY` も設定されています（`BOT_KEY` を付けていないので断られた）。
+`503` なら `BOT_KEY` か `vars.ACCESS` が、`302`（Access のログインへの転送）なら 5 の `/api/` の除外が、正しく設定されていません。
 
 最後に、`BOT_KEY` を付けて見本データの短縮 URL を 1 つ作り、組織のメールアドレスでは開け、外のメールアドレスでは開けないことを確かめます。
 
 ## ローカルで動かすとき
 
-`apps/short-url/.dev.vars`（リポジトリに入れない）に、ローカル用に作った鍵と、Access の設定（`teamDomain` はテスト用の公開鍵を返すローカルのサーバー）を書きます。ローカルには Access がないので、テスト用の鍵で署名した JWT をヘッダーに付けて開きます（そのためのスクリプトは実装時に用意します）。
+`apps/short-url/.dev.vars`（リポジトリに入れない）に、ローカル用に作った `BOT_KEY` と、Access の設定（`teamDomain` はテスト用の公開鍵を返すローカルのサーバー）を書きます。ローカルには Access がないので、テスト用の鍵で署名した JWT をヘッダーに付けて開きます（そのためのスクリプトは実装時に用意します）。
 
 ```dotenv
-LINK_MASTER_KEY=<ローカル用に作った値>
 BOT_KEY=<ローカル用に作った値>
 ACCESS={"allowedEmailDomains":["example.com"],"teamDomain":"localhost:8788","aud":"short-url-dev"}
 ```
