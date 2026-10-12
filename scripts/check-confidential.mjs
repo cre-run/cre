@@ -1,36 +1,34 @@
 #!/usr/bin/env node
-// 公開リポジトリ（cre-run/cre）に非公開の内容が混ざっていないかを検査する。
+// 公開リポジトリ（cre-run/cre）に非公開の内容が混ざっていないかを、機械的に判定できる印だけで検査する。
 //
-// 検出するもの:
+// 検出するもの（確定的なもの。禁止語の一覧は持たない。顧客名などの文脈依存の判断は、push 前の
+// AI レビュー scripts/review-push.mjs が行う）:
 //   - 非公開リポジトリの Markdown に付く機密の印（HTML コメントの CONFIDENTIAL マーカー）
 //   - 非公開リポジトリへの参照（組織名付きのリポジトリ名）
 //   - 非公開パッケージのスコープ（@cre-internal の配下）
 //   - `visibility: private` の frontmatter
-//   - 禁止語（顧客名・内部ホスト名など）。平文で公開リポジトリに置けないので、
-//     ローカルは gitignore 済みの `.confidential-terms.local` か環境変数 CONFIDENTIAL_TERMS_FILE が指すファイル
-//     （非公開リポジトリの checkout 内の正本など）、CI は環境変数 CONFIDENTIAL_TERMS から読む
 //
 // 使い方（終了コード: 0 = 問題なし、1 = 検出、2 = Claude Code の hook で拒否）:
 //   --tool-input      Claude Code の PreToolUse hook（Write / Edit / MultiEdit）。標準入力の JSON から書き込み内容を検査
-//   --if-git-commit   Claude Code の PreToolUse hook（Bash）。コマンドが git commit なら staged の差分とコマンド文字列を検査
+//   --if-git-command  Claude Code の PreToolUse hook（Bash）。コマンドが git commit なら staged の差分とコマンド文字列を検査し、
+//                     git の hook を迂回するコマンド（--no-verify、core.hooksPath、push の人の確認を名乗る環境変数）は拒否する
 //   --staged          git の pre-commit。staged の差分（追加行）を検査
 //   --message <file>  git の commit-msg。コミットメッセージを検査
 //   --ci              追跡中の全ファイルと、環境変数 CONFIDENTIAL_EXTRA_TEXT（PR の題名・本文）、
-//                     CONFIDENTIAL_COMMIT_RANGE（コミットメッセージの範囲）を検査。
-//                     CONFIDENTIAL_REQUIRE_TERMS=true のとき、CONFIDENTIAL_TERMS が未設定なら失敗する（fail closed）。
-//                     禁止語が無いなら `# none` のようなコメント 1 行を Secret に登録する
+//                     CONFIDENTIAL_COMMIT_RANGE（コミットメッセージと各コミットの追加行の範囲）を検査
 //   --stdin-text      標準入力の生テキストを検査（テスト用）
 import { execFileSync } from "node:child_process";
-import { existsSync, lstatSync, readFileSync, readlinkSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
 // 自分自身が検出されないよう、文字列を分けて組み立てる
 const PRIVATE_REPO = "cre-run/" + "cre-private";
 const INTERNAL_SCOPE = "@cre-internal" + "/";
 const MARKER_WORD = "CONFI" + "DENTIAL";
 
-const BUILTIN_PATTERNS = [
+export const BUILTIN_PATTERNS = [
   { name: "機密の印", regex: new RegExp(`<!--\\s*${MARKER_WORD}`, "i") },
   { name: "機密の印", regex: new RegExp(`${MARKER_WORD}:\\s*cre-run`, "i") },
   { name: "非公開リポジトリへの参照", regex: new RegExp(escapeRegExp(PRIVATE_REPO), "i") },
@@ -42,7 +40,7 @@ function escapeRegExp(s) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function repoRoot() {
+export function repoRoot() {
   try {
     return execFileSync("git", ["rev-parse", "--show-toplevel"], { encoding: "utf8" }).trim();
   } catch {
@@ -50,34 +48,8 @@ function repoRoot() {
   }
 }
 
-/** 禁止語を読む。ローカルファイルと環境変数の両方。空行と # で始まる行は無視 */
-function loadTerms(root) {
-  const sources = [];
-  const localFile = path.join(root, ".confidential-terms.local");
-  if (existsSync(localFile)) sources.push(readFileSync(localFile, "utf8"));
-  // 正本を別の場所（非公開リポジトリの checkout など）に置いているときは、環境変数でそのパスを指す。コピーして同期する必要がない
-  const file = process.env.CONFIDENTIAL_TERMS_FILE;
-  if (file) {
-    if (!existsSync(file)) {
-      // 明示的に指された正本が読めないのに禁止語 0 件で通すと、ローカルの防御が消えたことに気付けない
-      console.error(`CONFIDENTIAL_TERMS_FILE が指すファイルがありません: ${file}`);
-      process.exit(2);
-    }
-    sources.push(readFileSync(file, "utf8"));
-  }
-  if (process.env.CONFIDENTIAL_TERMS) sources.push(process.env.CONFIDENTIAL_TERMS);
-  const terms = new Set();
-  for (const src of sources) {
-    for (const raw of src.split(/\r?\n/)) {
-      const t = raw.trim();
-      if (t && !t.startsWith("#")) terms.add(t);
-    }
-  }
-  return [...terms].map((t) => ({ name: "禁止語", regex: new RegExp(escapeRegExp(t), "i") }));
-}
-
 /** テキストを 1 行ずつ検査し、検出した行を返す */
-function scanText(text, patterns, label) {
+export function scanText(text, patterns, label) {
   const hits = [];
   const lines = text.split(/\r?\n/);
   for (let i = 0; i < lines.length; i++) {
@@ -94,6 +66,18 @@ function scanText(text, patterns, label) {
 function isProbablyBinary(buf) {
   const head = buf.subarray(0, 8000);
   return head.includes(0);
+}
+
+/** BOM 付きの UTF-16 はテキストとして読む（NUL を含むのでバイナリと誤認しない）。それ以外は UTF-8 として返す */
+function decodeText(buf) {
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe)
+    return buf.subarray(2).toString("utf16le");
+  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) {
+    const swapped = Buffer.from(buf.subarray(2));
+    swapped.swap16();
+    return swapped.toString("utf16le");
+  }
+  return isProbablyBinary(buf) ? null : buf.toString("utf8");
 }
 
 function scanTrackedFiles(root, patterns) {
@@ -131,9 +115,9 @@ function scanTrackedFiles(root, patterns) {
       continue;
     }
     if (!stat.isFile()) continue; // サブモジュールなどは飛ばす
-    const buf = readFileSync(abs);
-    if (isProbablyBinary(buf)) continue; // 拡張子ではなく実データで判定する（名前を変えただけでは逃れられない）
-    hits.push(...scanText(buf.toString("utf8"), patterns, rel));
+    const text = decodeText(readFileSync(abs));
+    if (text === null) continue; // 拡張子ではなく実データでバイナリと判定する（名前を変えただけでは逃れられない）
+    hits.push(...scanText(text, patterns, rel));
   }
   return hits;
 }
@@ -209,7 +193,21 @@ function scanStagedDiff(root, patterns) {
 function scanRangeCommits(root, range, patterns) {
   // before が全ゼロ（ブランチの初回 push）のときは、head から到達できる全履歴を検査する
   const m = /^0{40}\.\.(.+)$/.exec(range);
-  const target = m ? [m[1]] : [range];
+  const hits = scanCommits(root, m ? [m[1]] : [range], patterns);
+  if (hits === null) {
+    console.log(
+      `::error::コミット範囲 ${range} の差分を読めません。force-push などで before が失われた可能性があります。検査できないので失敗にします`,
+    );
+    process.exit(1);
+  }
+  return hits;
+}
+
+/**
+ * git log のリビジョン指定（"a..b" や "--no-walk <sha>..." など）で選んだ各コミットの追加行とパスを検査する。
+ * 読めないときは null を返す
+ */
+export function scanCommits(root, revisions, patterns) {
   let patch;
   let names;
   try {
@@ -221,7 +219,7 @@ function scanRangeCommits(root, range, patterns) {
         "-C",
         root,
         "-c",
-        "core.quotePath=false", // 非 ASCII のパスを "\347..." にクォートしない（禁止語と照合するため）
+        "core.quotePath=false", // 非 ASCII のパスを "\347..." にクォートしない（パターンと照合するため）
         "log",
         "-p",
         "-m",
@@ -230,21 +228,28 @@ function scanRangeCommits(root, range, patterns) {
         "--text",
         "--no-ext-diff",
         "--format=commit %H",
-        ...target,
+        ...revisions,
       ],
       { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
     );
-    // -z で NUL 区切りの生のパスを取る（既定の出力は非 ASCII をクォートし、禁止語に一致しなくなる）
+    // -z で NUL 区切りの生のパスを取る（既定の出力は非 ASCII をクォートし、パターンに一致しなくなる）
     names = execFileSync(
       "git",
-      ["-C", root, "log", "-m", "-z", "--name-only", "--diff-filter=ACMRT", "--format=", ...target],
+      [
+        "-C",
+        root,
+        "log",
+        "-m",
+        "-z",
+        "--name-only",
+        "--diff-filter=ACMRT",
+        "--format=",
+        ...revisions,
+      ],
       { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
     );
   } catch {
-    console.log(
-      `::error::コミット範囲 ${range} の差分を読めません。force-push などで before が失われた可能性があります。検査できないので失敗にします`,
-    );
-    process.exit(1);
+    return null;
   }
   const hits = [];
   for (const rel of new Set(
@@ -274,20 +279,41 @@ function scanRangeCommits(root, range, patterns) {
 }
 
 function scanCommitMessages(root, range, patterns) {
-  // 初回の push は before が全ゼロなので、HEAD のメッセージだけを検査する
   // before が全ゼロ（ブランチの初回 push）のときは、head から到達できる全履歴のメッセージを検査する
   const m = /^0{40}\.\.(.+)$/.exec(range);
-  const args = ["log", "--format=%H%n%B%n----", m ? m[1] : range];
-  try {
-    const log = execFileSync("git", ["-C", root, ...args], { encoding: "utf8" });
-    return scanText(log, patterns, "コミットメッセージ " + range);
-  } catch {
+  const log = readCommitMessages(root, m ? [m[1]] : [range]);
+  if (log === null) {
     // 範囲が読めない（force-push で before が到達不能になった、など）ときは、検査できないまま成功にしない
     console.log(
       `::error::コミットメッセージの範囲 ${range} を読めません。force-push などで before が失われた可能性があります。検査できないので失敗にします`,
     );
     process.exit(1);
   }
+  return scanText(log, patterns, "コミットメッセージ " + range);
+}
+
+/** リビジョン指定で選んだコミットのメッセージを 1 つのテキストにする。読めないときは null */
+export function readCommitMessages(root, revisions) {
+  try {
+    return execFileSync("git", ["-C", root, "log", "--format=%H%n%B%n----", ...revisions], {
+      encoding: "utf8",
+    });
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * AI（Claude Code）が git の hook を迂回しようとするコマンドを見つける。
+ * push 前の AI レビューで「人の確認」を求められたとき、その確認を名乗る環境変数を AI 自身が付けてはいけない
+ */
+export function bypassReason(command) {
+  if (!/\bgit\b/.test(command)) return null;
+  if (/--no-verify\b/.test(command)) return "git の hook を --no-verify で飛ばすのは人だけ";
+  if (/\bcore\.hooksPath\b/.test(command)) return "core.hooksPath の変更は人だけ";
+  if (/\bCRE_PUSH_(?:REVIEWED|REVIEWER)\b/.test(command))
+    return "push 前の AI レビューの確認（CRE_PUSH_REVIEWED）と無効化（CRE_PUSH_REVIEWER）は人だけが行う";
+  return null;
 }
 
 function readStdin() {
@@ -313,7 +339,7 @@ function textFromToolInput(json) {
   };
 }
 
-function report(hits, { annotate, patterns = [] }) {
+export function report(hits, { annotate, patterns = [] }) {
   for (const h of hits) {
     // CI のログは public リポジトリでは誰でも読めるので、検出した行の内容は出さず、場所と種類だけにする。
     // ローカル（hooks・pre-commit）は本人の端末なので内容を見せて直しやすくする
@@ -337,7 +363,7 @@ function report(hits, { annotate, patterns = [] }) {
   if (hits.length > 0) {
     const where = annotate ? console.log : console.error;
     where(
-      `検出 ${hits.length} 件。顧客名・非公開リポジトリの内容・機密の印・非公開パッケージは public の cre に書けません。迷ったら書かずに人に確認してください。`,
+      `検出 ${hits.length} 件。非公開リポジトリの内容・機密の印・非公開パッケージは public の cre に書けません。迷ったら書かずに人に確認してください。`,
     );
   }
 }
@@ -346,7 +372,7 @@ function main() {
   const args = process.argv.slice(2);
   const mode = args[0];
   const root = repoRoot();
-  const patterns = [...BUILTIN_PATTERNS, ...loadTerms(root)];
+  const patterns = BUILTIN_PATTERNS;
 
   switch (mode) {
     case "--tool-input": {
@@ -357,14 +383,18 @@ function main() {
       process.exit(hits.length ? 2 : 0);
     }
     // falls through（process.exit で抜ける）
-    case "--if-git-commit": {
+    case "--if-git-command": {
       const json = JSON.parse(readStdin() || "{}");
       const command = String(json?.tool_input?.command ?? "");
-      if (!/\bgit\b[^\n;&|]*\bcommit\b/.test(command)) process.exit(0);
-      const hits = [
-        ...scanText(command, patterns, "(git commit コマンド)"),
-        ...scanStagedDiff(root, patterns),
-      ];
+      const hits = [];
+      if (/\bgit\b[^\n;&|]*\bcommit\b/.test(command)) {
+        hits.push(
+          ...scanText(command, patterns, "(git commit コマンド)"),
+          ...scanStagedDiff(root, patterns),
+        );
+      }
+      const bypass = bypassReason(command);
+      if (bypass) hits.push({ label: "(git コマンド)", line: 1, name: bypass, excerpt: "" });
       report(hits, { annotate: false });
       process.exit(hits.length ? 2 : 0);
     }
@@ -387,18 +417,6 @@ function main() {
     }
     // falls through
     case "--ci": {
-      const termsConfigured = (process.env.CONFIDENTIAL_TERMS ?? "").trim().length > 0;
-      if (!termsConfigured) {
-        if (process.env.CONFIDENTIAL_REQUIRE_TERMS === "true") {
-          console.log(
-            "::error::Secret CONFIDENTIAL_TERMS が未設定です。禁止語を 1 行 1 語で登録してください（無いなら `# none` のようなコメント 1 行）。未設定のまま成功にはしません",
-          );
-          process.exit(1);
-        }
-        console.log(
-          "::warning::CONFIDENTIAL_TERMS が渡されていないので、禁止語の検査は飛ばします（フォークや Dependabot の実行では Secret が渡りません）",
-        );
-      }
       const hits = scanTrackedFiles(root, patterns);
       if (process.env.CONFIDENTIAL_EXTRA_TEXT)
         hits.push(...scanText(process.env.CONFIDENTIAL_EXTRA_TEXT, patterns, "(PR の題名・本文)"));
@@ -407,10 +425,7 @@ function main() {
         hits.push(...scanRangeCommits(root, process.env.CONFIDENTIAL_COMMIT_RANGE, patterns));
       }
       report(hits, { annotate: true, patterns });
-      if (hits.length === 0)
-        console.log(
-          `機密の検査: 問題なし（禁止語 ${patterns.length - BUILTIN_PATTERNS.length} 件を含む ${patterns.length} パターン）`,
-        );
+      if (hits.length === 0) console.log(`機密の検査: 問題なし（${patterns.length} パターン）`);
       process.exit(hits.length ? 1 : 0);
     }
     // falls through
@@ -422,10 +437,10 @@ function main() {
     // falls through
     default:
       console.error(
-        "使い方: check-confidential.mjs --tool-input | --if-git-commit | --staged | --message <file> | --ci | --stdin-text",
+        "使い方: check-confidential.mjs --tool-input | --if-git-command | --staged | --message <file> | --ci | --stdin-text",
       );
       process.exit(2);
   }
 }
 
-main();
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

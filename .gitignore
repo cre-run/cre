@@ -47,4 +47,3 @@ playwright-report/
 CLAUDE.local.md
 
 # 機密の検査の禁止語（平文で公開リポジトリに置かない。CI は Secret から読む）
-.confidential-terms.local

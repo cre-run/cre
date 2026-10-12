@@ -1,0 +1,3 @@
+#!/usr/bin/env sh
+# push するコミットを検査し、AI（既定は Claude Haiku）に読ませて、要確認なら人に聞く。標準入力は git がそのまま渡す
+exec node "$(git rev-parse --show-toplevel)/scripts/review-push.mjs" "$@"

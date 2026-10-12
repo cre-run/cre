@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-confidential.mjs\" --if-git-commit"
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/check-confidential.mjs\" --if-git-command"
           }
         ]
       }

@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,7 +11,8 @@ const script = fileURLToPath(new URL("./check-confidential.mjs", import.meta.url
 // 検出パターンの断片を文字列の結合で組み立て、このテストファイル自身が検出されないようにする
 const privateRepo = "cre-run/" + "cre-private";
 const marker = "<!-- " + "CONFI" + "DENTIAL: " + privateRepo + " -->";
-const internalPkg = "@cre-internal" + "/ops-cli";
+const internalScope = "@cre-internal" + "/";
+const internalPkg = internalScope + "ops-cli";
 
 function run(args, { input = "", env = {} } = {}) {
   return spawnSync(process.execPath, [script, ...args], {
@@ -44,15 +45,6 @@ test("非公開パッケージのスコープを検出する", () => {
   assert.match(r.stderr, /非公開パッケージ/);
 });
 
-test("環境変数の禁止語を検出する（大文字小文字を問わない）", () => {
-  const r = run(["--stdin-text"], {
-    input: "お客様の Example Corp から問い合わせ\n",
-    env: { CONFIDENTIAL_TERMS: "# コメント\n\nexample corp\n" },
-  });
-  assert.equal(r.status, 1);
-  assert.match(r.stderr, /禁止語/);
-});
-
 test("Claude Code の Write hook: 内容に印があれば終了コード 2 で拒否する", () => {
   const json = JSON.stringify({
     tool_name: "Write",
@@ -74,7 +66,7 @@ test("Claude Code の Edit hook: 問題のない new_string は通る", () => {
 
 test("Claude Code の Bash hook: git commit 以外のコマンドは通る", () => {
   const json = JSON.stringify({ tool_name: "Bash", tool_input: { command: "git status --short" } });
-  const r = run(["--if-git-commit"], { input: json });
+  const r = run(["--if-git-command"], { input: json });
   assert.equal(r.status, 0, r.stderr);
 });
 
@@ -83,8 +75,33 @@ test("Claude Code の Bash hook: git commit -m のメッセージに参照があ
     tool_name: "Bash",
     tool_input: { command: `git commit -m "docs: ${privateRepo} の方針を反映"` },
   });
-  const r = run(["--if-git-commit"], { input: json });
+  const r = run(["--if-git-command"], { input: json });
   assert.equal(r.status, 2);
+});
+
+test("Claude Code の Bash hook: 普通の git push は通る（AI レビューは pre-push が行う）", () => {
+  const json = JSON.stringify({
+    tool_name: "Bash",
+    tool_input: { command: "git push -u origin feat" },
+  });
+  const r = run(["--if-git-command"], { input: json });
+  assert.equal(r.status, 0, r.stderr);
+});
+
+test("Claude Code の Bash hook: AI が人の確認を名乗る CRE_PUSH_REVIEWED 付きの push は拒否する", () => {
+  for (const command of [
+    "CRE_PUSH_REVIEWED=1 git push",
+    "git push --no-verify",
+    "env CRE_PUSH_REVIEWER=off git push origin main",
+    "git commit --no-verify -m x",
+    "git -c core.hooksPath=/dev/null push",
+    "git config core.hooksPath /dev/null",
+  ]) {
+    const json = JSON.stringify({ tool_name: "Bash", tool_input: { command } });
+    const r = run(["--if-git-command"], { input: json });
+    assert.equal(r.status, 2, command);
+    assert.match(r.stderr, /人だけ/);
+  }
 });
 
 test("--message: コミットメッセージのファイルを検査する", () => {
@@ -110,9 +127,8 @@ function makeRepo() {
 }
 
 function runIn(dir, args, env = {}) {
-  // 環境変数の禁止語や範囲が外から混ざらないよう、テストで使うものだけを渡す
+  // 環境変数の範囲などが外から混ざらないよう、テストで使うものだけを渡す
   const base = { ...process.env };
-  delete base.CONFIDENTIAL_TERMS;
   delete base.CONFIDENTIAL_EXTRA_TEXT;
   delete base.CONFIDENTIAL_COMMIT_RANGE;
   return spawnSync(process.execPath, [script, ...args], {
@@ -191,22 +207,13 @@ test("--ci: before が全ゼロ（初回 push）のときは到達可能な全�
   assert.equal(ok.status, 0, ok.stdout + ok.stderr);
 });
 
-test("--staged: 内容を変えない rename でも、新しいファイル名に禁止語があれば落ちる", () => {
+test("--staged: 内容を変えない rename でも、新しいファイル名が非公開パッケージのパスなら落ちる", () => {
   const { dir, git } = makeRepo();
-  writeFileSync(path.join(dir, ".confidential-terms.local"), "Zorblax\n");
-  git("mv", "README.md", "zorblax.md");
+  mkdirSync(path.join(dir, internalScope));
+  git("mv", "README.md", `${internalScope}README.md`);
   const r = runIn(dir, ["--staged"]);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /ファイル名に禁止語/);
-});
-
-test("--ci: 禁止語ファイル .confidential-terms.local を読む", () => {
-  const { dir } = makeRepo();
-  writeFileSync(path.join(dir, ".confidential-terms.local"), "# 顧客\nAcme Widgets\n");
-  writeFileSync(path.join(dir, "memo.md"), "acme widgets 向けの見積\n");
-  const r = runIn(dir, ["--ci"]);
-  assert.equal(r.status, 1);
-  assert.match(r.stdout, /禁止語/);
+  assert.match(r.stderr, /ファイル名に非公開パッケージ/);
 });
 
 test("--ci: バイナリ（PNG）は読み飛ばす", () => {
@@ -237,6 +244,21 @@ test("--staged: 機密のない差分は通る", () => {
   assert.equal(r.status, 0, r.stderr);
 });
 
+test("--ci: BOM 付きの UTF-16（LE・BE）のテキストも検査する", () => {
+  const { dir, git } = makeRepo();
+  const le = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(`${privateRepo}\n`, "utf16le")]);
+  const be = Buffer.from(le.subarray(2));
+  be.swap16();
+  writeFileSync(path.join(dir, "le.txt"), le);
+  writeFileSync(path.join(dir, "be.txt"), Buffer.concat([Buffer.from([0xfe, 0xff]), be]));
+  git("add", "-A");
+  git("commit", "-q", "-m", "chore: utf16");
+  const r = runIn(dir, ["--ci"]);
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /le\.txt/);
+  assert.match(r.stdout, /be\.txt/);
+});
+
 test("--ci: SVG はテキストとして検査し、コメント内の印を検出する", () => {
   const { dir, git } = makeRepo();
   writeFileSync(
@@ -250,48 +272,25 @@ test("--ci: SVG はテキストとして検査し、コメント内の印を検�
   assert.match(r.stdout, /logo\.svg/);
 });
 
-test("--ci: CONFIDENTIAL_REQUIRE_TERMS=true で Secret が未設定なら失敗する（fail closed）", () => {
-  const { dir } = makeRepo();
-  const r = runIn(dir, ["--ci"], { CONFIDENTIAL_REQUIRE_TERMS: "true" });
-  assert.equal(r.status, 1);
-  assert.match(r.stdout, /::error::Secret CONFIDENTIAL_TERMS/);
-});
-
-test("--ci: コメント 1 行だけの Secret は「設定済み」として通る", () => {
-  const { dir } = makeRepo();
-  const r = runIn(dir, ["--ci"], {
-    CONFIDENTIAL_REQUIRE_TERMS: "true",
-    CONFIDENTIAL_TERMS: "# none\n",
-  });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
-});
-
-test("--ci: REQUIRE_TERMS でない実行（フォーク・Dependabot）は Secret なしでも警告を出して通る", () => {
-  const { dir } = makeRepo();
-  const r = runIn(dir, ["--ci"], { CONFIDENTIAL_REQUIRE_TERMS: "false" });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.match(r.stdout, /::warning::CONFIDENTIAL_TERMS/);
-});
-
-test("--ci: 禁止語を含むファイル名は、内容が空でも落ちる", () => {
+test("--ci: 非公開パッケージのパスにあるファイルは、内容が空でも落ちる", () => {
   const { dir, git } = makeRepo();
-  writeFileSync(path.join(dir, ".confidential-terms.local"), "Zorblax\n");
-  writeFileSync(path.join(dir, "zorblax-memo.md"), "");
+  mkdirSync(path.join(dir, internalScope));
+  writeFileSync(path.join(dir, internalScope, "memo.md"), "");
   git("add", "-A");
   git("commit", "-q", "-m", "docs: memo");
   const r = runIn(dir, ["--ci"]);
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /ファイル名に禁止語/);
+  assert.match(r.stdout, /ファイル名に非公開パッケージ/);
 });
 
-test("--staged: 禁止語を含むファイル名の追加は落ちる", () => {
+test("--staged: 非公開パッケージのパスへのファイルの追加は落ちる", () => {
   const { dir, git } = makeRepo();
-  writeFileSync(path.join(dir, ".confidential-terms.local"), "Zorblax\n");
-  writeFileSync(path.join(dir, "notes-zorblax.md"), "# empty\n");
-  git("add", "notes-zorblax.md");
+  mkdirSync(path.join(dir, internalScope));
+  writeFileSync(path.join(dir, internalScope, "notes.md"), "# empty\n");
+  git("add", "-A");
   const r = runIn(dir, ["--staged"]);
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /ファイル名に禁止語/);
+  assert.match(r.stderr, /ファイル名に非公開パッケージ/);
 });
 
 test("--ci: 検査スクリプトとテスト自身も除外せず検査し、このリポジトリは通る", () => {
@@ -330,15 +329,13 @@ test("--ci: シンボリックリンクはリンク先の文字列を検査す�
 
 test("--ci: 公開される CI のログには検出した行の内容を出さない", () => {
   const { dir, git } = makeRepo();
-  writeFileSync(path.join(dir, ".confidential-terms.local"), "Zorblax\n");
-  writeFileSync(path.join(dir, "memo.md"), "Zorblax との契約は月額 999 万円\n");
+  writeFileSync(path.join(dir, "memo.md"), `${privateRepo} の見積: 月額 999 万円\n`);
   git("add", "-A");
   git("commit", "-q", "-m", "docs: memo");
   const r = runIn(dir, ["--ci"]);
   assert.equal(r.status, 1);
   assert.match(r.stdout, /::error file=memo\.md,line=1::/);
   assert.doesNotMatch(r.stdout, /999 万円/);
-  assert.doesNotMatch(r.stdout, /Zorblax/);
 });
 
 test("--staged: 内容が ++ で始まる追加行も検査する（patch 上は +++ になる）", () => {
@@ -350,16 +347,16 @@ test("--staged: 内容が ++ で始まる追加行も検査する（patch 上は
   assert.match(r.stderr, /notes\.md:1/);
 });
 
-test("--ci: ファイル名に禁止語が一致したとき、公開ログにファイル名を出さない", () => {
+test("--ci: ファイル名にパターンが一致したとき、公開ログにファイル名を出さない", () => {
   const { dir, git } = makeRepo();
-  writeFileSync(path.join(dir, ".confidential-terms.local"), "Zorblax\n");
-  writeFileSync(path.join(dir, "zorblax-memo.md"), "# empty\n");
+  mkdirSync(path.join(dir, internalScope));
+  writeFileSync(path.join(dir, internalScope, "secret-memo.md"), "# empty\n");
   git("add", "-A");
   git("commit", "-q", "-m", "docs: memo");
   const r = runIn(dir, ["--ci"]);
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /ファイル名に禁止語/);
-  assert.doesNotMatch(r.stdout, /zorblax/i);
+  assert.match(r.stdout, /ファイル名に非公開パッケージ/);
+  assert.doesNotMatch(r.stdout, /secret-memo/);
 });
 
 test("--ci: 範囲内で追加してから削除したファイルの内容も検査する（履歴に残るため）", () => {
@@ -376,15 +373,15 @@ test("--ci: 範囲内で追加してから削除したファイルの内容も�
   assert.match(r.stdout, /コミット [0-9a-f]{8} で追加/);
 });
 
-test("--ci: ファイル名が禁止語に一致するとき、内容ヒットの注釈でもファイル名を伏せる", () => {
+test("--ci: ファイル名がパターンに一致するとき、内容ヒットの注釈でもファイル名を伏せる", () => {
   const { dir, git } = makeRepo();
-  writeFileSync(path.join(dir, ".confidential-terms.local"), "Zorblax\n");
-  writeFileSync(path.join(dir, "zorblax.md"), "Zorblax の見積\n");
+  mkdirSync(path.join(dir, internalScope));
+  writeFileSync(path.join(dir, internalScope, "secret-memo.md"), `${marker}\n`);
   git("add", "-A");
   git("commit", "-q", "-m", "docs: memo");
   const r = runIn(dir, ["--ci"]);
   assert.equal(r.status, 1);
-  assert.doesNotMatch(r.stdout, /zorblax/i);
+  assert.doesNotMatch(r.stdout, /secret-memo/);
 });
 
 test("--staged: 内容が ++ b/ で始まる行も diff ヘッダーと誤認せず検査する", () => {
@@ -394,18 +391,6 @@ test("--staged: 内容が ++ b/ で始まる行も diff ヘッダーと誤認せ
   const r = runIn(dir, ["--staged"]);
   assert.equal(r.status, 1);
   assert.match(r.stderr, /notes\.md:1/);
-});
-
-test("CONFIDENTIAL_TERMS_FILE が指すファイル（非公開リポジトリの正本など）から禁止語を読む", () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "cc-terms-"));
-  const file = path.join(dir, "confidential-terms.txt");
-  writeFileSync(file, "# 正本\nZorblax\n");
-  const r = run(["--stdin-text"], {
-    input: "zorblax 向け\n",
-    env: { CONFIDENTIAL_TERMS_FILE: file },
-  });
-  assert.equal(r.status, 1);
-  assert.match(r.stderr, /禁止語/);
 });
 
 test("--ci: before が全ゼロでも、中間コミットで追加して削除した内容を検出する", () => {
@@ -419,15 +404,6 @@ test("--ci: before が全ゼロでも、中間コミットで追加して削除�
   const r = runIn(dir, ["--ci"], { CONFIDENTIAL_COMMIT_RANGE: `${"0".repeat(40)}..${head}` });
   assert.equal(r.status, 1);
   assert.match(r.stdout, /コミット [0-9a-f]{8} で追加/);
-});
-
-test("CONFIDENTIAL_TERMS_FILE が指すファイルが無ければ終了コード 2 で失敗する", () => {
-  const r = run(["--stdin-text"], {
-    input: "ok\n",
-    env: { CONFIDENTIAL_TERMS_FILE: "/nonexistent/terms.txt" },
-  });
-  assert.equal(r.status, 2);
-  assert.match(r.stderr, /CONFIDENTIAL_TERMS_FILE/);
 });
 
 test("--ci: 最終コミットの .gitattributes で -diff を付けても、中間コミットの追加内容を検査する", () => {
@@ -454,23 +430,6 @@ test("--staged: .gitattributes で -diff を付けた staged ファイルの追�
   const r = runIn(dir, ["--staged"]);
   assert.equal(r.status, 1);
   assert.match(r.stderr, /notes\.md:1/);
-});
-
-test("--ci: 日本語のファイル名を履歴で追加して削除しても、禁止語に一致すれば検出する", () => {
-  const { dir, git } = makeRepo();
-  const base = git("rev-parse", "HEAD").stdout.trim();
-  writeFileSync(path.join(dir, "秘密顧客メモ.md"), "# empty\n");
-  git("add", "-A");
-  git("commit", "-q", "-m", "docs: memo");
-  git("rm", "-q", "秘密顧客メモ.md");
-  git("commit", "-q", "-m", "docs: remove");
-  const head = git("rev-parse", "HEAD").stdout.trim();
-  const r = runIn(dir, ["--ci"], {
-    CONFIDENTIAL_COMMIT_RANGE: `${base}..${head}`,
-    CONFIDENTIAL_TERMS: "秘密顧客\n",
-  });
-  assert.equal(r.status, 1);
-  assert.match(r.stdout, /ファイル名に禁止語（履歴）/);
 });
 
 test("--staged: 日本語のファイル名の追加行も、クォートされずにそのファイル名で報告される", () => {
