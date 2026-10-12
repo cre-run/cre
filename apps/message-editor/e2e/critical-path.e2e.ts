@@ -92,6 +92,16 @@ test("URL のデータが変わり、開いていたタブが無くなったら�
   await expect(panel.getByRole("tab", { name: /質問/u })).toHaveCount(0);
   await expect(panel.getByRole("tab", { name: /要点/u })).toHaveAttribute("aria-selected", "true");
   await expect(panel.getByRole("tabpanel")).toContainText(first!.summary);
+
+  // 質問のあるデータへ戻しても、前に開いていた「質問」が勝手に選び直されない
+  await page.evaluate(
+    (hash) => {
+      window.location.hash = hash;
+    },
+    `${toHash(samplePayload).slice(1)}&p=r1`,
+  );
+  await expect(panel.getByRole("tab", { name: /質問/u })).toBeVisible();
+  await expect(panel.getByRole("tab", { name: /要点/u })).toHaveAttribute("aria-selected", "true");
 });
 
 test("ガイドに載せた URL の例を開くと、見本と同じ内容が表示される", async ({ page }) => {

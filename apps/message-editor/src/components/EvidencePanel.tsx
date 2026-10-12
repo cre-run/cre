@@ -70,8 +70,14 @@ export const EvidencePanel = ({
   questions: InquiryParagraph[];
   generatedAt: string;
 }) => {
-  // 段落を選び直すとパネルごと作り直される（App の key）ので、いつも「要点」から始まる
-  const [selectedTab, setTab] = useState<TabId>("summary");
+  // 段落を選び直すとパネルごと作り直される（App の key）ので、いつも「要点」から始まる。
+  // URL のデータが変わっても段落 ID が同じだと作り直されないので、段落のデータが変わったら「要点」に戻す
+  const [tab, setTab] = useState<TabId>("summary");
+  const [shownParagraph, setShownParagraph] = useState(paragraph);
+  if (shownParagraph !== paragraph) {
+    setShownParagraph(paragraph);
+    setTab("summary");
+  }
   if (!paragraph) {
     return (
       <aside className="panel" aria-label="この段落の根拠">
@@ -99,8 +105,6 @@ export const EvidencePanel = ({
       ? [{ id: "questions" as const, label: "質問", count: String(questions.length) }]
       : []),
   ];
-  // URL のデータが変わっても段落 ID が同じならパネルは作り直されない。開いていたタブが無くなったら「要点」に戻す
-  const tab = tabs.some((t) => t.id === selectedTab) ? selectedTab : "summary";
   const move = (step: number) => {
     const at = tabs.findIndex((t) => t.id === tab);
     const next = tabs[(at + step + tabs.length) % tabs.length]!;
