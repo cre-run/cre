@@ -3,7 +3,7 @@ import type {
   EvidenceStance,
   EvidenceType,
   ParagraphStatus,
-} from "@cre/message-payload";
+} from "@cre/editor-payload";
 
 export const STATUS: Record<ParagraphStatus, { label: string; icon: string }> = {
   verified: { label: "確認済み", icon: "✓" },

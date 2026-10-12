@@ -1,4 +1,4 @@
-import type { ReplyReviewPayload } from "@cre/message-payload";
+import type { ReplyReviewPayload } from "@cre/editor-payload";
 
 /**
  * URL にデータがないときに表示する見本。ドキュメントのモック画像もこのデータで撮る。

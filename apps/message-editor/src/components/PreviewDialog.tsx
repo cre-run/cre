@@ -1,4 +1,4 @@
-import type { Reply } from "@cre/message-payload";
+import type { Reply } from "@cre/editor-payload";
 import { Icon } from "./Icon.tsx";
 
 /** お客様に送る文面だけを表示する（注釈は含めない） */

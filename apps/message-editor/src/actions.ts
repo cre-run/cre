@@ -1,4 +1,4 @@
-import type { ParagraphStatus, ReplyParagraph } from "@cre/message-payload";
+import type { ParagraphStatus, ReplyParagraph } from "@cre/editor-payload";
 
 export interface ActionItem {
   paragraphId: string;

@@ -7,7 +7,7 @@ Message Editor のモック（SPA）です。返信の下書きを段落ごと�
 
 ## データの渡し方
 
-バックエンドはなく、画面に渡すデータ（`@cre/message-payload` の `ReplyReviewPayload`）を JSON にして
+バックエンドはなく、画面に渡すデータ（`@cre/editor-payload` の `ReplyReviewPayload`）を JSON にして
 pako で圧縮し、base64url で URL の `#d=` に載せます。`#...&p=r3` で最初に選ぶ段落を指定できます。
 データがないときは `src/sample.ts` の見本（架空のデータ）を表示します。
 
@@ -23,7 +23,7 @@ vp run @cre/message-editor#build
 前回の URL が出ることがあり、生成した URL（判定データを含む）が `node_modules/.vite/task-cache/` に残ります。
 また `vp run ... -- payload.json --base URL` の形では `--` 以降がすべてファイル名として扱われ、`--base` が効きません。
 
-受け取ったデータは `@cre/message-payload`（`packages/message-payload`）の `isPayload` で検証し、形式が合わないもの（必須の項目がない、
+受け取ったデータは `@cre/editor-payload`（`packages/editor-payload`）の `isPayload` で検証し、形式が合わないもの（必須の項目がない、
 根拠の `url` が `http(s)` 以外、圧縮データが `MAX_ENCODED_LENGTH`（10 万文字）を超える、
 展開後が `MAX_DECODED_BYTES`（1 MB）を超える、など）は表示せず、
 見本データとエラーを表示します。`javascript:` などの URL はリンクになりません。
