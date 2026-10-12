@@ -3,6 +3,7 @@
  * （apps/docs/docs/message-editor/index.mdx「判定データの扱いについて」の詳細）
  *
  * ガイドの表「どこに届き、どこに届かないか」と「受け付けないデータ」の各行を、実際のブラウザで確かめる。
+ * 約束のテストはこのファイルと tests/data-handling.test.ts にだけ置く（tested バッジと guide-promises.test.ts が突き合わせる）。
  * 「ブラウザの履歴・ブックマーク」「チャットに貼った URL」の行はブラウザや外部サービスの振る舞いなのでテストしない。
  * 画像は撮らない（見た目ではなく、通信と保存の有無を見る）。
  */
@@ -143,5 +144,11 @@ test("展開すると大きくなるデータ（展開爆弾）は、途中で�
   };
   await page.goto(`/${toHash(bomb)}`);
   await expect(page.getByText("データが大きすぎます（展開後")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
+});
+
+test("壊れた判定データでは見本データとエラーを表示する", async ({ page }) => {
+  await page.goto("/#d=broken");
+  await expect(page.getByText("URL のデータを読み込めませんでした")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
 });

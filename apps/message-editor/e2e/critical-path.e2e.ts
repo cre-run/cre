@@ -60,9 +60,3 @@ test("ガイドに載せた URL の例を開くと、見本と同じ内容が表
   await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
   await expect(page.getByText("URL のデータを読み込めませんでした")).toHaveCount(0);
 });
-
-test("壊れた判定データでは見本データとエラーを表示する", async ({ page }) => {
-  await page.goto("/#d=broken");
-  await expect(page.getByText("URL のデータを読み込めませんでした")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
-});

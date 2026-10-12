@@ -4,8 +4,8 @@
  * ガイドの約束に付けた tested バッジ（リンク先がテストファイル、tooltip がテスト名）と、
  * 実際のテストが一致することを確かめる。
  * - バッジのテストは、リンク先のファイルに同じ名前で実在する（ガイドだけを変えると落ちる）
- * - 約束のためだけにあるテストファイルは、すべてのテストにバッジがある（テストだけを足すと落ちる）
- * payload.test.ts や critical-path.e2e.ts のように約束以外のテストも持つファイルは、約束に関わるものだけにバッジを付ける。
+ * - 約束のテストファイルは、すべてのテストにバッジがある（テストだけを足す・バッジだけを外すと落ちる）
+ * 約束のテストは PROMISE_TEST_FILES にだけ置く。他のファイルへのバッジは「実在しない」扱いで落ちる。
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,8 +16,8 @@ import { expect, test } from "vite-plus/test";
 const APP = fileURLToPath(new URL("..", import.meta.url));
 const GUIDE = join(APP, "../docs/docs/message-editor/data-handling.mdx");
 
-/** 約束を確かめるためだけにあるファイル。ここのテストはすべてガイドに載せる */
-const PROMISE_ONLY_FILES = [
+/** 約束のテストを置くファイル。ここのテストにはすべてバッジを付け、バッジはここにしか付けない */
+const PROMISE_TEST_FILES = [
   "e2e/guide-message-editor-data-handling.e2e.ts",
   "tests/data-handling.test.ts",
 ];
@@ -94,13 +94,14 @@ test("バッジのテストは、リンク先のファイルに同じ名前で�
   const listed = listedInGuide();
   expect(listed.length).toBeGreaterThan(0);
   for (const { title, file } of listed) {
+    expect(PROMISE_TEST_FILES, `${file}: 約束のテストはこのファイルに置く`).toContain(file);
     expect(await titlesInFile(file), `${file}: 「${title}」`).toContain(title);
   }
 });
 
-test("約束のためだけにあるテストファイルは、すべてのテストにバッジがある", async () => {
+test("約束のテストファイルのテストには、すべてバッジがある", async () => {
   const listed = listedInGuide();
-  for (const file of PROMISE_ONLY_FILES) {
+  for (const file of PROMISE_TEST_FILES) {
     const badged = new Set(listed.filter((item) => item.file === file).map((item) => item.title));
     expect([...badged].sort(), file).toEqual((await titlesInFile(file)).sort());
   }
