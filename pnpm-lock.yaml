@@ -276,7 +276,7 @@ importers:
         version: 7.0.2
       vite-plus:
         specifier: 'catalog:'
-        version: 1.1.0(@types/node@24.19.1)(@vitest/ui@5.0.3)(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.1)(jiti@2.7.0)(playwright@1.64.0)(typescript@7.0.2)(yaml@2.9.1)
+        version: 1.1.0(@types/node@24.19.1)(@vitest/ui@5.0.3)(@volar/typescript@2.4.28(typescript@7.0.2))(esbuild@0.28.2)(jiti@2.7.0)(playwright@1.64.0)(typescript@7.0.2)(yaml@2.9.1)
 
   packages/sample:
     devDependencies:
