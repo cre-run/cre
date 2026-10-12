@@ -18,7 +18,7 @@ Slack のボタン（3,000 文字まで）のように長さに上限がある�
 - 短縮 URL を開くと、組織のメールアドレスでログインしたうえで、Message Editor にその判定データが表示されます
 
 短縮 URL のサーバーは、自組織の Cloudflare にセルフホストして使います。
-作れるのは管理者から `BOT_KEY` を受け取った Bot だけで、開けるのは組織のメールアドレスでログインした人だけです。
+作れるのは同じ Cloudflare アカウントの Worker（Bot）だけで、開けるのは組織のメールアドレスでログインした人だけです。
 
 ## URL の形
 
@@ -51,18 +51,20 @@ ID はランダムな UUID（v4）です。長さは判定データの大きさ�
 
 ## 短縮 URL を作る（Bot の開発者向け）
 
-管理者から受け取った `BOT_KEY` を `Authorization` ヘッダーに付けて登録します。`data` には Message Editor の URL の `#d=` より後ろを入れます。
+短縮 URL を作れるのは、短縮 URL と同じ Cloudflare アカウントの Worker（Bot）だけです。
+Bot の Worker から Service Binding で短縮 URL の Worker につなぎ、`create()` を呼びます。インターネットに公開した登録の API や、そのためのキーはありません。
 
-```bash
-# link.json: {"data": "<#d= より後ろの値>"}
-curl -X POST https://short.example.com/api/links \
-  -H "Authorization: Bearer $CRE_SHORT_URL_BOT_KEY" \
-  -H "Content-Type: application/json" \
-  --data-binary @link.json
-# → {"id": "0f8c…", "url": "https://short.example.com/id/0f8c…"}
+```jsonc
+// Bot の Worker の wrangler.jsonc
+"services": [{ "binding": "SHORT_URL", "service": "short-url", "entrypoint": "ShortUrl" }],
 ```
 
-- `BOT_KEY` はコードに書かず、Bot のシークレットの管理機能か環境変数（例: `CRE_SHORT_URL_BOT_KEY`）に置きます
-- Message Editor が表示できないデータは登録しません
+```ts
+// data には Message Editor の URL の #d= より後ろを渡す
+const { id, url } = await env.SHORT_URL.create(data);
+// → url: "https://short.example.com/id/0f8c…"
+```
+
+Message Editor が表示できないデータは登録せず、エラーになります。
 
 サーバーの用意は[セルフホストの設定](/short-url/self-hosting)、データがどこに残るかは[データの取り扱い](/short-url/data-handling)にまとめています。
