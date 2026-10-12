@@ -467,8 +467,16 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
 ### 削除の依頼への対応
 
 1. 短縮 URL（ID）が分かるとき: 運用者用のクライアントで `DELETE /api/links/{id}` を呼びます。すぐに開けなくなります
-2. ID は分からないが、作ったクライアントと期間が分かるとき: `vp exec wrangler d1 execute cre-short --remote --command "DELETE FROM links WHERE client_id = '…' AND created_at BETWEEN … AND …"`
-3. どちらも分からないとき: 中身は暗号化されていて検索できません。期限（最長 90 日）を待つか、`LINK_MASTER_KEY` を入れ替えてすべてを開けなくし、`DELETE FROM links` で消します
+2. ID は分からないが、作ったクライアントと期間が分かるとき: 管理スクリプトで消します
+
+   ```bash
+   vp exec node scripts/links.ts delete --client Q4mT9xZa --from 2026-10-01 --to 2026-10-08
+   ```
+
+   - スクリプトは、消す行の `link.delete` を `audit_log` に書く `INSERT … SELECT` と、`links` の `DELETE` を、同じ条件で 1 つのファイルにまとめて `wrangler d1 execute --file` で流します（D1 は 1 回の実行をまとめて適用する）
+   - **`links` を SQL で直接消さないでください。** 監査ログに `link.delete` が残らず、Time Travel で戻したあとに消し直せなくなり、消したはずのリンクがまた開けるようになります
+
+3. どちらも分からないとき: 中身は暗号化されていて検索できません。期限（最長 90 日）を待つか、`LINK_MASTER_KEY` を入れ替えてすべてを開けなくします。入れ替えた後は Time Travel で戻しても読めないので、残った行は `scripts/links.ts delete --all` で消せば足ります
 4. どの場合も、Time Travel には暗号文が最長 30 日残ります。読めるのは、データベースを戻し、かつ短縮 URL を知っている人だけです（鍵を入れ替えた後は誰も読めません）
 5. 依頼した人には、短縮 URL を貼った先（Slack など）と、開いた人のブラウザの履歴（Message Editor の URL）には残りうることも伝えます
 
