@@ -1,0 +1,32 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cre-short",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "routes": [{ "pattern": "s.cre.run", "custom_domain": true }],
+  // 入口は routes のドメインだけにし、Cloudflare Access の対象を 1 つにする
+  "workers_dev": false,
+  // プロトタイプのあいだは PR ごとのプレビューを作らない（古い版の Version URL も出さない）
+  "preview_urls": false,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cre-short",
+      // `wrangler d1 create cre-short` で表示された ID に置き換える。ローカル（wrangler dev）では使われない
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations",
+    },
+  ],
+  "vars": {
+    // create() が返す短縮 URL の origin
+    "BASE_URL": "https://s.cre.run",
+    // 開ける人の確認。Cloudflare Access のポリシーと同じドメインを書く（Access 自体はダッシュボードで設定する）
+    "ACCESS": {
+      "allowedEmailDomains": ["<組織のメールのドメイン>"],
+      "teamDomain": "https://<チーム名>.cloudflareaccess.com",
+      "aud": "<Access のアプリケーションの AUD タグ>",
+    },
+    "EDITOR_URL": "https://editor.cre.run/",
+  },
+  "observability": { "enabled": true },
+}

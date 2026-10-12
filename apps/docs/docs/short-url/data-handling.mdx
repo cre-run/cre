@@ -7,14 +7,26 @@ sidebar:
 ---
 
 <Badge variant="warning">planned</Badge>
-この機能はまだありません。作る前に約束として決めるための下書きです。 Message Editor
+この機能はまだ公開していません（実装中）。作る前に約束として決めた下書きです。 Message Editor
 の約束（[データの取り扱い](/message-editor/data-handling)）はそのままです。
 
-| 経路                           | 判定データ                                                                                                                                           | テスト |
-| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| 短縮 URL のサーバー（自組織）  | **届きます。** 登録と開くときだけです。CRE の運営者には届きません                                                                                    | —      |
-| データベースとそのバックアップ | **そのまま残ります。** 暗号化はしていないので、自組織でデータベースを読める人は読めます。バックアップ（Time Travel）には消した後も最長 30 日残ります | —      |
-| 短縮 URL を開ける人            | **組織のメールアドレスでログインした人だけです。** リンクのプレビューや検索エンジンには出ません                                                      | —      |
-| ブラウザの履歴・URL を貼った先 | **残ります。** 移った先の Message Editor の URL（判定データ全体を含む）は、ログインなしで開けます。短縮 URL が守るのは入口だけです                   | —      |
+| 経路                           | 判定データ                                                                                                                                           | テスト                                                                                                                                                                                                                                                                                                                                                    |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 短縮 URL のサーバー（自組織）  | **届きます。** 登録と開くときだけです。CRE の運営者には届きません                                                                                    | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/short-url/tests/data-handling.test.ts#L25"><Badge variant="success" size="xs">単体</Badge></a> <a href="https://github.com/cre-run/cre/blob/main/apps/short-url/tests/data-handling.test.ts#L49"><Badge variant="success" size="xs">単体</Badge></a></span> |
+| データベースとそのバックアップ | **そのまま残ります。** 暗号化はしていないので、自組織でデータベースを読める人は読めます。バックアップ（Time Travel）には消した後も最長 30 日残ります | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/short-url/tests/data-handling.test.ts#L66"><Badge variant="success" size="xs">単体</Badge></a></span>                                                                                                                                                       |
+| 短縮 URL を開ける人            | **組織のメールアドレスでログインした人だけです。** リンクのプレビューや検索エンジンには出ません                                                      | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/short-url/tests/data-handling.test.ts#L72"><Badge variant="success" size="xs">単体</Badge></a> <a href="https://github.com/cre-run/cre/blob/main/apps/short-url/tests/data-handling.test.ts#L87"><Badge variant="success" size="xs">単体</Badge></a></span> |
+| ブラウザの履歴・URL を貼った先 | **残ります。** 移った先の Message Editor の URL（判定データ全体を含む）は、ログインなしで開けます。短縮 URL が守るのは入口だけです                   | —                                                                                                                                                                                                                                                                                                                                                         |
 
-「テスト」列は、実装するときに約束ごとのテストへのバッジに置き換えます。
+## 確かめ方
+
+「テスト」列のバッジは、その約束を確かめ続けているテスト（`apps/short-url`）へのリンクです。
+
+<Badge variant="success" size="xs">
+  単体
+</Badge>
+はコードの形で確かめます（Worker の処理を、偽の D1 とテスト用の鍵で署名した Access の JWT
+で動かします）。リンク先はテストの行です。 バッジのテスト名と実際のテストは
+`tests/guide-promises.test.ts` が突き合わせるので、どちらかだけを変えると落ちます。
+実際のブラウザで確かめる E2E は、デプロイの前に足します。
+
+テストしない約束: ブラウザの履歴と URL を貼った先に残ることは、ブラウザや外部サービスの振る舞いなので確かめません。
