@@ -63,6 +63,10 @@ export const ReplyEditor = ({
               aria-current={selected ? "true" : undefined}
               onClick={() => onSelect(p.id)}
             >
+              {/* 全段落の確認状況をひと目で追えるよう、アイコンと色付きの文字だけを目印として本文の上に置く。詳しくは右のパネル */}
+              <span className={`status-label status-${p.status}`}>
+                <span aria-hidden="true">{STATUS[p.status].icon}</span> {STATUS[p.status].label}
+              </span>
               <p
                 className="paragraph-text"
                 contentEditable
@@ -72,10 +76,6 @@ export const ReplyEditor = ({
               >
                 {texts[p.id] ?? p.text}
               </p>
-              {/* 全段落の確認状況をひと目で追えるよう、アイコンと色付きの文字だけを目印として置く。詳しくは右のパネル */}
-              <span className={`status-label status-${p.status}`}>
-                <span aria-hidden="true">{STATUS[p.status].icon}</span> {STATUS[p.status].label}
-              </span>
             </div>
           );
         })}

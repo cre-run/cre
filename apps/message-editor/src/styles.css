@@ -318,12 +318,10 @@ h1 {
   font-size: 15px;
 }
 
-/* 本文と、右肩の確認状況の列。列の幅をそろえ、バッジの左端を縦一直線にする */
+/* 確認状況（上）と本文（下）を縦に並べる。本文の幅は狭めない */
 .paragraph {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 80px;
-  gap: 20px;
-  align-items: start;
+  gap: 2px;
   margin: 0 -14px 12px;
   padding: 14px;
   border-left: 2px solid transparent;
@@ -342,9 +340,11 @@ h1 {
   white-space: pre-wrap;
 }
 
-/* 右肩に置き、右の詳細カラムへ視線がつながるようにする。本文の 1 行目と高さを合わせる */
+/* 本文の上の右端に置き、右の詳細カラムへ視線がつながるようにする。
+   幅をそろえた箱の中で左詰めにし、文字数が違ってもバッジの左端を縦一直線にする */
 .paragraph > .status-label {
-  padding-top: 6px;
+  justify-self: end;
+  width: 80px;
   line-height: 1.6;
   white-space: nowrap;
 }
