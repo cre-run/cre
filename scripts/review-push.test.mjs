@@ -323,6 +323,39 @@ test("要確認のコミットの上に足した新しいコミットは、新�
   assert.match(r3.stderr, /price\.md: 「999 万円」/);
 });
 
+test("要確認になったタグを同じ名前で作り直すと、新しいタグとして読ませ直す", () => {
+  const { dir, git } = makeRepo();
+  git("tag", "-a", "v1", "-m", "Zorblax 社向け");
+  const line = () =>
+    `refs/tags/v1 ${git("rev-parse", "refs/tags/v1").stdout.trim()} refs/tags/v1 ${ZERO}\n`;
+  const first = fakeReviewer(
+    dir,
+    '{"risk":"review","findings":[{"where":"v1","what":"Zorblax 社","why":"顧客名"}]}',
+  );
+  assert.equal(push(dir, { stdin: line(), command: first.command }).status, 1);
+  git("tag", "-d", "v1");
+  git("tag", "-a", "v1", "-m", "見積 999 万円");
+  const second = fakeReviewer(dir, '{"risk":"none","findings":[]}');
+  const r = push(dir, { stdin: line(), command: second.command });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(second.prompt(), /見積 999 万円/);
+});
+
+test("公開済みのコミットだけの新しいブランチ名も、レビュアーに読ませる", () => {
+  const { dir, head } = makeRepo();
+  const fake = fakeReviewer(
+    dir,
+    '{"risk":"review","findings":[{"where":"refs/heads/customer-zorblax","what":"customer-zorblax","why":"顧客名"}]}',
+  );
+  const r = push(dir, {
+    stdin: `refs/heads/main ${head()} refs/heads/customer-zorblax ${ZERO}\n`,
+    command: fake.command,
+  });
+  assert.equal(r.status, 1);
+  assert.match(fake.prompt(), /refs\/heads\/customer-zorblax/);
+  assert.match(r.stderr, /customer-zorblax/);
+});
+
 test("CRE_PUSH_REVIEWED=1 なら AI レビューを飛ばして push する（人が付ける）", () => {
   const { dir, git, head } = makeRepo();
   writeFileSync(path.join(dir, "a.md"), "# ok\n");

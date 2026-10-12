@@ -109,12 +109,13 @@ function git(root, args, options = {}) {
 function refsToPush(root, remote, stdin) {
   const shas = new Set();
   const tags = [];
-  const refs = []; // 公開される側（送信先）の ref 名。refspec で別名に push できるので localRef ではなくこちらを見る
+  const refs = []; // 新しく公開される ref 名（送信先に無いもの）。refspec で別名に push できるので localRef ではなく送信先を見る
   for (const line of stdin.split("\n")) {
     const [localRef, localSha, remoteRef, remoteSha] = line.trim().split(/\s+/);
     if (!localSha || localSha === ZERO) continue; // ブランチ・タグの削除
     const published = remoteRef || localRef;
-    refs.push(published);
+    const isNew = !remoteSha || remoteSha === ZERO;
+    if (isNew) refs.push(published);
     if (published.startsWith("refs/tags/") || localRef.startsWith("refs/tags/")) {
       const name = published.replace(/^refs\/tags\//, "");
       // 注釈付きタグはメッセージを持つ（オブジェクトのヘッダーの後、最初の空行から先）。軽量タグは名前だけ
@@ -123,14 +124,11 @@ function refsToPush(root, remote, stdin) {
         type === "tag"
           ? git(root, ["cat-file", "-p", localSha]).split("\n\n").slice(1).join("\n\n")
           : "";
-      tags.push({ name, message });
+      tags.push({ name, sha: localSha, message });
     }
     // リモートにまだ無い ref なら、送信先リモートの追跡ブランチのどれにも無いコミットが対象。
     // 他のリモート（非公開のミラーなど）にあるかどうかは関係ない（--remotes 全体で除外すると検査が抜ける）
-    const revs =
-      !remoteSha || remoteSha === ZERO
-        ? [localSha, "--not", `--remotes=${remote}`]
-        : [`${remoteSha}..${localSha}`];
+    const revs = isNew ? [localSha, "--not", `--remotes=${remote}`] : [`${remoteSha}..${localSha}`];
     for (const sha of git(root, ["rev-list", "--reverse", ...revs]).split("\n")) {
       if (sha) shas.add(sha);
     }
@@ -363,8 +361,9 @@ function writeFlagged(root, entries) {
 }
 
 /** 今回の push の対象を表すキー（コミットの SHA とタグ名） */
-function keysOf(shas, tags) {
-  return [...shas, ...tags.map((t) => `tag:${t.name}`)];
+function keysOf(shas, tags, refs) {
+  // タグは名前だけだと作り直し（同名・別オブジェクト）を区別できないので、オブジェクトの SHA も含める
+  return [...shas, ...tags.map((t) => `tag:${t.name}@${t.sha}`), ...refs.map((r) => `ref:${r}`)];
 }
 
 /** 端末で人に y/N を聞く。端末が無ければ null */
@@ -398,7 +397,7 @@ function main() {
   })();
   const remote = process.argv[2] || "origin"; // pre-push の第 1 引数（リモート名。URL 指定の push ならその URL）
   const { shas, tags, refs } = refsToPush(root, remote, stdin);
-  if (refs.length === 0) process.exit(0); // 削除だけの push
+  if (shas.length === 0 && tags.length === 0 && refs.length === 0) process.exit(0); // 削除だけ、または公開済みの内容だけの push
 
   // 1. 確定的な印。ここは人の確認でも通さない
   const revisions = ["--no-walk", ...shas];
@@ -423,8 +422,7 @@ function main() {
   }
 
   // 2. AI レビュー
-  if (shas.length === 0 && tags.length === 0) process.exit(0); // 既存のコミットへの軽量タグなど、読ませる内容が無い
-  const keys = keysOf(shas, tags);
+  const keys = keysOf(shas, tags, refs);
   const flagged = readFlagged(root);
   const remembered = flagged.filter((e) => keys.includes(e.key));
   const forget = () =>
@@ -449,14 +447,15 @@ function main() {
   // まだ聞いていない対象（あとから足したコミットなど）だけをモデルに読ませる
   const rememberedKeys = new Set(remembered.map((e) => e.key));
   const newShas = shas.filter((sha) => !rememberedKeys.has(sha));
-  const newTags = tags.filter((t) => !rememberedKeys.has(`tag:${t.name}`));
+  const newTags = tags.filter((t) => !rememberedKeys.has(`tag:${t.name}@${t.sha}`));
+  const newRefs = refs.filter((r) => !rememberedKeys.has(`ref:${r}`)); // 既存のコミットだけの新しいブランチ名も読ませる
   const findings = [
     ...new Map(remembered.flatMap((e) => e.findings).map((f) => [JSON.stringify(f), f])).values(),
   ];
   let truncated = remembered.some((e) => e.truncated);
-  let label = remembered.length > 0 ? "前回の指摘" : "";
-  if (newShas.length > 0 || newTags.length > 0) {
-    const built = buildReviewText(root, newShas, newTags, refs);
+  let label = findings.length > 0 ? "前回の指摘" : "";
+  if (newShas.length > 0 || newTags.length > 0 || newRefs.length > 0) {
+    const built = buildReviewText(root, newShas, newTags, newRefs);
     const r = askReviewer(built.text);
     if (r.error) {
       console.error(`push 前の AI レビューができませんでした: ${r.error}`);
@@ -475,7 +474,7 @@ function main() {
       process.exit(1);
     }
     if (verdict.risk === "none" && !built.truncated) {
-      if (remembered.length === 0) {
+      if (findings.length === 0) {
         console.error(
           `push 前の AI レビュー（${r.label}）: 問題なし（${shas.length} コミット${tags.length ? `、${tags.length} タグ` : ""}）`,
         );
@@ -494,14 +493,23 @@ function main() {
       writeFlagged(root, [
         ...flagged.filter((e) => !keys.includes(e.key)),
         ...remembered,
-        ...keysOf(newShas, newTags).map((key) => ({
+        // 指摘はコミットとタグに付ける。ref 名は「読ませ済み」とだけ覚え、指摘は ref 名だけを読ませたときにしか付けない
+        // （作り直したタグや次の push の内容に、古い指摘を引きずらないため）
+        ...keysOf(newShas, newTags, []).map((key) => ({
           key,
           findings: newFindings,
           truncated: built.truncated,
         })),
+        ...newRefs.map((r) => ({
+          key: `ref:${r}`,
+          findings: newShas.length === 0 && newTags.length === 0 ? newFindings : [],
+          truncated: false,
+        })),
       ]);
     }
   }
+
+  if (findings.length === 0 && !truncated) process.exit(0); // 読ませ済みの ref 名だけで、指摘も無い
 
   console.error(`push 前の AI レビュー（${label}）: 人の確認が必要です`);
   if (truncated)
