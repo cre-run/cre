@@ -153,14 +153,10 @@ function makeRepo() {
 }
 
 function runIn(dir, args, env = {}) {
-  // 環境変数の範囲などが外から混ざらないよう、テストで使うものだけを渡す
-  const base = { ...process.env };
-  delete base.CONFIDENTIAL_EXTRA_TEXT;
-  delete base.CONFIDENTIAL_COMMIT_RANGE;
   return spawnSync(process.execPath, [script, ...args], {
     cwd: dir,
     encoding: "utf8",
-    env: { ...base, ...env },
+    env: { ...process.env, ...env },
   });
 }
 
@@ -187,50 +183,6 @@ test("--ci: コミットせず追加しただけの未追跡ファイルも対�
   const r = runIn(dir, ["--ci"]);
   assert.equal(r.status, 1);
   assert.match(r.stdout, /notes\.md/);
-});
-
-test("--ci: PR の題名・本文（CONFIDENTIAL_EXTRA_TEXT）に非公開パッケージがあれば落ちる", () => {
-  const { dir } = makeRepo();
-  const r = runIn(dir, ["--ci"], { CONFIDENTIAL_EXTRA_TEXT: `feat: ${internalPkg} を使う\n` });
-  assert.equal(r.status, 1);
-  assert.match(r.stdout, /PR の題名・本文/);
-});
-
-test("--ci: コミットメッセージの範囲（CONFIDENTIAL_COMMIT_RANGE）に参照があれば落ちる", () => {
-  const { dir, git } = makeRepo();
-  const base = git("rev-parse", "HEAD").stdout.trim();
-  writeFileSync(path.join(dir, "a.txt"), "ok\n");
-  git("add", "-A");
-  git("commit", "-q", "-m", `chore: ${privateRepo} の方針に合わせる`);
-  const head = git("rev-parse", "HEAD").stdout.trim();
-  const r = runIn(dir, ["--ci"], { CONFIDENTIAL_COMMIT_RANGE: `${base}..${head}` });
-  assert.equal(r.status, 1);
-  assert.match(r.stdout, /コミットメッセージ/);
-});
-
-test("--ci: 読めないコミット範囲は fail closed で失敗する", () => {
-  const { dir } = makeRepo();
-  const r = runIn(dir, ["--ci"], {
-    CONFIDENTIAL_COMMIT_RANGE:
-      "1111111111111111111111111111111111111111..2222222222222222222222222222222222222222",
-  });
-  assert.equal(r.status, 1);
-  assert.match(r.stdout, /::error::コミットメッセージの範囲/);
-});
-
-test("--ci: before が全ゼロ（初回 push）のときは到達可能な全履歴を検査する", () => {
-  const { dir, git } = makeRepo();
-  writeFileSync(path.join(dir, "a.txt"), "ok\n");
-  git("add", "-A");
-  git("commit", "-q", "-m", `chore: ${privateRepo} を参照`);
-  const head = git("rev-parse", "HEAD").stdout.trim();
-  const bad = runIn(dir, ["--ci"], { CONFIDENTIAL_COMMIT_RANGE: `${"0".repeat(40)}..${head}` });
-  assert.equal(bad.status, 1);
-  assert.match(bad.stdout, /コミットメッセージ/);
-  const { dir: clean, git: git2 } = makeRepo();
-  const head2 = git2("rev-parse", "HEAD").stdout.trim();
-  const ok = runIn(clean, ["--ci"], { CONFIDENTIAL_COMMIT_RANGE: `${"0".repeat(40)}..${head2}` });
-  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
 });
 
 test("--staged: 内容を変えない rename でも、新しいファイル名が非公開パッケージのパスなら落ちる", () => {
@@ -385,20 +337,6 @@ test("--ci: ファイル名にパターンが一致したとき、公開ログ�
   assert.doesNotMatch(r.stdout, /secret-memo/);
 });
 
-test("--ci: 範囲内で追加してから削除したファイルの内容も検査する（履歴に残るため）", () => {
-  const { dir, git } = makeRepo();
-  const base = git("rev-parse", "HEAD").stdout.trim();
-  writeFileSync(path.join(dir, "oops.md"), `${marker}\n# 戦略\n`);
-  git("add", "-A");
-  git("commit", "-q", "-m", "docs: oops");
-  git("rm", "-q", "oops.md");
-  git("commit", "-q", "-m", "docs: remove");
-  const head = git("rev-parse", "HEAD").stdout.trim();
-  const r = runIn(dir, ["--ci"], { CONFIDENTIAL_COMMIT_RANGE: `${base}..${head}` });
-  assert.equal(r.status, 1);
-  assert.match(r.stdout, /コミット [0-9a-f]{8} で追加/);
-});
-
 test("--ci: ファイル名がパターンに一致するとき、内容ヒットの注釈でもファイル名を伏せる", () => {
   const { dir, git } = makeRepo();
   mkdirSync(path.join(dir, internalScope));
@@ -417,35 +355,6 @@ test("--staged: 内容が ++ b/ で始まる行も diff ヘッダーと誤認せ
   const r = runIn(dir, ["--staged"]);
   assert.equal(r.status, 1);
   assert.match(r.stderr, /notes\.md:1/);
-});
-
-test("--ci: before が全ゼロでも、中間コミットで追加して削除した内容を検出する", () => {
-  const { dir, git } = makeRepo();
-  writeFileSync(path.join(dir, "oops.md"), `${marker}\n`);
-  git("add", "-A");
-  git("commit", "-q", "-m", "docs: oops");
-  git("rm", "-q", "oops.md");
-  git("commit", "-q", "-m", "docs: remove");
-  const head = git("rev-parse", "HEAD").stdout.trim();
-  const r = runIn(dir, ["--ci"], { CONFIDENTIAL_COMMIT_RANGE: `${"0".repeat(40)}..${head}` });
-  assert.equal(r.status, 1);
-  assert.match(r.stdout, /コミット [0-9a-f]{8} で追加/);
-});
-
-test("--ci: 最終コミットの .gitattributes で -diff を付けても、中間コミットの追加内容を検査する", () => {
-  const { dir, git } = makeRepo();
-  const base = git("rev-parse", "HEAD").stdout.trim();
-  writeFileSync(path.join(dir, "oops.md"), `${marker}\n`);
-  git("add", "-A");
-  git("commit", "-q", "-m", "docs: oops");
-  git("rm", "-q", "oops.md");
-  writeFileSync(path.join(dir, ".gitattributes"), "oops.md -diff\n*.md -diff\n");
-  git("add", "-A");
-  git("commit", "-q", "-m", "chore: attributes");
-  const head = git("rev-parse", "HEAD").stdout.trim();
-  const r = runIn(dir, ["--ci"], { CONFIDENTIAL_COMMIT_RANGE: `${base}..${head}` });
-  assert.equal(r.status, 1);
-  assert.match(r.stdout, /コミット [0-9a-f]{8} で追加/);
 });
 
 test("--staged: .gitattributes で -diff を付けた staged ファイルの追加行も検査する", () => {

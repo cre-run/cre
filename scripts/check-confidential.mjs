@@ -14,8 +14,7 @@
 //                     git の hook を迂回するコマンド（--no-verify、core.hooksPath、push の人の確認を名乗る環境変数）は拒否する
 //   --staged          git の pre-commit。staged の差分（追加行）を検査
 //   --message <file>  git の commit-msg。コミットメッセージを検査
-//   --ci              追跡中の全ファイルと、環境変数 CONFIDENTIAL_EXTRA_TEXT（PR の題名・本文）、
-//                     CONFIDENTIAL_COMMIT_RANGE（コミットメッセージと各コミットの追加行の範囲）を検査
+//   --ci              追跡中の全ファイル（未追跡も含む）を検査。GitHub の注釈形式で出す
 //   --stdin-text      標準入力の生テキストを検査（テスト用）
 import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync, readlinkSync } from "node:fs";
@@ -187,23 +186,6 @@ function scanStagedDiff(root, patterns) {
 }
 
 /**
- * 範囲内の各コミットが追加した行とパスを検査する。最終的な作業ツリーからは消えていても、
- * 中間コミットで追加された内容は公開された履歴から取り出せるため
- */
-function scanRangeCommits(root, range, patterns) {
-  // before が全ゼロ（ブランチの初回 push）のときは、head から到達できる全履歴を検査する
-  const m = /^0{40}\.\.(.+)$/.exec(range);
-  const hits = scanCommits(root, m ? [m[1]] : [range], patterns);
-  if (hits === null) {
-    console.log(
-      `::error::コミット範囲 ${range} の差分を読めません。force-push などで before が失われた可能性があります。検査できないので失敗にします`,
-    );
-    process.exit(1);
-  }
-  return hits;
-}
-
-/**
  * git log のリビジョン指定（"a..b" や "--no-walk <sha>..." など）で選んだ各コミットの追加行とパスを検査する。
  * 読めないときは null を返す
  */
@@ -276,20 +258,6 @@ export function scanCommits(root, revisions, patterns) {
     );
   }
   return hits;
-}
-
-function scanCommitMessages(root, range, patterns) {
-  // before が全ゼロ（ブランチの初回 push）のときは、head から到達できる全履歴のメッセージを検査する
-  const m = /^0{40}\.\.(.+)$/.exec(range);
-  const log = readCommitMessages(root, m ? [m[1]] : [range]);
-  if (log === null) {
-    // 範囲が読めない（force-push で before が到達不能になった、など）ときは、検査できないまま成功にしない
-    console.log(
-      `::error::コミットメッセージの範囲 ${range} を読めません。force-push などで before が失われた可能性があります。検査できないので失敗にします`,
-    );
-    process.exit(1);
-  }
-  return scanText(log, patterns, "コミットメッセージ " + range);
 }
 
 /** リビジョン指定で選んだコミットのメッセージを 1 つのテキストにする。読めないときは null */
@@ -431,12 +399,6 @@ function main() {
     // falls through
     case "--ci": {
       const hits = scanTrackedFiles(root, patterns);
-      if (process.env.CONFIDENTIAL_EXTRA_TEXT)
-        hits.push(...scanText(process.env.CONFIDENTIAL_EXTRA_TEXT, patterns, "(PR の題名・本文)"));
-      if (process.env.CONFIDENTIAL_COMMIT_RANGE) {
-        hits.push(...scanCommitMessages(root, process.env.CONFIDENTIAL_COMMIT_RANGE, patterns));
-        hits.push(...scanRangeCommits(root, process.env.CONFIDENTIAL_COMMIT_RANGE, patterns));
-      }
       report(hits, { annotate: true, patterns });
       if (hits.length === 0) console.log(`機密の検査: 問題なし（${patterns.length} パターン）`);
       process.exit(hits.length ? 1 : 0);

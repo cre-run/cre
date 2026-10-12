@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 
 const script = fileURLToPath(new URL("./review-push.mjs", import.meta.url));
 const privateRepo = "cre-run/" + "cre-private";
+const marker = "<!-- " + "CONFI" + "DENTIAL: " + privateRepo + " -->";
 const ZERO = "0".repeat(40);
 
 /** 1 コミットだけある一時リポジトリ。その commit は origin/main として push 済みの扱い */
@@ -318,6 +319,22 @@ test("機密の印があるコミットは、レビュアーに聞かずに止�
   assert.equal(r.status, 1);
   assert.match(r.stderr, /oops\.md:1/);
   assert.match(r.stderr, /人の確認でも通しません/);
+  assert.equal(fake.prompt(), null);
+});
+
+test("中間コミットで追加して削除した内容も、履歴に残るので印があれば止める（.gitattributes の -diff も効かない）", () => {
+  const { dir, git, head } = makeRepo();
+  writeFileSync(path.join(dir, "oops.md"), `${marker}\n`);
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: oops");
+  git("rm", "-q", "oops.md");
+  writeFileSync(path.join(dir, ".gitattributes"), "*.md -diff\n");
+  git("add", "-A");
+  git("commit", "-q", "-m", "docs: remove");
+  const fake = fakeReviewer(dir, null);
+  const r = push(dir, { stdin: newBranchLine(head()), command: fake.command });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /コミット [0-9a-f]{8} で追加/);
   assert.equal(fake.prompt(), null);
 });
 
