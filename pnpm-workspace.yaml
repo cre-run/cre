@@ -14,7 +14,7 @@ catalog:
   vite-plus: 1.1.0
   "@playwright/test": 1.64.0
   blume: 2.2.1
-  wrangler: 4.148.0
+  wrangler: 4.149.0
 overrides:
   vite@*: "catalog:"
 peerDependencyRules:
