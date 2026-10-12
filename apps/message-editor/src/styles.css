@@ -318,9 +318,14 @@ h1 {
   font-size: 15px;
 }
 
+/* 本文と、右肩の確認状況の列。列の幅をそろえ、バッジの左端を縦一直線にする */
 .paragraph {
-  margin: 0 -14px;
-  padding: 10px 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 80px;
+  gap: 20px;
+  align-items: start;
+  margin: 0 -14px 12px;
+  padding: 14px;
   border-left: 2px solid transparent;
   cursor: pointer;
 }
@@ -337,11 +342,11 @@ h1 {
   white-space: pre-wrap;
 }
 
-/* 右下に寄せ、右の詳細カラムへ視線がつながるようにする */
+/* 右肩に置き、右の詳細カラムへ視線がつながるようにする。本文の 1 行目と高さを合わせる */
 .paragraph > .status-label {
-  display: block;
+  padding-top: 6px;
   line-height: 1.6;
-  text-align: right;
+  white-space: nowrap;
 }
 
 .status-label {
