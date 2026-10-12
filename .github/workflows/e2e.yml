@@ -1,6 +1,10 @@
 name: E2E
 
-# apps/message-editor の E2E（Playwright）。
+# E2E（Playwright）。ジョブはアプリごと（パスの絞り込みはワークフロー全体で共通なので、どちらかの変更で両方が動く）。
+# - e2e: apps/message-editor
+# - e2e-short-url: apps/short-url（ガイドの流れと約束をなぞる。画像は撮らない）
+#
+# apps/message-editor の E2E:
 # - e2e/critical-path.e2e.ts: 壊れるとガイドの手順が成り立たなくなる操作
 # - e2e/guide-*.e2e.ts: ガイドの手順をなぞり、ガイドの画像（apps/docs/docs/message-editor/*.png）と比べる（VRT）
 # 画像の差分で失敗したら、意図した変更なら PR に `update-screenshots` ラベルを付けて撮り直す（update-screenshots.yml）。
@@ -11,6 +15,8 @@ on:
     paths:
       - apps/message-editor/**
       - apps/docs/docs/message-editor/**
+      - apps/short-url/**
+      - apps/docs/docs/short-url/**
       - packages/asset/**
       - packages/editor-payload/**
       - pnpm-lock.yaml
@@ -21,6 +27,8 @@ on:
     paths:
       - apps/message-editor/**
       - apps/docs/docs/message-editor/**
+      - apps/short-url/**
+      - apps/docs/docs/short-url/**
       - packages/asset/**
       - packages/editor-payload/**
       - pnpm-lock.yaml
@@ -66,4 +74,35 @@ jobs:
           path: |
             apps/message-editor/playwright-report/
             apps/message-editor/test-results/
+          retention-days: 14
+
+  e2e-short-url:
+    runs-on: ubuntu-latest
+    # e2e と同じコンテナ（ブラウザの版を @playwright/test と合わせる）。画像は撮らないのでフォントは入れない
+    container: mcr.microsoft.com/playwright:v1.64.0-noble@sha256:06a9939e57531807f8d5fd76ce44b53165ffb7d7501d87ab10e285c20b1e971f
+    defaults:
+      run:
+        working-directory: apps/short-url
+    env:
+      WRANGLER_SEND_METRICS: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
+        with:
+          node-version: "v24.21.0"
+          cache: true
+
+      # Access の代わり・短縮 URL の Worker・E2E 専用の Bot・Message Editor を起動する（playwright.config.ts）
+      - name: Run E2E
+        run: vp exec playwright test
+
+      - name: Upload report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-short-url
+          path: |
+            apps/short-url/playwright-report/
+            apps/short-url/test-results/
           retention-days: 14

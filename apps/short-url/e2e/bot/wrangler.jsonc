@@ -1,0 +1,10 @@
+// E2E 専用の Bot の Worker（デプロイしない）。ガイド「短縮 URL を作る（Bot の開発者向け）」と同じ Service Binding で
+// 短縮 URL の Worker（wrangler dev で動かしている cre-short）につなぎ、create() を呼ぶ。
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "cre-short-e2e-bot",
+  "main": "index.ts",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": false,
+  "services": [{ "binding": "SHORT_URL", "service": "cre-short", "entrypoint": "ShortUrl" }],
+}
