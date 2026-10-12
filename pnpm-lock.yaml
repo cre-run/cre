@@ -168,13 +168,13 @@ catalogs:
       specifier: 1.64.0
       version: 1.64.0
     '@types/node':
-      specifier: ^24
+      specifier: 24.19.1
       version: 24.19.1
     blume:
-      specifier: ^2.2.0
+      specifier: 2.2.1
       version: 2.2.1
     typescript:
-      specifier: ^7.0.2
+      specifier: 7.0.2
       version: 7.0.2
     vite:
       specifier: npm:@voidzero-dev/vite-plus-core@1.1.0
@@ -183,7 +183,7 @@ catalogs:
       specifier: 1.1.0
       version: 1.1.0
     wrangler:
-      specifier: ^4.140.0
+      specifier: 4.148.0
       version: 4.148.0
 
 overrides:
@@ -216,13 +216,13 @@ importers:
   apps/message-editor:
     dependencies:
       pako:
-        specifier: ^3.0.1
+        specifier: 3.0.2
         version: 3.0.2
       react:
-        specifier: ^19.2.0
+        specifier: 19.3.0
         version: 19.3.0
       react-dom:
-        specifier: ^19.2.0
+        specifier: 19.3.0
         version: 19.3.0(react@19.3.0)
     devDependencies:
       '@playwright/test':

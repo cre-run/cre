@@ -25,11 +25,11 @@ jobs:
       run:
         working-directory: apps/message-editor
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
-      - uses: voidzero-dev/setup-vp@v1.21.2
+      - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
-          node-version: "24"
+          node-version: "v24.21.0"
           cache: true
 
       - name: Build

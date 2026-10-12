@@ -12,9 +12,9 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "pako": "^3.0.1",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "pako": "3.0.2",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@playwright/test": "catalog:",
