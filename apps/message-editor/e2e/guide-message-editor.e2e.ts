@@ -9,7 +9,7 @@ import { expect, test } from "@playwright/test";
 
 test.describe("Message Editor ガイド", () => {
   // Step 1/2: 画面の見方（確認済みの段落を選んだところ）
-  test("段落を選ぶと、右側に「この段落の根拠」が表示される", async ({ page }) => {
+  test("段落を選ぶと、右側にその段落の根拠が表示される", async ({ page }) => {
     await page.goto("/#p=r1");
     const panel = page.getByRole("complementary");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText(
@@ -19,11 +19,12 @@ test.describe("Message Editor ガイド", () => {
     await expect(page).toHaveScreenshot("message-editor.png");
   });
 
-  // Step 2/2: 段落の確認状況（再確認が必要な段落と、送る前にやること）
-  test("再確認が必要な段落では、確認の内訳と送る前にやることが表示される", async ({ page }) => {
+  // Step 2/2: 段落の確認状況（再確認が必要な段落の「評価」タブと、送る前にやること）
+  test("再確認が必要な段落では、「評価」タブで観点ごとの評価を確かめられる", async ({ page }) => {
     await page.goto("/#p=r3");
     const panel = page.getByRole("complementary");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText("データの保存期間と削除");
+    await panel.getByRole("tab", { name: /評価/u }).click();
     await expect(panel.getByText("実装との一致")).toBeVisible();
     await expect(
       page.getByLabel("改善アクション").getByText("送る前にやること（1件）"),

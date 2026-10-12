@@ -59,73 +59,140 @@ const EvidenceItem = ({ evidence, generatedAt }: { evidence: Evidence; generated
   );
 };
 
+type TabId = "summary" | "assessment" | "sources" | "questions";
+
 export const EvidencePanel = ({
   paragraph,
-  index,
-  total,
   questions,
   generatedAt,
 }: {
   paragraph: ReplyParagraph | undefined;
-  index: number;
-  total: number;
   questions: InquiryParagraph[];
   generatedAt: string;
 }) => {
-  const [checksOpen, setChecksOpen] = useState(paragraph?.status !== "verified");
+  // 段落を選び直すとパネルごと作り直される（App の key）ので、いつも「要点」から始まる。
+  // URL のデータが変わっても段落 ID が同じだと作り直されないので、段落のデータが変わったら「要点」に戻す
+  const [tab, setTab] = useState<TabId>("summary");
+  const [shownParagraph, setShownParagraph] = useState(paragraph);
+  if (shownParagraph !== paragraph) {
+    setShownParagraph(paragraph);
+    setTab("summary");
+  }
   if (!paragraph) {
     return (
-      <aside className="panel">
-        <h2 className="panel-title">この段落の根拠</h2>
+      <aside className="panel" aria-label="この段落の根拠">
         <p className="muted">返信の段落を選んでください。</p>
       </aside>
     );
   }
+  const ok = paragraph.checks.filter((check) => check.result === "ok").length;
+  // 中身が無いタブは出さない（評価が空のときに「問題なし」と誤って見せないためでもある）
+  const tabs: { id: TabId; label: string; count?: string; alert?: boolean }[] = [
+    { id: "summary", label: "要点" },
+    ...(paragraph.checks.length > 0
+      ? [
+          {
+            id: "assessment" as const,
+            label: "評価",
+            // 「観点のうち OK の数 / 観点の数」。OK 以外があるときは赤くする
+            count: `${ok}/${paragraph.checks.length}`,
+            alert: ok < paragraph.checks.length,
+          },
+        ]
+      : []),
+    { id: "sources", label: "出典", count: String(paragraph.evidence.length) },
+    ...(questions.length > 0
+      ? [{ id: "questions" as const, label: "質問", count: String(questions.length) }]
+      : []),
+  ];
+  const move = (step: number) => {
+    const at = tabs.findIndex((t) => t.id === tab);
+    const next = tabs[(at + step + tabs.length) % tabs.length]!;
+    setTab(next.id);
+    document.getElementById(`tab-${next.id}`)?.focus();
+  };
+
   return (
-    <aside className="panel" aria-labelledby="panel-title">
+    <aside className="panel" aria-label="この段落の根拠">
+      {/* タブを切り替えても、どの段落のどんな状態かは常に見えるようにする。説明はタブの中に置く */}
       <div className="panel-head">
-        <h2 id="panel-title" className="panel-title">
-          この段落の根拠
-        </h2>
-        <Icon name="sliders" />
-      </div>
-
-      <p className="panel-position">
-        <span className={`dot status-${paragraph.status}`} aria-hidden="true" />
-        段落 {index + 1} / {total}
-      </p>
-      <h3 className="panel-topic">{paragraph.topic}</h3>
-
-      {questions.length > 0 && (
-        <blockquote className="question">
-          <span className="muted small">お客様の質問</span>
-          {questions.map((q) => (
-            <p key={q.id}>{q.text}</p>
-          ))}
-        </blockquote>
-      )}
-
-      <p className="verdict">
+        <h3 className="panel-topic">{paragraph.topic}</h3>
         <span className={`status-chip status-${paragraph.status}`}>
           {STATUS[paragraph.status].icon} {STATUS[paragraph.status].label}
         </span>
-        {paragraph.method && <span>{paragraph.method}</span>}
-      </p>
-      <p className="panel-summary">{paragraph.summary}</p>
+      </div>
 
-      <div className="panel-section">
-        <button
-          type="button"
-          className="section-toggle"
-          aria-expanded={checksOpen}
-          onClick={() => setChecksOpen(!checksOpen)}
-        >
-          確認の内訳
-          <span className="muted small">
-            {paragraph.checks.length}つの観点 <Icon name="chevronDown" size={12} />
-          </span>
-        </button>
-        {checksOpen && (
+      <div className="tabs" role="tablist" aria-label="段落の確認の表示">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            id={`tab-${t.id}`}
+            type="button"
+            role="tab"
+            className="tab"
+            aria-selected={tab === t.id}
+            aria-controls="panel-tabpanel"
+            tabIndex={tab === t.id ? 0 : -1}
+            onClick={() => setTab(t.id)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight") move(1);
+              if (event.key === "ArrowLeft") move(-1);
+            }}
+          >
+            {t.label}
+            {t.count !== undefined && (
+              <span className={`tab-count ${t.alert ? "is-alert" : ""}`}>{t.count}</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div
+        // パネルは選んだタブの分だけを描くので、すべてのタブが同じ 1 つのパネルを指す
+        id="panel-tabpanel"
+        role="tabpanel"
+        aria-labelledby={`tab-${tab}`}
+        className="tabpanel"
+      >
+        {tab === "summary" && (
+          <>
+            <p>{paragraph.summary}</p>
+            {(paragraph.method || paragraph.conditions) && (
+              <dl className="panel-facts">
+                {paragraph.method && (
+                  <div>
+                    <dt>確かめ方</dt>
+                    <dd>{paragraph.method}</dd>
+                  </div>
+                )}
+                {paragraph.conditions && (
+                  <div>
+                    <dt>この説明が成り立つ条件</dt>
+                    <dd>{paragraph.conditions}</dd>
+                  </div>
+                )}
+              </dl>
+            )}
+            {/* 確認済みの段落は「やることがない」のが確認状況から分かるので、次のアクションは出さない */}
+            {paragraph.status !== "verified" && paragraph.nextAction && (
+              <div className="next">
+                <p className="next-label">
+                  <Icon name="check" size={14} />
+                  次のアクション
+                </p>
+                <p>{paragraph.nextAction}</p>
+                {paragraph.owners && (
+                  <p className="muted small owners">
+                    <Icon name="shield" size={12} />
+                    {paragraph.owners.join("・")}
+                  </p>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "assessment" && (
           <ul className="checks">
             {paragraph.checks.map((check) => (
               <li key={check.label} className={`check result-${check.result}`}>
@@ -138,44 +205,23 @@ export const EvidencePanel = ({
             ))}
           </ul>
         )}
+
+        {tab === "sources" && (
+          <ul className="evidence-list">
+            {paragraph.evidence.map((evidence) => (
+              <EvidenceItem key={evidence.title} evidence={evidence} generatedAt={generatedAt} />
+            ))}
+          </ul>
+        )}
+
+        {tab === "questions" && (
+          <blockquote className="question">
+            {questions.map((q) => (
+              <p key={q.id}>{q.text}</p>
+            ))}
+          </blockquote>
+        )}
       </div>
-
-      {paragraph.conditions && (
-        <div className="panel-section">
-          <p className="muted small">適用条件</p>
-          <p>{paragraph.conditions}</p>
-        </div>
-      )}
-
-      <div className="panel-section">
-        <p className="section-label">
-          参照した根拠
-          <span className="muted small">
-            {paragraph.evidence.length} / {paragraph.evidence.length} 件
-          </span>
-        </p>
-        <ul className="evidence-list">
-          {paragraph.evidence.map((evidence) => (
-            <EvidenceItem key={evidence.title} evidence={evidence} generatedAt={generatedAt} />
-          ))}
-        </ul>
-      </div>
-
-      {paragraph.nextAction && (
-        <div className="panel-section next">
-          <p className="section-label">
-            <Icon name="check" size={14} />
-            次のアクション
-          </p>
-          <p>{paragraph.nextAction}</p>
-          {paragraph.owners && (
-            <p className="muted small owners">
-              <Icon name="shield" size={12} />
-              {paragraph.owners.join("・")}
-            </p>
-          )}
-        </div>
-      )}
     </aside>
   );
 };

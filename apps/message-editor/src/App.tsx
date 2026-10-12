@@ -60,7 +60,6 @@ export const App = () => {
 
   const [selectedId, setSelectedId] = useState(() => initialSelection(hash, payload));
   const [texts, setTexts] = useState<Record<string, string>>({});
-  const [emphasize, setEmphasize] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [done, setDone] = useState<Set<string>>(() => new Set());
   useEffect(() => {
@@ -79,8 +78,7 @@ export const App = () => {
       return next;
     });
 
-  const index = reply.paragraphs.findIndex((p) => p.id === selectedId);
-  const selected = reply.paragraphs[index];
+  const selected = reply.paragraphs.find((p) => p.id === selectedId);
   const questions = inquiry.paragraphs.filter((q) => selected?.respondsTo.includes(q.id));
 
   return (
@@ -126,8 +124,6 @@ export const App = () => {
               onEdit={(id, text) => setTexts((prev) => ({ ...prev, [id]: text }))}
               selectedId={selectedId}
               onSelect={setSelectedId}
-              emphasize={emphasize}
-              onToggleEmphasize={() => setEmphasize(!emphasize)}
               isSample={loaded.kind !== "data"}
               done={done}
               onToggleDone={toggleDone}
@@ -140,8 +136,6 @@ export const App = () => {
           <EvidencePanel
             key={selected?.id}
             paragraph={selected}
-            index={index}
-            total={reply.paragraphs.length}
             questions={questions}
             generatedAt={payload.generatedAt}
           />

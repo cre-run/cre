@@ -178,9 +178,10 @@ h1 {
   cursor: pointer;
 }
 
+/* 2 カラム: 本文と、選んだ段落の根拠。確認状況は本文に書かず、右の根拠パネルに任せる */
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 316px;
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 32px;
   align-items: start;
 }
@@ -221,6 +222,11 @@ h1 {
   background: none;
   color: var(--muted);
   cursor: pointer;
+}
+
+.icon-button:disabled {
+  opacity: 0.35;
+  cursor: default;
 }
 
 /* inquiry */
@@ -304,28 +310,7 @@ h1 {
 }
 
 .reply-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-bottom: 12px;
-}
-
-.toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 2px 8px;
-  border: 0;
-  border-radius: 4px;
-  background: none;
-  color: var(--muted);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.toggle.is-on {
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 
 .reply-plain {
@@ -333,24 +318,19 @@ h1 {
   font-size: 15px;
 }
 
+/* 確認状況（上）と本文（下）を縦に並べる。本文の幅は狭めない */
 .paragraph {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 132px;
-  gap: 24px;
-  margin: 0 -14px;
-  padding: 10px 14px;
+  gap: 2px;
+  margin: 0 -14px 12px;
+  padding: 14px;
   border-left: 2px solid transparent;
   cursor: pointer;
-  transition: opacity 0.15s;
 }
 
 .paragraph.is-selected {
   border-left-color: var(--accent);
   background: linear-gradient(to right, var(--accent-soft), transparent 40%);
-}
-
-.paragraph.is-dimmed {
-  opacity: 0.4;
 }
 
 .paragraph-text {
@@ -360,21 +340,15 @@ h1 {
   white-space: pre-wrap;
 }
 
-.annotation {
-  display: grid;
-  align-content: start;
-  gap: 6px;
-  padding: 4px 0 4px 12px;
-  border: 0;
-  border-left: 1px solid var(--border);
-  background: none;
-  text-align: left;
-  cursor: pointer;
-}
-
-.annotation-types {
-  color: var(--muted);
-  font-size: 11px;
+/* 本文の上の右端に、右の詳細カラムと同じ背景色付きのバッジで置く。
+   幅をそろえて文字を中央に置き、文字数が違ってもバッジの左右の端を縦一直線にする */
+.paragraph > .status-chip {
+  justify-self: end;
+  width: 84px;
+  margin-bottom: 4px;
+  line-height: 1.7;
+  text-align: center;
+  white-space: nowrap;
 }
 
 .status-label {
@@ -382,8 +356,7 @@ h1 {
   font-weight: 600;
 }
 
-.status-label.status-verified,
-.dot.status-verified {
+.status-label.status-verified {
   color: var(--verified);
 }
 .status-label.status-conditional {
@@ -502,66 +475,94 @@ h1 {
   position: sticky;
   top: 16px;
   display: grid;
-  gap: 12px;
+  gap: 14px;
+  padding-top: 8px;
 }
 
+/* 見出しと確認状況のバッジを 1 行に。見出しが長いときはバッジを右上に残して折り返す */
 .panel-head {
   display: flex;
-  align-items: center;
+  gap: 12px;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 8px 0 12px;
-  border-bottom: 1px solid var(--border);
-  color: var(--muted);
-}
-
-.panel-title {
-  color: var(--text);
-  font-size: 14px;
-}
-
-.panel-position {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
-}
-.dot.status-conditional {
-  color: var(--conditional);
-}
-.dot.status-recheck {
-  color: var(--recheck);
-}
-.dot.status-unverified {
-  color: var(--unverified);
 }
 
 .panel-topic {
   font-size: 18px;
+  line-height: 1.5;
+  /* 日本語の見出しを文節で折り返す（「取り込/み」のような泣き別れを避ける） */
+  word-break: auto-phrase;
+}
+
+.panel-head .status-chip {
+  flex: none;
+  margin-top: 3px;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+/* 右カラムの中で横に切り替えるタブ */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: -1px;
+  padding: 6px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.tab-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--unverified-bg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 内訳に NG・要確認があるときは、タブを開かなくても分かるよう件数に色を付ける */
+.tab-count.is-alert {
+  background: var(--recheck-bg);
+  color: var(--recheck);
+}
+
+.tabpanel {
+  display: grid;
+  gap: 12px;
+  font-size: 13px;
 }
 
 .question {
   display: grid;
-  gap: 4px;
-  margin: 4px 0;
+  gap: 8px;
+  margin: 0;
   padding: 2px 0 2px 14px;
   border-left: 2px solid var(--border);
   color: var(--muted);
-  font-size: 13px;
-}
-
-.verdict {
-  display: flex;
-  align-items: center;
-  gap: 10px;
   font-size: 13px;
 }
 
@@ -588,55 +589,23 @@ h1 {
   color: var(--unverified);
 }
 
-.panel-summary {
-  font-size: 13px;
-}
-
-.panel-section {
+/* 要点タブの補足（確かめ方・成り立つ条件）。見出しと値を縦に並べ、初見でも読めるようにする */
+.panel-facts {
   display: grid;
-  gap: 4px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-  font-size: 13px;
+  gap: 10px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
 }
 
-.section-toggle,
-.section-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-}
-
-.section-label {
-  justify-content: flex-start;
-  gap: 6px;
-  cursor: default;
-}
-
-.section-label .muted {
-  margin-left: auto;
-  font-weight: 400;
-}
-
-.section-toggle .muted {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 400;
+.panel-facts dt {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .checks {
   display: grid;
   gap: 8px;
-  margin-top: 6px;
 }
 
 .check {
@@ -681,6 +650,10 @@ h1 {
   gap: 8px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
+}
+
+.evidence:first-child {
+  padding-top: 0;
 }
 
 .evidence-icon {
@@ -752,8 +725,22 @@ h1 {
   font-size: 11px;
 }
 
-.next .section-label {
-  color: var(--verified);
+.next {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: 6px;
+  background: var(--accent-soft);
+  font-size: 13px;
+}
+
+.next-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .owners {
@@ -832,17 +819,6 @@ h1 {
 
   .panel {
     position: static;
-  }
-
-  .paragraph {
-    grid-template-columns: 1fr;
-    gap: 8px;
-  }
-
-  .annotation {
-    display: flex;
-    padding-left: 0;
-    border-left: 0;
   }
 
   .topbar-user {

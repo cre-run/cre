@@ -17,8 +17,9 @@ test("段落を選ぶと右パネルがその段落の根拠に切り替わる",
   await page.goto("/");
   const panel = page.getByRole("complementary");
   await expect(panel.getByRole("heading", { level: 3 })).toHaveText("エラー行があるときの取り込み");
-  await page.getByRole("button", { name: "段落 データの保存期間と削除 の根拠を見る" }).click();
+  await page.getByLabel("段落 データの保存期間と削除").click();
   await expect(panel.getByRole("heading", { level: 3 })).toHaveText("データの保存期間と削除");
+  await panel.getByRole("tab", { name: /出典/u }).click();
   await expect(panel.getByText("主張と食い違い")).toBeVisible();
 });
 
@@ -49,6 +50,58 @@ test("URL の判定データを表示する", async ({ page }) => {
   await page.goto(`/${toHash(payload)}`);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("URL から渡した件名");
   await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
+});
+
+test("確認の観点がない段落では、評価のタブを出さない（問題なしと誤って見せない）", async ({
+  page,
+}) => {
+  const [first, ...rest] = samplePayload.reply.paragraphs;
+  const payload = {
+    ...samplePayload,
+    reply: {
+      ...samplePayload.reply,
+      paragraphs: [{ ...first!, status: "unverified" as const, checks: [] }, ...rest],
+    },
+  };
+  await page.goto(`/${toHash(payload)}`);
+  const panel = page.getByRole("complementary");
+  await expect(panel.getByText("根拠なし")).toBeVisible();
+  await expect(panel.getByRole("tab", { name: /要点/u })).toBeVisible();
+  await expect(panel.getByRole("tab", { name: /評価/u })).toHaveCount(0);
+});
+
+test("URL のデータが変わり、開いていたタブが無くなったら「要点」に戻る", async ({ page }) => {
+  await page.goto("/#p=r1");
+  const panel = page.getByRole("complementary");
+  await panel.getByRole("tab", { name: /質問/u }).click();
+  await expect(panel.getByRole("tab", { name: /質問/u })).toHaveAttribute("aria-selected", "true");
+
+  // 同じ段落 ID のまま、質問への対応が無いデータへ切り替える（質問タブが無くなる）
+  const [first, ...rest] = samplePayload.reply.paragraphs;
+  const payload = {
+    ...samplePayload,
+    reply: { ...samplePayload.reply, paragraphs: [{ ...first!, respondsTo: [] }, ...rest] },
+  };
+  await page.evaluate(
+    (hash) => {
+      window.location.hash = hash;
+    },
+    `${toHash(payload).slice(1)}&p=r1`,
+  );
+
+  await expect(panel.getByRole("tab", { name: /質問/u })).toHaveCount(0);
+  await expect(panel.getByRole("tab", { name: /要点/u })).toHaveAttribute("aria-selected", "true");
+  await expect(panel.getByRole("tabpanel")).toContainText(first!.summary);
+
+  // 質問のあるデータへ戻しても、前に開いていた「質問」が勝手に選び直されない
+  await page.evaluate(
+    (hash) => {
+      window.location.hash = hash;
+    },
+    `${toHash(samplePayload).slice(1)}&p=r1`,
+  );
+  await expect(panel.getByRole("tab", { name: /質問/u })).toBeVisible();
+  await expect(panel.getByRole("tab", { name: /要点/u })).toHaveAttribute("aria-selected", "true");
 });
 
 test("ガイドに載せた URL の例を開くと、見本と同じ内容が表示される", async ({ page }) => {

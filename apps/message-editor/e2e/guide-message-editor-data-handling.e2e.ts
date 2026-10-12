@@ -33,7 +33,7 @@ const payload = {
 
 /** ガイドの手順を一通り行う: 段落を選ぶ・本文を編集する・チェックを付ける・プレビューを開く */
 const operate = async (page: Page): Promise<void> => {
-  await page.getByRole("button", { name: "段落 データの保存期間と削除 の根拠を見る" }).click();
+  await page.getByLabel("段落 データの保存期間と削除").click();
   const paragraph = page.locator(".paragraph-text").first();
   await paragraph.fill("編集した本文");
   await paragraph.blur();
@@ -100,6 +100,7 @@ test("根拠のリンクは新しいタブで開き、開いた先に判定デ�
 
   await page.goto(`/${toHash(payload)}`);
   const panel = page.getByRole("complementary");
+  await panel.getByRole("tab", { name: /出典/u }).click();
   await panel.getByRole("button", { name: "根拠の詳細" }).first().click();
   const link = panel.getByRole("link", { name: "利用規約 第3条" });
   await expect(link).toHaveAttribute("href", EVIDENCE_URL);
