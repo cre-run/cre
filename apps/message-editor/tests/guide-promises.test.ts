@@ -90,21 +90,39 @@ const calleeName = (node: AstNode): string | undefined => {
   return undefined;
 };
 
-/** 本文のどこかで `….skip(…)` / `….fixme(…)` を呼ぶ（実行時に skip する）テストか */
-const skipsAtRuntime = (node: AstNode): boolean => {
-  if (
-    node.type === "CallExpression" &&
-    isNode(node.callee) &&
-    node.callee.type === "MemberExpression" &&
-    isNode(node.callee.property) &&
-    node.callee.property.type === "Identifier" &&
-    ["skip", "fixme"].includes(node.callee.property.name as string)
-  ) {
-    return true;
+/**
+ * 本文のどこかで `….skip(…)` / `….fixme(…)` を呼ぶ（実行時に skip する）か。
+ * ファイル直下で定義した関数の呼び出し（`() => skipPromises()` のようなラッパー）も中まで追う。循環は seen で止める
+ */
+const skipsAtRuntime = (
+  node: AstNode,
+  functions: Map<string, AstNode>,
+  seen: Set<AstNode> = new Set(),
+): boolean => {
+  if (seen.has(node)) {
+    return false;
+  }
+  seen.add(node);
+  if (node.type === "CallExpression" && isNode(node.callee)) {
+    const { callee } = node;
+    if (
+      callee.type === "MemberExpression" &&
+      isNode(callee.property) &&
+      callee.property.type === "Identifier" &&
+      ["skip", "fixme"].includes(callee.property.name as string)
+    ) {
+      return true;
+    }
+    if (callee.type === "Identifier") {
+      const definition = functions.get(callee.name as string);
+      if (definition && skipsAtRuntime(definition, functions, seen)) {
+        return true;
+      }
+    }
   }
   return Object.values(node).some((value) =>
     (Array.isArray(value) ? value : [value]).some(
-      (child) => isNode(child) && skipsAtRuntime(child),
+      (child) => isNode(child) && skipsAtRuntime(child, functions, seen),
     ),
   );
 };
@@ -158,11 +176,11 @@ const localFunctions = (program: AstNode): Map<string, AstNode> => {
  */
 const hookSkips = (argument: unknown, functions: Map<string, AstNode>): boolean => {
   if (isFunctionNode(argument)) {
-    return skipsAtRuntime(argument);
+    return skipsAtRuntime(argument, functions);
   }
   if (isNode(argument) && argument.type === "Identifier") {
     const definition = functions.get(argument.name as string);
-    return definition ? skipsAtRuntime(definition) : true;
+    return definition ? skipsAtRuntime(definition, functions) : true;
   }
   return true;
 };
@@ -180,10 +198,8 @@ const skipsScope = (statements: unknown[], functions: Map<string, AstNode>): boo
       return !(isNode(first) && first.type === "Literal");
     }
     if (/^(?:test\.)?(?:beforeEach|beforeAll)$/u.test(callee)) {
-      // test.beforeEach("タイトル", fn) のタイトルは飛ばし、フック関数だけを調べる
-      return (call.arguments as unknown[])
-        .filter((argument) => !(isNode(argument) && argument.type === "Literal"))
-        .some((argument) => hookSkips(argument, functions));
+      // beforeEach(fn) / beforeEach(タイトル, fn): フック関数は常に最後の引数
+      return hookSkips((call.arguments as unknown[]).at(-1), functions);
     }
     return false;
   });
@@ -211,7 +227,7 @@ const titlesInFile = async (file: string): Promise<string[]> => {
       const callee = calleeName(node.callee);
       const [first, body] = node.arguments as unknown[];
       if (callee === "test" && !skipped && isNode(first) && first.type === "Literal") {
-        if (!(isNode(body) && skipsAtRuntime(body))) {
+        if (!(isNode(body) && skipsAtRuntime(body, functions))) {
           titles.push(first.value as string);
         }
       }
