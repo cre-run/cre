@@ -21,15 +21,23 @@ vp exec wrangler d1 migrations apply short-url --remote   # テーブルを作�
 
 ## 2. `wrangler.jsonc` を書き換える
 
-| 項目                         | 書くもの                                                                                            |
-| ---------------------------- | --------------------------------------------------------------------------------------------------- |
-| `name`                       | Worker の名前                                                                                       |
-| `routes`                     | 短縮 URL のドメイン（Cloudflare で管理しているゾーンのもの）                                        |
-| `d1_databases`               | 1 で作ったデータベースの名前と `database_id`                                                        |
-| `vars.ALLOWED_EMAIL_DOMAINS` | **必須。** 短縮 URL を開けるメールアドレスのドメイン（例: `example.com`）。カンマ区切りで複数       |
-| `vars.ACCESS_TEAM_DOMAIN`    | **必須。** Cloudflare Access のチームのドメイン（例: `example.cloudflareaccess.com`）。5 で確かめる |
-| `vars.ACCESS_AUD`            | **必須。** Access のアプリケーションの AUD タグ。5 でかけた Access の画面からコピーする             |
-| `vars.EDITOR_URL`            | 移る先の Message Editor。書かなければ `https://editor.cre.run/`                                     |
+| 項目              | 書くもの                                                                  |
+| ----------------- | ------------------------------------------------------------------------- |
+| `name`            | Worker の名前                                                             |
+| `routes`          | 短縮 URL のドメイン（Cloudflare で管理しているゾーンのもの）              |
+| `d1_databases`    | 1 で作ったデータベースの名前と `database_id`                              |
+| `vars.ACCESS`     | **必須。** Cloudflare Access の設定をまとめたもの（下の例）。5 で確かめる |
+| `vars.EDITOR_URL` | 移る先の Message Editor。書かなければ `https://editor.cre.run/`           |
+
+```jsonc
+"vars": {
+  "ACCESS": {
+    "allowedEmailDomains": ["example.com"],         // 短縮 URL を開けるメールアドレスのドメイン
+    "teamDomain": "example.cloudflareaccess.com",   // Access のチームのドメイン（メールのドメインとは別）
+    "aud": "<5 でコピーする AUD タグ>"
+  }
+}
+```
 
 秘密の値は、ここには書きません（`wrangler.jsonc` はリポジトリに入ります）。
 
@@ -58,12 +66,11 @@ vp exec wrangler deploy
 
 短縮 URL を開けるのを、組織のメールアドレスでログインした人だけにします。Access は `wrangler.jsonc` では設定できないので、ダッシュボードで行います。
 
-1. Worker の「Access」タブで「Protect this Worker behind Access」を選び、ポリシーに「メールアドレスのドメインが一致する」（2 の `ALLOWED_EMAIL_DOMAINS` と同じ）を設定します
+1. Worker の「Access」タブで「Protect this Worker behind Access」を選び、ポリシーに「メールアドレスのドメインが一致する」（2 の `allowedEmailDomains` と同じ）を設定します
 2. Bot が使う `/api/` だけを外します。Zero Trust の「Access」→「Applications」で `short.example.com/api/*` のアプリケーションを作り、ポリシーを **Bypass** にします
+3. 1 の Access の設定画面で「Application Audience (AUD) Tag」をコピーし、`ACCESS.aud` に書いて、もう一度デプロイします
 
-3. 1 の Access の設定画面で「Application Audience (AUD) Tag」をコピーし、`vars.ACCESS_AUD` に書いて、もう一度デプロイします
-
-サーバーは、Access がリクエストに付ける JWT（`Cf-Access-Jwt-Assertion` ヘッダー）の署名を確かめ、その中のメールアドレスのドメインが `ALLOWED_EMAIL_DOMAINS` に入っているときだけ判定データを返します。Access をかけ忘れたり、ポリシーを誤って広げたりしても、組織の外の人には開けません。
+サーバーは、Access がリクエストに付ける JWT（`Cf-Access-Jwt-Assertion` ヘッダー）の署名を確かめ、その中のメールアドレスのドメインが `allowedEmailDomains` に入っているときだけ判定データを返します。Access をかけ忘れたり、ポリシーを誤って広げたりしても、組織の外の人には開けません。
 
 ## 6. Bot に Secret を渡す
 
@@ -89,13 +96,11 @@ curl -i -X POST https://short.example.com/api/links
 
 ## ローカルで動かすとき
 
-`apps/short-url/.dev.vars`（リポジトリに入れない）に、ローカル用に作った鍵とドメインを書きます。ローカルには Access がないので、テスト用の鍵で署名した JWT をヘッダーに付けて開きます（そのためのスクリプトは実装時に用意します）。
+`apps/short-url/.dev.vars`（リポジトリに入れない）に、ローカル用に作った鍵と、Access の設定（`teamDomain` はテスト用の公開鍵を返すローカルのサーバー）を書きます。ローカルには Access がないので、テスト用の鍵で署名した JWT をヘッダーに付けて開きます（そのためのスクリプトは実装時に用意します）。
 
 ```dotenv
 LINK_MASTER_KEY=<ローカル用に作った値>
-ALLOWED_EMAIL_DOMAINS=example.com
-ACCESS_TEAM_DOMAIN=localhost:8788   # テスト用の公開鍵を返すローカルのサーバー
-ACCESS_AUD=short-url-dev
+ACCESS={"allowedEmailDomains":["example.com"],"teamDomain":"localhost:8788","aud":"short-url-dev"}
 ```
 
 ```bash
