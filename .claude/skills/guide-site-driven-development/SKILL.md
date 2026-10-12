@@ -41,6 +41,10 @@ README 駆動開発・Working Backwards（PR/FAQ）・ATDD と同じ「先に書
 
 外部ガイドだけだと「動くけれど読めないコード」になりうる。設計の約束は内部ガイドに書く。
 
+外部ガイドには「手順」（何ができるか）のほかに「約束」（何が起きないか。データを送らない・残さない、など）がある。
+約束は 1 件ごとに 1 件以上のテスト（E2E か単体テスト）で確かめ、約束の表の「テスト」列にテストへリンクするバッジを置く。
+バッジのテスト名と実際のテストは機械で突き合わせ、どちらかだけ変えたら落とす。確かめられない約束は、その理由をガイドに書く。
+
 ## 基本の流れ
 
 1. **ガイドを書き、人と合意する** — 手順・前提・期待する画面を相談して決める
@@ -82,6 +86,8 @@ README 駆動開発・Working Backwards（PR/FAQ）・ATDD と同じ「先に書
 - 外部ガイド: `apps/docs`（Blume）。内部ガイド: ルートの `AGENTS.md`（Claude Code・Codex 共通。`CLAUDE.md` は `@AGENTS.md` を読み込むだけ）
 - PR プレビュー: `apps/docs` と `apps/message-editor` は PR ごとに Cloudflare Worker Previews でプレビューを作り、URL を PR にコメントする（`.github/workflows/preview-*.yml`）
 - E2E・スクショ・VRT: Playwright。ガイドの画像は E2E が撮り、CI で比較する（`references/e2e-and-screenshots.md`）
+- 約束のガイド: `apps/docs/docs/message-editor/data-handling.mdx`。「テスト」列のバッジのリンク先と実際のテストは
+  `apps/message-editor/tests/guide-promises.test.ts` が突き合わせる
 - 動画の撮影方法は **未決**
 - 未決の部分に触れる作業では、案を出して人と決め、決まったことをこのスキルに書き足す
 

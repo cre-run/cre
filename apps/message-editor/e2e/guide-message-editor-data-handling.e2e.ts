@@ -3,10 +3,11 @@
  * （apps/docs/docs/message-editor/index.mdx「判定データの扱いについて」の詳細）
  *
  * ガイドの表「どこに届き、どこに届かないか」と「受け付けないデータ」の各行を、実際のブラウザで確かめる。
+ * 約束のテストはこのファイルと tests/data-handling.test.ts にだけ置く（tested バッジと guide-promises.test.ts が突き合わせる）。
  * 「ブラウザの履歴・ブックマーク」「チャットに貼った URL」の行はブラウザや外部サービスの振る舞いなのでテストしない。
  * 画像は撮らない（見た目ではなく、通信と保存の有無を見る）。
  */
-import { expect, test } from "@playwright/test";
+import { type Page, expect, test } from "@playwright/test";
 import { MAX_DECODED_BYTES, MAX_ENCODED_LENGTH, toHash } from "../src/payload.ts";
 import { samplePayload } from "../src/sample.ts";
 
@@ -30,18 +31,8 @@ const payload = {
   },
 };
 
-test("判定データは、画面を操作しても外部に送られず、ブラウザにも保存されない", async ({
-  page,
-  baseURL,
-}) => {
-  const requests: string[] = [];
-  page.on("request", (request) => requests.push(request.url()));
-
-  const hash = toHash(payload);
-  await page.goto(`/${hash}`);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`${MARK} の件名`);
-
-  // ガイドの手順を一通り行う: 段落を選ぶ・本文を編集する・チェックを付ける・プレビューを開く
+/** ガイドの手順を一通り行う: 段落を選ぶ・本文を編集する・チェックを付ける・プレビューを開く */
+const operate = async (page: Page): Promise<void> => {
   await page.getByRole("button", { name: "段落 データの保存期間と削除 の根拠を見る" }).click();
   const paragraph = page.locator(".paragraph-text").first();
   await paragraph.fill("編集した本文");
@@ -53,6 +44,16 @@ test("判定データは、画面を操作しても外部に送られず、ブ�
   await page.getByRole("button", { name: "返信プレビュー" }).click();
   await expect(page.getByRole("dialog", { name: "返信プレビュー" })).toBeVisible();
   await page.getByRole("button", { name: "閉じる" }).click();
+};
+
+test("判定データは、画面を操作しても自分のオリジン以外に送られない", async ({ page, baseURL }) => {
+  const requests: string[] = [];
+  page.on("request", (request) => requests.push(request.url()));
+
+  const hash = toHash(payload);
+  await page.goto(`/${hash}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`${MARK} の件名`);
+  await operate(page);
 
   // 通信はすべて自分のオリジンへの静的ファイルの取得で、判定データは含まない
   const origin = new URL(baseURL!).origin;
@@ -63,6 +64,12 @@ test("判定データは、画面を操作しても外部に送られず、ブ�
     expect(url, url).not.toContain(hash.slice(3, 64));
     expect(url, url).not.toContain(encodeURIComponent(MARK));
   }
+});
+
+test("判定データは、画面を操作してもブラウザに保存されない", async ({ page }) => {
+  await page.goto(`/${toHash(payload)}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`${MARK} の件名`);
+  await operate(page);
 
   // ブラウザには何も保存していない（履歴とブックマーク以外）
   const stored = await page.evaluate(async () => ({
@@ -143,5 +150,11 @@ test("展開すると大きくなるデータ（展開爆弾）は、途中で�
   };
   await page.goto(`/${toHash(bomb)}`);
   await expect(page.getByText("データが大きすぎます（展開後")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
+});
+
+test("壊れた判定データでは見本データとエラーを表示する", async ({ page }) => {
+  await page.goto("/#d=broken");
+  await expect(page.getByText("URL のデータを読み込めませんでした")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
 });

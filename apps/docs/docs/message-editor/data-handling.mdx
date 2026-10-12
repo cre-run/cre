@@ -13,14 +13,16 @@ sidebar:
 
 ## どこに届き、どこに届かないか
 
-| 経路                                   | 判定データ                                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| サーバー（Cloudflare）                 | **届きません。** URL の `#` 以降はブラウザがサーバーに送らないためです                           |
-| 画面からの送信・外部サービスへの連携   | **行いません。** データはブラウザの中だけで復号・表示します                                      |
-| ブラウザへの保存                       | **行いません。** 編集した本文は画面を閉じると消えます                                            |
-| 根拠のリンクの遷移先                   | **渡しません。** リンクは新しいタブで開き、元の URL（判定データ）も `window.opener` も渡しません |
-| ブラウザの履歴・ブックマーク           | **残ります**                                                                                     |
-| URL を貼ったチャット・チケット・メール | **残ります。** URL を知っている人は誰でも内容を読めます                                          |
+| 経路                                   | 判定データ                                                                                       | テスト                                                                                                                                                                                                                                                                                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| サーバー（Cloudflare）                 | **届きません。** URL の `#` 以降はブラウザがサーバーに送らないためです                           | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/e2e/guide-message-editor-data-handling.e2e.ts#L49"><Badge variant="success" size="xs">E2E</Badge></a></span>                                                                                                                                           |
+| 画面からの送信・外部サービスへの連携   | **行いません。** データはブラウザの中だけで復号・表示します                                      | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/tests/data-handling.test.ts#L48"><Badge variant="success" size="xs">単体</Badge></a></span>                                                                                                                                                            |
+| 外部スクリプト・解析タグ               | **読み込みません。** 検索エンジンにも載せません                                                  | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/tests/data-handling.test.ts#L59"><Badge variant="success" size="xs">単体</Badge></a></span>                                                                                                                                                            |
+| ブラウザへの保存                       | **行いません。** 編集した本文は画面を閉じると消えます                                            | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/e2e/guide-message-editor-data-handling.e2e.ts#L69"><Badge variant="success" size="xs">E2E</Badge></a></span>                                                                                                                                           |
+| 根拠のリンクの遷移先                   | **渡しません。** リンクは新しいタブで開き、元の URL（判定データ）も `window.opener` も渡しません | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/e2e/guide-message-editor-data-handling.e2e.ts#L91"><Badge variant="success" size="xs">E2E</Badge></a></span>                                                                                                                                           |
+| `encode` で URL を作る手順             | **キャッシュに残しません。** `vp run` ではなく `node` で直接実行する手順を案内します             | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/tests/data-handling.test.ts#L68"><Badge variant="success" size="xs">単体</Badge></a> <a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/tests/data-handling.test.ts#L85"><Badge variant="success" size="xs">単体</Badge></a></span> |
+| ブラウザの履歴・ブックマーク           | **残ります**                                                                                     | —                                                                                                                                                                                                                                                                                                                                                                   |
+| URL を貼ったチャット・チケット・メール | **残ります。** URL を知っている人は誰でも内容を読めます                                          | —                                                                                                                                                                                                                                                                                                                                                                   |
 
 URL には判定データ（問い合わせ本文・宛名・返信文・根拠の引用）が圧縮されただけで、暗号化はされずに入っています。
 実際のお客様の情報を含む URL は、社内の権限管理された場所にだけ貼ってください。
@@ -29,9 +31,13 @@ URL には判定データ（問い合わせ本文・宛名・返信文・根拠�
 
 次のデータは表示せず、見本データとエラーを表示します。
 
-- 形式が合わないもの（必須の項目がない、段落 ID が重複している、など）
-- 根拠のリンクが `http(s)` 以外のもの（`javascript:` などはリンクにしません）
-- 圧縮データが 10 万文字を超えるもの、展開後が 1 MB を超えるもの（展開しながら大きさを見て、超えた時点で打ち切ります）
+| 受け付けないデータ                                               | 扱い                                                       | テスト                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 形式が違うもの（`version` が違う、圧縮データが壊れている、など） | 表示せず、見本データとエラーを表示します                   | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/tests/data-handling.test.ts#L93"><Badge variant="success" size="xs">単体</Badge></a> <a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/e2e/guide-message-editor-data-handling.e2e.ts#L156"><Badge variant="success" size="xs">E2E</Badge></a></span>  |
+| 必須の項目がない・値が不正・段落 ID が重複しているもの           | 表示せず、見本データとエラーを表示します                   | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/tests/data-handling.test.ts#L99"><Badge variant="success" size="xs">単体</Badge></a></span>                                                                                                                                                                               |
+| 根拠のリンクが `http(s)` 以外のもの                              | `javascript:` などはリンクにせず、データごと受け付けません | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/tests/data-handling.test.ts#L150"><Badge variant="success" size="xs">単体</Badge></a> <a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/e2e/guide-message-editor-data-handling.e2e.ts#L119"><Badge variant="success" size="xs">E2E</Badge></a></span> |
+| 圧縮データが 10 万文字を超えるもの                               | 展開せずにエラーを表示します                               | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/tests/data-handling.test.ts#L177"><Badge variant="success" size="xs">単体</Badge></a> <a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/e2e/guide-message-editor-data-handling.e2e.ts#L138"><Badge variant="success" size="xs">E2E</Badge></a></span> |
+| 展開後が 1 MB を超えるもの                                       | 展開しながら大きさを見て、超えた時点で打ち切ります         | <span style={{ whiteSpace: "nowrap" }}><a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/tests/data-handling.test.ts#L182"><Badge variant="success" size="xs">単体</Badge></a> <a href="https://github.com/cre-run/cre/blob/main/apps/message-editor/e2e/guide-message-editor-data-handling.e2e.ts#L144"><Badge variant="success" size="xs">E2E</Badge></a></span> |
 
 ## 作成者を検証しないこと
 
@@ -40,9 +46,17 @@ URL は誰でも作れ、署名もありません。画面が「確認済み」�
 
 ## 確かめ方
 
-これらの約束は `apps/message-editor` のテストで確かめ続けています。
+「テスト」列のバッジは、その約束を確かめ続けているテスト（`apps/message-editor`）へのリンクです。
 
-- 画面のコードが、送信・保存する API（`fetch`・`localStorage` など）を使っていないこと。外部スクリプトを読み込まないこと
-- 実際のブラウザで一通り操作しても、自分のオリジン以外に通信せず、ブラウザに何も保存しないこと
-- 根拠のリンク先に、元の URL も `window.opener` も渡らないこと
-- `javascript:` のリンク、大きすぎるデータ、展開すると大きくなるデータが、エラーになること
+<Badge variant="success" size="xs">
+  E2E
+</Badge>
+は実際のブラウザで、
+<Badge variant="success" size="xs">
+  単体
+</Badge>
+はコードの形で確かめます。リンク先はテストの行です。 バッジのテスト名と実際のテストは
+`tests/guide-promises.test.ts` が突き合わせるので、どちらかだけを変えると落ちます。
+
+テストしない約束: ブラウザの履歴・ブックマークと、URL を貼った先に残ることは、ブラウザや外部サービスの振る舞いなので確かめません。
+作成者を検証しないことは、検証の仕組みがないという事実なので、テストではなく本文に書いています。
