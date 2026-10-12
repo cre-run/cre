@@ -28,16 +28,21 @@ const PROMISE_TEST_FILES = [
 interface Listed {
   file: string;
   line: number;
+  /** バッジの表示。e2e/ なら E2E、tests/ なら 単体 */
+  label: string;
 }
 
-const BADGE =
-  /<a href="https:\/\/github\.com\/cre-run\/cre\/blob\/main\/apps\/message-editor\/((?:e2e|tests)\/[^"#]+\.ts)#L(\d+)"><Badge [^>]*>[^<]+<\/Badge><\/a>/gu;
+const labelFor = (file: string): string => (file.startsWith("e2e/") ? "E2E" : "単体");
 
-/** ガイドのバッジから、リンク先のファイルと行を取り出す */
+const BADGE =
+  /<a href="https:\/\/github\.com\/cre-run\/cre\/blob\/main\/apps\/message-editor\/((?:e2e|tests)\/[^"#]+\.ts)#L(\d+)"><Badge [^>]*>([^<]+)<\/Badge><\/a>/gu;
+
+/** ガイドのバッジから、リンク先のファイルと行、表示を取り出す */
 const listedInGuide = (): Listed[] =>
   [...readFileSync(GUIDE, "utf8").matchAll(BADGE)].map((m) => ({
     file: m[1]!,
     line: Number(m[2]),
+    label: m[3]!,
   }));
 
 /** 「テスト」列を持つ表の本文の行（最後の列がテスト列） */
@@ -85,6 +90,26 @@ const calleeName = (node: AstNode): string | undefined => {
   return undefined;
 };
 
+/**
+ * ブロック直下に `test.skip(条件, …)` / `test.fixme(条件, …)` の文があるか。
+ * Playwright ではファイル直下や describe 直下に置くと、その範囲のテストがすべて skip される
+ */
+const skipsScope = (statements: unknown[]): boolean =>
+  statements.some(
+    (statement) =>
+      isNode(statement) &&
+      statement.type === "ExpressionStatement" &&
+      isNode(statement.expression) &&
+      statement.expression.type === "CallExpression" &&
+      isNode(statement.expression.callee) &&
+      /^test\.(?:skip|fixme)$/u.test(calleeName(statement.expression.callee) ?? "") &&
+      // test.skip("名前", fn) は個々のテストの宣言なので、ここでは数えない
+      !(
+        isNode((statement.expression.arguments as unknown[])[0]) &&
+        ((statement.expression.arguments as unknown[])[0] as AstNode).type === "Literal"
+      ),
+  );
+
 /** 本文のどこかで `….skip(…)` / `….fixme(…)` を呼ぶ（実行時に skip する）テストか */
 const skipsAtRuntime = (node: AstNode): boolean => {
   if (
@@ -109,6 +134,7 @@ const skipsAtRuntime = (node: AstNode): boolean => {
  * esbuild で型とコメントを落としてから構文木にするので、行コメントとブロックコメントの中は数えない。
  * test.skip / test.only は呼び出し先が `test` ではないので数えず、describe.skip / describe.fixme の配下も数えない。
  * 本文で test.skip(条件) や test.info().skip() を呼ぶテストも、約束を確かめていないので数えない。
+ * ファイル直下や describe 直下の test.skip(条件, …) は、その範囲のテストをすべて数えない。
  */
 const titlesInFile = async (file: string): Promise<string[]> => {
   const path = join(APP, file);
@@ -116,6 +142,9 @@ const titlesInFile = async (file: string): Promise<string[]> => {
   const titles: string[] = [];
   const visit = (node: AstNode, inSkippedSuite: boolean): void => {
     let skipped = inSkippedSuite;
+    if (Array.isArray(node.body) && skipsScope(node.body)) {
+      skipped = true;
+    }
     if (node.type === "CallExpression" && isNode(node.callee)) {
       const callee = calleeName(node.callee);
       const [first, body] = node.arguments as unknown[];
@@ -167,8 +196,11 @@ const expectedAnchors = (declared: Map<number, string>): string =>
 test("バッジのリンク先の行に、実行されるテストの宣言がある", async () => {
   const listed = listedInGuide();
   expect(listed.length).toBeGreaterThan(0);
-  for (const { file, line } of listed) {
+  for (const { file, line, label } of listed) {
     expect(PROMISE_TEST_FILES, `${file}: 約束のテストはこのファイルに置く`).toContain(file);
+    expect(label, `${file}#L${line}: バッジの表示は確かめ方（E2E / 単体）と合わせる`).toBe(
+      labelFor(file),
+    );
     const declared = await declaredTests(file);
     expect(
       declared.has(line),
