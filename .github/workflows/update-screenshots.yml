@@ -120,7 +120,9 @@ jobs:
           SHA: ${{ steps.commit.outputs.sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          if [ "$JOB_STATUS" = "cancelled" ]; then
+          if [ "$JOB_STATUS" = "cancelled" ] && [ "$CHANGED" = "true" ]; then
+            body="ガイドの画像を撮り直して ${SHA} をコミットしたあとで中断しました（ラベルの付け直しなどで新しい実行に置き換わったか、手動で取り消されました）。CI・E2E・ドキュメントのプレビューを呼び出せたかは実行ログで確かめ、呼び出せていなければ Actions から手動で実行してください。"
+          elif [ "$JOB_STATUS" = "cancelled" ]; then
             body="ガイドの画像の撮り直しを中断しました（ラベルの付け直しなどで新しい実行に置き換わったか、手動で取り消されました）。コミットしていません。"
           elif [ "$UPDATE_OUTCOME" = "failure" ]; then
             body="ガイドの画像を撮り直せませんでした（撮り直しのステップが失敗したため、コミットしていません）。"
