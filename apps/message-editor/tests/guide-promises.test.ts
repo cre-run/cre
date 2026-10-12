@@ -1,10 +1,11 @@
 /**
- * 対応ガイド: apps/docs/docs/message-editor/data-handling.mdx「確かめ方」
+ * 対応ガイド: apps/docs/docs/message-editor/data-handling.mdx
  *
- * ガイドに約束ごとに列挙したテスト名と、実際のテストが一致することを確かめる。
- * - 列挙したテストは、書かれたファイルに同じ名前で実在する（ガイドだけを変えると落ちる）
- * - 約束のためだけにあるテストファイルは、すべてのテストが列挙されている（テストだけを足すと落ちる）
- * payload.test.ts や critical-path.e2e.ts のように約束以外のテストも持つファイルは、約束に関わるものだけを列挙する。
+ * ガイドの約束に付けた tested バッジ（リンク先がテストファイル、tooltip がテスト名）と、
+ * 実際のテストが一致することを確かめる。
+ * - バッジのテストは、リンク先のファイルに同じ名前で実在する（ガイドだけを変えると落ちる）
+ * - 約束のためだけにあるテストファイルは、すべてのテストにバッジがある（テストだけを足すと落ちる）
+ * payload.test.ts や critical-path.e2e.ts のように約束以外のテストも持つファイルは、約束に関わるものだけにバッジを付ける。
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -26,17 +27,12 @@ interface Listed {
   file: string;
 }
 
-/** ガイドの「確かめ方」から、「テスト名」（`ファイル`）の形で列挙したものを取り出す */
-const listedInGuide = (): Listed[] => {
-  const section = readFileSync(GUIDE, "utf8")
-    .split(/^## 確かめ方$/mu)[1]
-    ?.split(/^## /mu)[0];
-  expect(section, "ガイドに「## 確かめ方」の節がある").toBeDefined();
-  return [...section!.matchAll(/^- 「(.+)」（`((?:e2e|tests)\/[^`]+\.ts)`）$/gmu)].map((m) => ({
-    title: m[1]!,
-    file: m[2]!,
-  }));
-};
+const BADGE =
+  /<a href="https:\/\/github\.com\/cre-run\/cre\/blob\/main\/apps\/message-editor\/((?:e2e|tests)\/[^"]+\.ts)"><Badge [^>]*tooltip="([^"]+)"[^>]*>tested<\/Badge><\/a>/gu;
+
+/** ガイドの tested バッジから、テスト名とファイルを取り出す */
+const listedInGuide = (): Listed[] =>
+  [...readFileSync(GUIDE, "utf8").matchAll(BADGE)].map((m) => ({ file: m[1]!, title: m[2]! }));
 
 /** ESTree のノード。必要な項目だけを見る */
 interface AstNode {
@@ -94,7 +90,7 @@ const titlesInFile = async (file: string): Promise<string[]> => {
   return titles;
 };
 
-test("ガイドに挙げたテストは、書かれたファイルに同じ名前で実在する", async () => {
+test("バッジのテストは、リンク先のファイルに同じ名前で実在する", async () => {
   const listed = listedInGuide();
   expect(listed.length).toBeGreaterThan(0);
   for (const { title, file } of listed) {
@@ -102,15 +98,10 @@ test("ガイドに挙げたテストは、書かれたファイルに同じ名�
   }
 });
 
-test("約束のためだけにあるテストファイルは、すべてのテストがガイドに載っている", async () => {
+test("約束のためだけにあるテストファイルは、すべてのテストにバッジがある", async () => {
   const listed = listedInGuide();
   for (const file of PROMISE_ONLY_FILES) {
-    const inGuide = listed.filter((item) => item.file === file).map((item) => item.title);
-    expect(inGuide.sort(), file).toEqual((await titlesInFile(file)).sort());
+    const badged = new Set(listed.filter((item) => item.file === file).map((item) => item.title));
+    expect([...badged].sort(), file).toEqual((await titlesInFile(file)).sort());
   }
-});
-
-test("同じテストを二重に挙げていない", () => {
-  const keys = listedInGuide().map(({ file, title }) => `${file}:${title}`);
-  expect(new Set(keys).size).toBe(keys.length);
 });

@@ -16,10 +16,11 @@
   画像を撮らないガイド（約束の一覧など）の E2E も同じ名前の規則にし、撮らない理由を先頭に書く
 - ガイドの画像は E2E の `toHaveScreenshot` が撮り、ガイドの隣（`apps/docs/docs/<app>/*.png`）に置いたものを
   そのまま比較の基準にする（`playwright.config.ts` の `snapshotPathTemplate`）。別の場所にコピーしない
-- 約束のガイドの「確かめ方」には、約束ごとに「テスト名」と（`ファイル名`）を並べた箇条書きでテストを列挙する。
-  `tests/guide-promises.test.ts` が、列挙したテストが実在すること、約束のためだけにあるファイルのテストが
-  すべて列挙されていることを突き合わせる。約束を足したらテストを、テストを足したらガイドを直す。
-  テストしない約束は、その理由を同じ節に書く
+- 約束のガイドでは、約束の文の末尾にテストへリンクする `tested` バッジを付ける（1 つの約束に複数可）:
+  `<a href="https://github.com/cre-run/cre/blob/main/apps/<app>/<file>"><Badge variant="success" size="xs" tooltip="テスト名">tested</Badge></a>`。
+  `tests/guide-promises.test.ts` が、バッジのテストが実在すること、約束のためだけにあるファイルのテストに
+  すべてバッジがあることを突き合わせる。約束を足したらテストを、テストを足したらバッジを付ける。
+  テストしない約束は、その理由を「確かめ方」に書く
 
 ## ガイドの置き場（`apps/docs/docs/`）
 
