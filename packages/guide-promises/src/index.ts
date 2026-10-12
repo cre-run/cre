@@ -86,64 +86,147 @@ const calleeName = (node: AstNode): string | undefined => {
 };
 
 /**
- * ブロック直下に `test.skip(条件, …)` / `test.fixme(条件, …)` の文があるか。
- * Playwright ではファイル直下や describe 直下に置くと、その範囲のテストがすべて skip される
+ * 本文のどこかで `….skip(…)` / `….fixme(…)` を呼ぶ（実行時に skip する）か。
+ * ファイル内で定義した関数の呼び出し（`() => skipPromises()` のようなラッパー）も中まで追う。循環は seen で止める
  */
-const skipsScope = (statements: unknown[]): boolean =>
-  statements.some(
-    (statement) =>
-      isNode(statement) &&
-      statement.type === "ExpressionStatement" &&
-      isNode(statement.expression) &&
-      statement.expression.type === "CallExpression" &&
-      isNode(statement.expression.callee) &&
-      /^test\.(?:skip|fixme)$/u.test(calleeName(statement.expression.callee) ?? "") &&
-      // test.skip("名前", fn) は個々のテストの宣言なので、ここでは数えない
-      !(
-        isNode((statement.expression.arguments as unknown[])[0]) &&
-        ((statement.expression.arguments as unknown[])[0] as AstNode).type === "Literal"
-      ),
-  );
-
-/** 本文のどこかで `….skip(…)` / `….fixme(…)` を呼ぶ（実行時に skip する）テストか */
-const skipsAtRuntime = (node: AstNode): boolean => {
-  if (
-    node.type === "CallExpression" &&
-    isNode(node.callee) &&
-    node.callee.type === "MemberExpression" &&
-    isNode(node.callee.property) &&
-    node.callee.property.type === "Identifier" &&
-    ["skip", "fixme"].includes(node.callee.property.name as string)
-  ) {
-    return true;
+const skipsAtRuntime = (
+  node: AstNode,
+  functions: Map<string, AstNode[]>,
+  seen: Set<AstNode> = new Set(),
+): boolean => {
+  if (seen.has(node)) {
+    return false;
+  }
+  seen.add(node);
+  if (node.type === "CallExpression" && isNode(node.callee)) {
+    const { callee } = node;
+    if (
+      callee.type === "MemberExpression" &&
+      isNode(callee.property) &&
+      callee.property.type === "Identifier" &&
+      ["skip", "fixme"].includes(callee.property.name as string)
+    ) {
+      return true;
+    }
+    if (callee.type === "Identifier") {
+      const definitions = functions.get(callee.name as string) ?? [];
+      if (definitions.some((definition) => skipsAtRuntime(definition, functions, seen))) {
+        return true;
+      }
+    }
   }
   return Object.values(node).some((value) =>
     (Array.isArray(value) ? value : [value]).some(
-      (child) => isNode(child) && skipsAtRuntime(child),
+      (child) => isNode(child) && skipsAtRuntime(child, functions, seen),
     ),
   );
 };
+
+/** ブロック直下の文のうち、関数呼び出しのもの */
+const callStatements = (statements: unknown[]): AstNode[] =>
+  statements.flatMap((statement) =>
+    isNode(statement) &&
+    statement.type === "ExpressionStatement" &&
+    isNode(statement.expression) &&
+    statement.expression.type === "CallExpression" &&
+    isNode(statement.expression.callee)
+      ? [statement.expression]
+      : [],
+  );
+
+const isFunctionNode = (node: unknown): node is AstNode =>
+  isNode(node) &&
+  ["FunctionExpression", "ArrowFunctionExpression", "FunctionDeclaration"].includes(node.type);
+
+/**
+ * ファイルのどこかで定義された関数（`const f = () => …` / `function f() {}`）を名前で引けるようにする。
+ * describe のコールバックの中など、入れ子の定義も集める。同じ名前が複数あれば、どれかが skip すれば
+ * 「skip する」側に倒れるよう、すべて残す
+ */
+const localFunctions = (program: AstNode): Map<string, AstNode[]> => {
+  const found = new Map<string, AstNode[]>();
+  const add = (name: string, definition: AstNode): void => {
+    found.set(name, [...(found.get(name) ?? []), definition]);
+  };
+  const visit = (node: AstNode): void => {
+    if (node.type === "FunctionDeclaration" && isNode(node.id)) {
+      add(node.id.name as string, node);
+    }
+    if (node.type === "VariableDeclarator" && isNode(node.id) && node.id.type === "Identifier") {
+      if (isFunctionNode(node.init)) {
+        add(node.id.name as string, node.init);
+      }
+    }
+    for (const value of Object.values(node)) {
+      for (const child of Array.isArray(value) ? value : [value]) {
+        if (isNode(child)) {
+          visit(child);
+        }
+      }
+    }
+  };
+  visit(program);
+  return found;
+};
+
+/**
+ * フックに渡した関数が、中で `….skip(…)` / `….fixme(…)` を呼ぶか。
+ * インライン関数はその場で、識別子はファイル内の定義を引いて調べる。
+ * 解決できないもの（import した関数など）は、安全側に倒して「skip する」とみなす
+ */
+const hookSkips = (argument: unknown, functions: Map<string, AstNode[]>): boolean => {
+  if (isFunctionNode(argument)) {
+    return skipsAtRuntime(argument, functions);
+  }
+  if (isNode(argument) && argument.type === "Identifier") {
+    const definitions = functions.get(argument.name as string) ?? [];
+    return definitions.length === 0 || definitions.some((d) => skipsAtRuntime(d, functions));
+  }
+  return true;
+};
+
+/**
+ * ブロック直下に、その範囲のテストをすべて skip する文があるか。Playwright では次のどちらも範囲全体に効く
+ * - `test.skip(条件, …)` / `test.fixme(条件, …)`（第 1 引数が文字列の `test.skip("名前", fn)` は個々のテストの宣言なので除く）
+ * - `test.beforeEach(fn)` / `test.beforeAll(fn)` の fn が中で `….skip(…)` / `….fixme(…)` を呼ぶもの
+ */
+const skipsScope = (statements: unknown[], functions: Map<string, AstNode[]>): boolean =>
+  callStatements(statements).some((call) => {
+    const callee = calleeName(call.callee as AstNode) ?? "";
+    const [first] = call.arguments as unknown[];
+    if (/^test\.(?:skip|fixme)$/u.test(callee)) {
+      return !(isNode(first) && first.type === "Literal");
+    }
+    if (/^(?:test\.)?(?:beforeEach|beforeAll)$/u.test(callee)) {
+      // beforeEach(fn) / beforeEach(タイトル, fn): フック関数は常に最後の引数
+      return hookSkips((call.arguments as unknown[]).at(-1), functions);
+    }
+    return false;
+  });
 
 /**
  * テストファイルで実際に実行される test("…") の名前。
  * esbuild で型とコメントを落としてから構文木にするので、行コメントとブロックコメントの中は数えない。
  * test.skip / test.only は呼び出し先が `test` ではないので数えず、describe.skip / describe.fixme の配下も数えない。
- * 本文で test.skip(条件) や test.info().skip() を呼ぶテストも、約束を確かめていないので数えない。
- * ファイル直下や describe 直下の test.skip(条件, …) は、その範囲のテストをすべて数えない。
+ * 本文で test.skip(条件) や test.info().skip() を呼ぶテスト（ファイル内のヘルパー経由でも）も、約束を確かめていないので数えない。
+ * ファイル直下や describe 直下の test.skip(条件, …) と、beforeEach / beforeAll に渡した関数（インラインでも
+ * ファイル内で定義した関数でも）の中の skip / fixme は、その範囲のテストをすべて数えない。解決できないフックは skip 扱い。
  */
 const titlesInFile = async (path: string): Promise<string[]> => {
   const { code } = await transformWithEsbuild(readFileSync(path, "utf8"), path);
+  const program = parseAst(code) as unknown as AstNode;
+  const functions = localFunctions(program);
   const titles: string[] = [];
   const visit = (node: AstNode, inSkippedSuite: boolean): void => {
     let skipped = inSkippedSuite;
-    if (Array.isArray(node.body) && skipsScope(node.body)) {
+    if (Array.isArray(node.body) && skipsScope(node.body, functions)) {
       skipped = true;
     }
     if (node.type === "CallExpression" && isNode(node.callee)) {
       const callee = calleeName(node.callee);
       const [first, body] = node.arguments as unknown[];
       if (callee === "test" && !skipped && isNode(first) && first.type === "Literal") {
-        if (!(isNode(body) && skipsAtRuntime(body))) {
+        if (!(isNode(body) && skipsAtRuntime(body, functions))) {
           titles.push(first.value as string);
         }
       }
@@ -159,7 +242,7 @@ const titlesInFile = async (path: string): Promise<string[]> => {
       }
     }
   };
-  visit(parseAst(code) as unknown as AstNode, false);
+  visit(program, false);
   return titles;
 };
 
