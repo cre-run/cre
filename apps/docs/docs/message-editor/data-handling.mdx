@@ -40,22 +40,41 @@ URL は誰でも作れ、署名もありません。画面が「確認済み」�
 
 ## 確かめ方
 
-これらの約束は `apps/message-editor` の次のテストで確かめ続けています。
-テスト名はこの一覧と同じで、どちらかだけを変えるとテストが落ちます（`tests/guide-promises.test.ts`）。
+約束ごとに、`apps/message-editor` で確かめ続けているテストを挙げます。
+テスト名は実際のテストと同じで、どちらかだけを変えるとテストが落ちます（`tests/guide-promises.test.ts`）。
 
-実際のブラウザで開いて確かめるもの（`e2e/guide-message-editor-data-handling.e2e.ts`）:
+届かない・送らない・保存しない:
 
-- 「判定データは、画面を操作しても外部に送られず、ブラウザにも保存されない」
-- 「根拠のリンクは新しいタブで開き、開いた先に判定データの URL も window.opener も渡さない」
-- 「http(s) 以外のリンクを含むデータは読み込まず、見本データとエラーを表示する」
-- 「大きすぎるデータは展開せずにエラーを表示する」
-- 「展開すると大きくなるデータ（展開爆弾）は、途中で打ち切ってエラーを表示する」
+- 「判定データは、画面を操作しても外部に送られず、ブラウザにも保存されない」（`e2e/guide-message-editor-data-handling.e2e.ts`）
+- 「画面のコードは、判定データを送信・保存する API を使っていない」（`tests/data-handling.test.ts`）
+- 「index.html は自前のスクリプトだけを読み込み、検索エンジンには載せない」（`tests/data-handling.test.ts`）
 
-コードの形で確かめるもの（`tests/data-handling.test.ts`）:
+根拠のリンクの遷移先に渡さない:
 
-- 「画面のコードは、判定データを送信・保存する API を使っていない」
-- 「index.html は自前のスクリプトだけを読み込み、検索エンジンには載せない」
-- 「README・ガイドの手順どおりに encode を実行すると、--base を付けた URL ができる」
-- 「ドキュメントの encode の例は vp run を使わない（出力をキャッシュして古い URL を返すため）」
+- 「根拠のリンクは新しいタブで開き、開いた先に判定データの URL も window.opener も渡さない」（`e2e/guide-message-editor-data-handling.e2e.ts`）
+
+形式が合わないデータを受け付けない:
+
+- 「形式の違うデータは読み込まない」（`tests/payload.test.ts`）
+- 「入れ子の必須項目や値が不正なデータは読み込まない」（`tests/payload.test.ts`）
+- 「壊れた判定データでは見本データとエラーを表示する」（`e2e/critical-path.e2e.ts`）
+
+`http(s)` 以外のリンクを受け付けない:
+
+- 「根拠のリンクは http(s) だけを受け付ける」（`tests/payload.test.ts`）
+- 「http(s) 以外のリンクを含むデータは読み込まず、見本データとエラーを表示する」（`e2e/guide-message-editor-data-handling.e2e.ts`）
+
+大きすぎるデータを受け付けない:
+
+- 「大きすぎる圧縮データは展開しない」（`tests/payload.test.ts`）
+- 「展開すると大きくなるデータ（展開爆弾）は、途中で打ち切る」（`tests/payload.test.ts`）
+- 「大きすぎるデータは展開せずにエラーを表示する」（`e2e/guide-message-editor-data-handling.e2e.ts`）
+- 「展開すると大きくなるデータ（展開爆弾）は、途中で打ち切ってエラーを表示する」（`e2e/guide-message-editor-data-handling.e2e.ts`）
+
+URL を作る手順が、生成した URL をキャッシュに残さない:
+
+- 「README・ガイドの手順どおりに encode を実行すると、--base を付けた URL ができる」（`tests/data-handling.test.ts`）
+- 「ドキュメントの encode の例は vp run を使わない（出力をキャッシュして古い URL を返すため）」（`tests/data-handling.test.ts`）
 
 テストしない約束: ブラウザの履歴・ブックマークと、URL を貼った先に残ることは、ブラウザや外部サービスの振る舞いなので確かめません。
+作成者を検証しないことは、検証の仕組みがないという事実なので、テストではなく本文に書いています。
