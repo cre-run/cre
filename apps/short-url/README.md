@@ -1,6 +1,6 @@
 # apps/short-url
 
-Message Editor 専用の短縮 URL サービスの設計と実装です。**実装中で、まだデプロイしていません**（Worker・D1・単体テストはあり、デプロイの CI と本番の設定・E2E はこれから）。プロトタイプとして、一定のセキュリティを保ちながら、仕様をできるだけ小さくしています。
+Message Editor 専用の短縮 URL サービスの設計と実装です。**実装中で、まだデプロイしていません**（Worker・D1・単体テスト・E2E はあり、デプロイの CI と本番の設定はこれから）。プロトタイプとして、一定のセキュリティを保ちながら、仕様をできるだけ小さくしています。
 
 ガイド（すべて `planned`）: `apps/docs/docs/short-url/` の `index.mdx`（使い方）・`data-handling.mdx`（約束）・`self-hosting.mdx`（設定の手順）。
 このドキュメントとガイドが食い違ったら、ガイドが正です。
@@ -81,18 +81,22 @@ CREATE TABLE links (
 
 ## 開発
 
-| 場所                     | 内容                                                                                                                                |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `src/index.ts`           | 入口。`fetch`（HTTP）と、RPC の `ShortUrl.create(data)`                                                                             |
-| `src/app.ts`             | `GET /id/<UUID>` の処理と、`403`・`404`・`503` の固定の画面（文言はガイド `index.mdx` の表と単体テストで突き合わせる）              |
-| `src/access.ts`          | Access の JWT の検証（署名・`iss`・`aud`・`exp`・`nbf`・メールのドメイン）と公開鍵のキャッシュ                                      |
-| `src/config.ts`          | `vars` の検査（fail closed）                                                                                                        |
-| `src/links.ts`           | `data` の検査と D1 の読み書き                                                                                                       |
-| `scripts/access-stub.ts` | テスト用の鍵・JWT・JWKS（単体テストと `dev-access.ts` が使う）                                                                      |
-| `scripts/dev-access.ts`  | ローカルで Access の代わりをする CLI                                                                                                |
-| `tests/`                 | 単体テスト。約束のテストは `tests/data-handling.test.ts` だけに置き、ガイドのバッジと `tests/guide-promises.test.ts` で突き合わせる |
+| 場所                     | 内容                                                                                                                                                                              |
+| ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/index.ts`           | 入口。`fetch`（HTTP）と、RPC の `ShortUrl.create(data)`                                                                                                                           |
+| `src/app.ts`             | `GET /id/<UUID>` の処理と、`403`・`404`・`503` の固定の画面（文言はガイド `index.mdx` の表と単体テストで突き合わせる）                                                            |
+| `src/access.ts`          | Access の JWT の検証（署名・`iss`・`aud`・`exp`・`nbf`・メールのドメイン）と公開鍵のキャッシュ                                                                                    |
+| `src/config.ts`          | `vars` の検査（fail closed）                                                                                                                                                      |
+| `src/links.ts`           | `data` の検査と D1 の読み書き                                                                                                                                                     |
+| `scripts/access-stub.ts` | テスト用の鍵・JWT・JWKS（単体テストと `dev-access.ts` が使う）                                                                                                                    |
+| `scripts/dev-access.ts`  | ローカルで Access の代わりをする CLI                                                                                                                                              |
+| `tests/`                 | 単体テスト。約束のテストは `tests/data-handling.test.ts` と `e2e/guide-short-url-data-handling.e2e.ts` だけに置き、ガイドのバッジと `tests/guide-promises.test.ts` で突き合わせる |
+| `e2e/`                   | ガイドの E2E（Playwright）。`e2e/bot/` は E2E 専用の Bot の Worker（デプロイしない）で、Service Binding の RPC で `create()` を呼ぶ                                               |
 
 - `vp test`・`vp check`・`vp run build`（`wrangler deploy --dry-run`）は、リポジトリの `vp run ready` に含まれる
+- E2E は `vp exec playwright test`。Access の代わり・短縮 URL の Worker・E2E 専用の Bot・Message Editor の 4 つを起動し、ガイドの流れをなぞる。
+  短縮 URL の Worker の設定は `.dev.vars.example` をそのまま使い（`--env-file`）、D1 は `.wrangler/e2e` に置く。画像は撮らない
+  - 途中で強制終了すると、`wrangler dev` の Service Binding の登録（`~/.config/.wrangler/registry/cre-short*`）が残り、次の実行で Bot の `create()` が `Network connection lost` で落ちる。そのときは残った 2 つのファイルを消す（Playwright は SIGINT で止めるので、普通に終われば残らない）
 - Workers の型は `@cloudflare/workers-types`（最新のランタイムの型。Renovate で上がる）。`wrangler types` が作る `worker-configuration.d.ts` は 600 KB あり push の AI レビューに載らないので、コミットしない（`.gitignore`）
 - ローカルで動かす（別々の端末で）
 
@@ -144,6 +148,6 @@ CREATE TABLE links (
 
 1. このガイドと設計を人と合意する（この PR）
 2. `payload.ts` を `packages/editor-payload` に切り出す（済）
-3. 約束のテストを赤から書く（単体は済。ガイドの E2E は Playwright で 5 の前に別の PR で足し、`e2e.yml` にジョブを足す）
+3. 約束のテストを赤から書く（済。単体と、ガイドの E2E（Playwright。`e2e.yml` の `e2e-short-url` ジョブ））
 4. Worker・D1・ローカル用の CLI を実装して緑にする（済。`.gitignore` に `.dev.vars` を足した）
 5. デプロイの CI を足し、本番の D1・Access を用意し、Bot の Worker に Service Binding を張る

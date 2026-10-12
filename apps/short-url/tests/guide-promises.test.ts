@@ -22,7 +22,10 @@ const APP_PATH = "apps/short-url";
 const GUIDE = join(APP, "../docs/docs/short-url/data-handling.mdx");
 
 /** 約束のテストを置くファイル。ここのテストにはすべてバッジを付け、バッジはここにしか付けない */
-const PROMISE_TEST_FILES = ["tests/data-handling.test.ts"];
+const PROMISE_TEST_FILES = [
+  "e2e/guide-short-url-data-handling.e2e.ts",
+  "tests/data-handling.test.ts",
+];
 
 test("バッジのリンク先の行に、実行されるテストの宣言がある", async () => {
   const listed = listedInGuide(GUIDE, APP_PATH);

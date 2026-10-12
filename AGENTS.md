@@ -45,6 +45,7 @@ push 前に `.githooks/pre-push` が、push する差分（追加行。push 先�
 ## E2E（Playwright）
 
 - `apps/message-editor` で `vp exec playwright test`（ビルドしてプレビューサーバーを起動する）。`critical-path` だけでも流せる
+- `apps/short-url` でも `vp exec playwright test`（`wrangler dev` を 2 つと、Access の代わり・Message Editor を起動する。画像は撮らない）
 - Claude Code のクラウドのセッションでは Playwright のブラウザをダウンロードせず、入っている Chromium を指定する
 
   ```bash

@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "wrangler dev",
     "build": "wrangler deploy --dry-run --outdir dist",
-    "test": "vp test"
+    "test": "vp test",
+    "e2e": "playwright test"
   },
   "dependencies": {
     "@cre/editor-payload": "workspace:*"
@@ -14,6 +15,7 @@
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
     "@cre/guide-promises": "workspace:*",
+    "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "typescript": "catalog:",
     "vite-plus": "catalog:",
