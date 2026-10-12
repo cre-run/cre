@@ -4,7 +4,7 @@
  *
  * ガイドの表「どこに届き、どこに届かないか」と「受け付けないデータ」の各行を、実際のブラウザで確かめる。
  * 約束のテストはこのファイルと tests/data-handling.test.ts にだけ置く（tested バッジと guide-promises.test.ts が突き合わせる）。
- * 「ブラウザの履歴・ブックマーク」「チャットに貼った URL」の行はブラウザや外部サービスの振る舞いなのでテストしない。
+ * 「ブラウザの履歴・ブックマーク」「チャットに貼った URL」の行と、コピーした文面が画面を閉じた後も残ることはテストしない（ブラウザ・OS・外部サービスの振る舞い）。
  * 画像は撮らない（見た目ではなく、通信と保存の有無を見る）。
  */
 import { type Page, expect, test } from "@playwright/test";
@@ -158,4 +158,31 @@ test("壊れた判定データでは見本データとエラーを表示する",
   await page.goto("/#d=broken");
   await expect(page.getByText("URL のデータを読み込めませんでした")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
+});
+
+test("クリップボードには、コピーボタンを押したときだけ送る文面が入り、注釈や件名は入らない", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto(`/${toHash(payload)}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(`${MARK} の件名`);
+  await page.evaluate(() => navigator.clipboard.writeText("コピー前"));
+  const clipboard = () => page.evaluate(() => navigator.clipboard.readText());
+
+  // ガイドの手順を一通り行っても、コピーボタンを押さなければクリップボードは変わらない
+  await operate(page);
+  expect(await clipboard()).toBe("コピー前");
+
+  await page.getByRole("button", { name: "返信プレビュー" }).click();
+  const dialog = page.getByRole("dialog", { name: "返信プレビュー" });
+  await dialog.getByRole("button", { name: "本文をコピー" }).click();
+  await expect(dialog.getByRole("button", { name: "コピーしました" })).toBeVisible();
+
+  // 段落の間は空行。宛名・編集した本文・結びだけで、確認状況や件名（判定データの目印）は入らない
+  const copied = await clipboard();
+  expect(copied.startsWith(`${samplePayload.reply.opening}\n\n編集した本文\n\n`)).toBe(true);
+  expect(copied.endsWith(`\n\n${samplePayload.reply.closing}`)).toBe(true);
+  expect(copied).not.toContain(MARK);
+  expect(copied).not.toContain("確認済み");
 });
