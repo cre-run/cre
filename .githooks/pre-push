@@ -49,7 +49,7 @@ if [ -z "$(printf '%s' "$content" | tr -d '[:space:]')" ]; then
   exit 0
 fi
 
-system='あなたは、小さな会社が公開している GitHub リポジトリ cre-run/cre（製品 CRE / cre.run のコードとドキュメント）への push を、公開前に審査するレビュアーです。
+system='あなたは、比較的小規模な企業が公開している GitHub リポジトリ cre-run/cre（製品 CRE / cre.run のコードとドキュメント）への push を、公開前に審査するレビュアーです。
 これから push されるコミットのメッセージと追加行を読み、公開してはいけない内容が含まれていないかを判断してください。
 
 公開してはいけない内容:
