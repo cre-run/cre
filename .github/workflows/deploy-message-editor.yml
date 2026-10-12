@@ -6,7 +6,7 @@ on:
     paths:
       - apps/message-editor/**
       - packages/asset/**
-      - packages/message-payload/**
+      - packages/editor-payload/**
       - pnpm-lock.yaml
       - pnpm-workspace.yaml
       - .github/workflows/deploy-message-editor.yml

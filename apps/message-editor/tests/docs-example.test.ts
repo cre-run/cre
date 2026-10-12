@@ -4,7 +4,7 @@
  * 落ちたら `vp run @cre/message-editor#encode -- --base https://editor.cre.run/` の出力でガイドの URL を置き換える。
  */
 import { expect, test } from "vite-plus/test";
-import { decodePayload } from "@cre/message-payload";
+import { decodePayload } from "@cre/editor-payload";
 import { samplePayload } from "../src/sample.ts";
 import { guideExampleHashes } from "./guide-example.ts";
 

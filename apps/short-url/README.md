@@ -38,7 +38,7 @@ Slack Block Kit のボタン `url`・section `text`（どちらも 3,000 文字�
 - **302 で転送する。** `/id/*` は Access の後ろにあるので、展開ボットやクローラーは転送先（判定データ）まで届きません。応答には `Cache-Control: no-store`・`Referrer-Policy: no-referrer`・`X-Robots-Tag: noindex` を付けます。転送先は設定の `EDITOR_URL` だけです（オープンリダイレクトにしない）。`404`・`403`・`503` の HTML は固定の文言だけで、UUID やリクエストの内容を埋め込みません
 - **守るのは入口だけ。** 転送先の Message Editor の URL（`#d=` に判定データ全体）は、ログインなしで開けます。開いた人のブラウザの履歴に残り、コピーして貼れば誰でも読めます。これは今の `#d=` の URL と同じで、短縮 URL が守るのは「URL を知っているだけの人が開く」ことです
 - **ログ。** 判定データ・Secret・メールアドレスはコードからログに書きません。URL（UUID）は Workers Logs に残りますが、UUID だけでは開けません
-- **検査。** 登録時に、`data` が `^[A-Za-z0-9_-]+$`（base64url）だけでできていることと、Message Editor と同じ `decodePayload` を通ることを確かめます（10 万文字・展開後 1 MB の上限も同じ）。前者は、`Location` ヘッダーや `#d=` に改行や `&` などを混ぜられないようにするためです。`@cre/message-payload`（`packages/message-payload`。Message Editor と共有）を使います
+- **検査。** 登録時に、`data` が `^[A-Za-z0-9_-]+$`（base64url）だけでできていることと、Message Editor と同じ `decodePayload` を通ることを確かめます（10 万文字・展開後 1 MB の上限も同じ）。前者は、`Location` ヘッダーや `#d=` に改行や `&` などを混ぜられないようにするためです。`@cre/editor-payload`（`packages/editor-payload`。Message Editor と共有）を使います
 
 ## API
 
@@ -111,7 +111,7 @@ CREATE TABLE links (
 ## 実装の順番
 
 1. このガイドと設計を人と合意する（この PR）
-2. `payload.ts` を `packages/message-payload` に切り出す（済）
+2. `payload.ts` を `packages/editor-payload` に切り出す（済）
 3. 約束のテストとガイドの E2E を赤から書く
 4. Worker・D1・CLI を実装して緑にする（`.gitignore` に `.dev.vars` を足す）
 5. デプロイの CI を足し、本番の D1・Access を用意し、Bot の Worker に Service Binding を張る

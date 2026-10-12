@@ -21,15 +21,15 @@ import {
   decodePayload,
   encodePayload,
   isPayload,
-} from "@cre/message-payload";
+} from "@cre/editor-payload";
 import { samplePayload } from "../src/sample.ts";
 
 const APP = fileURLToPath(new URL("..", import.meta.url));
 const README = join(APP, "README.md");
 const GUIDE = join(APP, "../docs/docs/message-editor/index.mdx");
 
-/** 画面のコードと、画面にバンドルされる共有パッケージ（@cre/message-payload）の両方を走査する */
-const SOURCE_ROOTS = ["src", "../../packages/message-payload/src"];
+/** 画面のコードと、画面にバンドルされる共有パッケージ（@cre/editor-payload）の両方を走査する */
+const SOURCE_ROOTS = ["src", "../../packages/editor-payload/src"];
 const sourceFiles = (): string[] =>
   SOURCE_ROOTS.flatMap((root) =>
     readdirSync(join(APP, root), { recursive: true, encoding: "utf8" })

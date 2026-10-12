@@ -1,6 +1,6 @@
 import { expect, test } from "vite-plus/test";
 import { formatDate, formatMonthDayTime, freshness } from "../src/labels.ts";
-import { decodePayload, encodePayload, readHash, toHash } from "@cre/message-payload";
+import { decodePayload, encodePayload, readHash, toHash } from "@cre/editor-payload";
 import { samplePayload } from "../src/sample.ts";
 
 test("payload は pako 圧縮を経ても元に戻る", () => {

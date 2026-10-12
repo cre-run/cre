@@ -9,7 +9,7 @@
 - `apps/message-editor` (`@cre/message-editor`) — 返信の段落ごとに根拠を表示する Message Editor のモック（SPA、データは URL の `#d=` で渡す）。Cloudflare Workers (`cre-editor`) で `editor.cre.run` に配信
 - `apps/short-url` — （準備中・設計のみ）Message Editor 専用の短縮 URL サービス。Cloudflare Workers (`cre-short`) + D1 で、セルフホストして使う。設計は `apps/short-url/README.md`
 - `apps/sample` (`@cre/app-sample`) — Vite アプリの見本
-- `packages/message-payload` (`@cre/message-payload`) — Message Editor の判定データの型と、URL の `#d=` に載せる圧縮・展開・検証。Message Editor と短縮 URL（準備中）で共有する
+- `packages/editor-payload` (`@cre/editor-payload`) — Message Editor の判定データの型と、URL の `#d=` に載せる圧縮・展開・検証。Message Editor と短縮 URL（準備中）で共有する
 - `packages/sample` (`@cre/sample`) — `vp pack` でビルドするライブラリの見本
 
 ## 開発

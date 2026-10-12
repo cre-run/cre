@@ -3,7 +3,7 @@
 // ファイルを省略すると、見本データ（src/sample.ts）をエンコードする。
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { toHash, type ReplyReviewPayload } from "@cre/message-payload";
+import { toHash, type ReplyReviewPayload } from "@cre/editor-payload";
 import { samplePayload } from "../src/sample.ts";
 
 const { positionals, values } = parseArgs({
