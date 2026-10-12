@@ -56,7 +56,7 @@ vp exec wrangler deploy
 
 短縮 URL を開けるのを、組織のメールアドレスでログインした人だけにします。Access は `wrangler.jsonc` では設定できないので、ダッシュボードで行います。
 
-1. Worker の「Access」タブで「Protect this Worker behind Access」を選び、ポリシーに「メールアドレスのドメインが一致する」（2 の `allowedEmailDomains` と同じ）を設定します
+1. Worker の「Access」タブで「Protect this Worker behind Access」を選び、対象は **All traffic**（Previews only ではない）にします。ポリシーに「メールアドレスのドメインが一致する」（2 の `allowedEmailDomains` と同じ）を設定します
 2. 1 の Access の設定画面で「Application Audience (AUD) Tag」をコピーし、`ACCESS.aud` に書いて、もう一度デプロイします
 
 サーバーは、Access がリクエストに付ける JWT（`Cf-Access-Jwt-Assertion` ヘッダー）の署名を確かめ、その中のメールアドレスのドメインが `allowedEmailDomains` に入っているときだけ判定データを返します。Access をかけ忘れたり、ポリシーを誤って広げたりしても、組織の外の人には開けません。
