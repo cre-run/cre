@@ -1,5 +1,5 @@
 /**
- * 対応ガイド: apps/docs/docs/features/message-editor-data-handling.mdx「確かめ方」
+ * 対応ガイド: apps/docs/docs/message-editor/data-handling.mdx「確かめ方」
  * （README「セキュリティとプライバシー」も同じ約束）。ブラウザを使わず、コードの形で確かめる。
  * - 判定データをサーバーや外部サービスに送らない（fetch などを使わない）
  * - ブラウザに保存しない（localStorage などを使わない）
@@ -17,7 +17,7 @@ import { samplePayload } from "../src/sample.ts";
 
 const APP = fileURLToPath(new URL("..", import.meta.url));
 const README = join(APP, "README.md");
-const GUIDE = join(APP, "../docs/docs/features/message-editor.mdx");
+const GUIDE = join(APP, "../docs/docs/message-editor/index.mdx");
 
 const sourceFiles = (): string[] =>
   readdirSync(join(APP, "src"), { recursive: true, encoding: "utf8" })

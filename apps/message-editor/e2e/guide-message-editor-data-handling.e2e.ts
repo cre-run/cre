@@ -1,6 +1,6 @@
 /**
- * 対応ガイド: apps/docs/docs/features/message-editor-data-handling.mdx
- * （apps/docs/docs/features/message-editor.mdx「判定データの扱いについて」の詳細）
+ * 対応ガイド: apps/docs/docs/message-editor/data-handling.mdx
+ * （apps/docs/docs/message-editor/index.mdx「判定データの扱いについて」の詳細）
  *
  * ガイドの表「どこに届き、どこに届かないか」と「受け付けないデータ」の各行を、実際のブラウザで確かめる。
  * 「ブラウザの履歴・ブックマーク」「チャットに貼った URL」の行はブラウザや外部サービスの振る舞いなのでテストしない。
