@@ -13,7 +13,7 @@ catalog:
   vite: npm:@voidzero-dev/vite-plus-core@1.1.0
   vite-plus: 1.1.0
   "@playwright/test": 1.64.0
-  blume: 2.2.1
+  blume: 2.2.2
   wrangler: 4.149.0
 overrides:
   vite@*: "catalog:"
