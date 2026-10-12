@@ -337,6 +337,11 @@ h1 {
   white-space: pre-wrap;
 }
 
+.paragraph > .status-label {
+  display: block;
+  line-height: 1.6;
+}
+
 .status-label {
   font-size: 12px;
   font-weight: 600;
@@ -461,18 +466,78 @@ h1 {
   position: sticky;
   top: 16px;
   display: grid;
-  gap: 12px;
+  gap: 14px;
   padding-top: 8px;
+}
+
+.panel-head {
+  display: grid;
+  gap: 6px;
 }
 
 .panel-topic {
   font-size: 18px;
 }
 
+/* 右カラムの中で横に切り替えるタブ */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: -1px;
+  padding: 6px 10px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.tab-count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--unverified-bg);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* 内訳に NG・要確認があるときは、タブを開かなくても分かるよう件数に色を付ける */
+.tab-count.is-alert {
+  background: var(--recheck-bg);
+  color: var(--recheck);
+}
+
+.tabpanel {
+  display: grid;
+  gap: 12px;
+  font-size: 13px;
+}
+
 .question {
   display: grid;
-  gap: 4px;
-  margin: 8px 0 2px;
+  gap: 8px;
+  margin: 0;
   padding: 2px 0 2px 14px;
   border-left: 2px solid var(--border);
   color: var(--muted);
@@ -509,61 +574,15 @@ h1 {
   color: var(--unverified);
 }
 
-.panel-summary {
-  font-size: 13px;
-}
-
 .panel-conditions {
   display: flex;
   gap: 8px;
   font-size: 13px;
 }
 
-.panel-section {
-  display: grid;
-  gap: 4px;
-  padding-top: 14px;
-  border-top: 1px solid var(--border);
-  font-size: 13px;
-}
-
-.section-toggle,
-.section-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  font-size: 13px;
-  font-weight: 600;
-  text-align: left;
-  cursor: pointer;
-}
-
-.section-label {
-  justify-content: flex-start;
-  gap: 6px;
-  cursor: default;
-}
-
-.section-label .muted {
-  margin-left: auto;
-  font-weight: 400;
-}
-
-.section-toggle .muted {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-weight: 400;
-}
-
 .checks {
   display: grid;
   gap: 8px;
-  margin-top: 6px;
 }
 
 .check {
@@ -608,6 +627,10 @@ h1 {
   gap: 8px;
   padding: 12px 0;
   border-bottom: 1px solid var(--border);
+}
+
+.evidence:first-child {
+  padding-top: 0;
 }
 
 .evidence-icon {
@@ -689,8 +712,12 @@ h1 {
   font-size: 13px;
 }
 
-.next .section-label {
+.next-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: var(--accent);
+  font-weight: 600;
 }
 
 .owners {

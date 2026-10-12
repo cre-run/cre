@@ -1,4 +1,5 @@
 import { collectActions } from "../actions.ts";
+import { STATUS } from "../labels.ts";
 import type { Reply } from "@cre/editor-payload";
 import { ActionList } from "./ActionList.tsx";
 import { Icon } from "./Icon.tsx";
@@ -47,7 +48,7 @@ export const ReplyEditor = ({
 
       <div className="reply-body">
         <p className="reply-toolbar muted small">
-          本文を直接編集できます。右の根拠はお客様に送る文面には含まれません
+          本文を直接編集できます。段落の下の確認状況と右の根拠は、お客様に送る文面には含まれません
         </p>
 
         {reply.opening && <p className="reply-plain">{reply.opening}</p>}
@@ -71,6 +72,10 @@ export const ReplyEditor = ({
               >
                 {texts[p.id] ?? p.text}
               </p>
+              {/* 全段落の確認状況をひと目で追えるよう、アイコンと色付きの文字だけを目印として置く。詳しくは右のパネル */}
+              <span className={`status-label status-${p.status}`}>
+                <span aria-hidden="true">{STATUS[p.status].icon}</span> {STATUS[p.status].label}
+              </span>
             </div>
           );
         })}

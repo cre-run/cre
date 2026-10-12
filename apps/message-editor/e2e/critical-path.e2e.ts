@@ -19,6 +19,7 @@ test("段落を選ぶと右パネルがその段落の根拠に切り替わる",
   await expect(panel.getByRole("heading", { level: 3 })).toHaveText("エラー行があるときの取り込み");
   await page.getByLabel("段落 データの保存期間と削除").click();
   await expect(panel.getByRole("heading", { level: 3 })).toHaveText("データの保存期間と削除");
+  await panel.getByRole("tab", { name: /根拠/u }).click();
   await expect(panel.getByText("主張と食い違い")).toBeVisible();
 });
 
@@ -51,7 +52,7 @@ test("URL の判定データを表示する", async ({ page }) => {
   await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
 });
 
-test("確認の内訳がない段落では、内訳の区画を出さない（「すべて OK」と見せない）", async ({
+test("確認の内訳がない段落では、内訳のタブを出さない（問題なしと誤って見せない）", async ({
   page,
 }) => {
   const [first, ...rest] = samplePayload.reply.paragraphs;
@@ -65,8 +66,8 @@ test("確認の内訳がない段落では、内訳の区画を出さない（�
   await page.goto(`/${toHash(payload)}`);
   const panel = page.getByRole("complementary");
   await expect(panel.getByText("根拠なし")).toBeVisible();
-  await expect(panel.getByRole("button", { name: /確認の内訳/u })).toHaveCount(0);
-  await expect(panel.getByText(/すべて OK/u)).toHaveCount(0);
+  await expect(panel.getByRole("tab", { name: /要点/u })).toBeVisible();
+  await expect(panel.getByRole("tab", { name: /内訳/u })).toHaveCount(0);
 });
 
 test("ガイドに載せた URL の例を開くと、見本と同じ内容が表示される", async ({ page }) => {

@@ -19,11 +19,12 @@ test.describe("Message Editor ガイド", () => {
     await expect(page).toHaveScreenshot("message-editor.png");
   });
 
-  // Step 2/2: 段落の確認状況（再確認が必要な段落と、送る前にやること）
-  test("再確認が必要な段落では、確認の内訳と送る前にやることが表示される", async ({ page }) => {
+  // Step 2/2: 段落の確認状況（再確認が必要な段落の「内訳」タブと、送る前にやること）
+  test("再確認が必要な段落では、「内訳」タブで確認の内訳を確かめられる", async ({ page }) => {
     await page.goto("/#p=r3");
     const panel = page.getByRole("complementary");
     await expect(panel.getByRole("heading", { level: 3 })).toHaveText("データの保存期間と削除");
+    await panel.getByRole("tab", { name: /内訳/u }).click();
     await expect(panel.getByText("実装との一致")).toBeVisible();
     await expect(
       page.getByLabel("改善アクション").getByText("送る前にやること（1件）"),
