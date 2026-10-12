@@ -40,7 +40,7 @@ Bot が Slack の Block Kit で「エディターで開く」ボタンを出そ�
 | 登録 API の認証  | クライアントごとの Secret を `Authorization: Bearer` で送る。D1 には SHA-256 のハッシュだけを置き、定数時間で比較する             |
 | Secret の発行    | 管理者が CLI（`vp exec node scripts/clients.ts`）で発行する。管理用の HTTP API は作らない                                         |
 | 有効期限         | 既定 30 日。登録時に 1 時間〜90 日を指定できる                                                                                    |
-| 削除             | 削除 API（Secret が必要）で行ごと消す。期限切れは読み出し時に弾き、Cron が 1 日 1 回消す                                          |
+| 削除             | 削除 API（Secret が必要）で行ごと消す。期限切れは読み出し時に弾く（データベースから自動では消さない。Cron は使わない）            |
 | 開いたときの動き | どの ID でも同じ静的なページ → JS が `GET /api/links/<UUID>` → `location.replace(<EDITOR_URL>#d=…)`。302 リダイレクトにはしない   |
 | Message Editor   | **変更しない**（今のまま `#d=` を受け取る。`fetch` を足さない）                                                                   |
 | Worker・ドメイン | `cre-short`、`s.cre.run`（CRE のインスタンス）。PR ごとのプレビューは、プレビュー専用の D1 と鍵を使う                             |
@@ -84,8 +84,8 @@ MASTER が設定されていない、または base64url として 32 バイト�
 ### 保存期間・失効・削除
 
 - 有効期限は登録時に `expiresIn`（秒）で指定します。範囲は 3,600〜7,776,000（1 時間〜90 日）、既定は 2,592,000（30 日）です
-- 読み出すときに `expires_at > now` を条件にするので、Cron が遅れても期限を過ぎたリンクは開けません
-- Cron Trigger（1 日 1 回）が、期限切れのリンクと、保存期間（案: 1 年。未決）を過ぎた監査ログを消します
+- 読み出すときに `expires_at > now` を条件にするので、期限を過ぎたリンクは開けません
+- 期限切れの行と監査ログを自動で消す仕組み（Cron Trigger）は持ちません。設定と運用を単純にするためです。期限切れの行は暗号文のまま残り、開けません。消したいときは管理スクリプト（`scripts/links.ts delete --expired`）で消します（「削除の依頼への対応」と同じく、監査ログに記録してから消す）
 - 削除 API は行ごと消します（`deleted_at` による論理削除はしない。消したものを残しておく理由がないため）。消した記録は監査ログに残します
 
 ### リンク展開（unfurl）・クローラー
@@ -189,7 +189,7 @@ UUID は 122 ビットの乱数なので、レート制限がなくても総当�
 ### 監査ログ
 
 登録と削除のたびに `audit_log` に 1 行足します。判定データ・UUID・Secret は書きません。
-「どのクライアントが、いつ、何件作ったか（消したか）」を SQL で集計できます。保存期間（案: 1 年。未決）を過ぎた行は Cron が消します。
+「どのクライアントが、いつ、何件作ったか（消したか）」を SQL で集計できます。自動では消しません（判定データを含まないので、残しても読まれて困る内容はない）。
 
 ## 3. API 仕様（案）
 
@@ -324,12 +324,10 @@ vp exec wrangler dev                                  # ローカルの D1（Min
 - 鍵は `.dev.vars` に `LINK_MASTER_KEY=<ローカル用の値>` と書きます。**`.dev.vars` は今の `.gitignore` に入っていないので、実装のときに足します**
 - `EDITOR_URL` は `.dev.vars` で `http://localhost:4173/`（Message Editor の `vp preview`）などに向けます
 
-### 期限切れの掃除
+### 期限切れの行
 
-- `triggers.crons: ["0 18 * * *"]`（毎日 03:00 JST）で `scheduled` ハンドラーを動かします
-  - `DELETE FROM links WHERE expires_at <= unixepoch()`
-  - `DELETE FROM audit_log WHERE at <= unixepoch() - <保存期間（案: 365 日）> * 86400`
-- 期限は読み出し時にも見るので、掃除は容量のためのものです。Cron は Worker Previews では動きません（プレビューでも期限切れは開けない）
+- Cron Trigger（`triggers.crons`）は使いません。期限は読み出し時に見るので、行が残っていても期限切れのリンクは開けません
+- 期限切れの行を消すのは容量のためだけです。必要になったら `vp exec node scripts/links.ts delete --expired` で消します（監査ログに `link.delete` を記録してから消す）
 
 ## 5. Message Editor との連携
 
@@ -402,7 +400,6 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
       "simple": { "limit": 60, "period": 60 },
     },
   ],
-  "triggers": { "crons": ["0 18 * * *"] },
   "vars": { "EDITOR_URL": "https://editor.cre.run/" },
   // 呼び出しのログには URL（UUID）が入るので記録しない
   "observability": { "enabled": true, "logs": { "invocation_logs": false } },
@@ -456,7 +453,7 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
 - 鍵もプレビュー専用です（`wrangler preview base-config secret put LINK_MASTER_KEY`）。プレビュー用のクライアントは `clients.ts` で `cre-short-preview` に発行します
 - **プレビューに実際のお客様の判定データを登録しません。** 見本データか、架空のデータだけを使います
 - 共有の D1 なので、マイグレーションを含む PR は、ほかの PR のプレビューにも効きます（後方互換にする理由の 1 つ）
-- Cron はプレビューでは動きません。期限切れの行は開けないまま残るので、たまに手で消します
+- 期限切れの行は開けないまま残ります。増えたら `scripts/links.ts delete --expired` で消します
 
 ### バックアップ
 
@@ -476,7 +473,7 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
    - スクリプトは、消す行の `link.delete` を `audit_log` に書く `INSERT … SELECT` と、`links` の `DELETE` を、同じ条件で 1 つのファイルにまとめて `wrangler d1 execute --file` で流します（D1 は 1 回の実行をまとめて適用する）
    - **`links` を SQL で直接消さないでください。** 監査ログに `link.delete` が残らず、Time Travel で戻したあとに消し直せなくなり、消したはずのリンクがまた開けるようになります
 
-3. どちらも分からないとき: 中身は暗号化されていて検索できません。期限（最長 90 日）を待つか、`LINK_MASTER_KEY` を入れ替えてすべてを開けなくします。入れ替えた後は Time Travel で戻しても読めないので、残った行は `scripts/links.ts delete --all` で消せば足ります
+3. どちらも分からないとき: 中身は暗号化されていて検索できません。期限（最長 90 日）が来れば開けなくなります（行は暗号文のまま残る）。すぐに開けなくしたいときは、`LINK_MASTER_KEY` を入れ替えてすべてを開けなくします。入れ替えた後は Time Travel で戻しても読めないので、残った行は `scripts/links.ts delete --all` で消せば足ります
 4. どの場合も、Time Travel には暗号文が最長 30 日残ります。読めるのは、データベースを戻し、かつ短縮 URL を知っている人だけです（鍵を入れ替えた後は誰も読めません）
 5. 依頼した人には、短縮 URL を貼った先（Slack など）と、開いた人のブラウザの履歴（Message Editor の URL）には残りうることも伝えます
 
@@ -515,7 +512,7 @@ CRE のインスタンスは Worker `cre-short`、ドメイン `s.cre.run` で�
 
 ## 9. 未決事項（実装のときに決める）
 
-- 監査ログの保存期間（案: 1 年）
+- 監査ログを消す運用を決めるか（今は自動では消さない）
 - レート制限の値（案: IP ごとに 120 回 / 60 秒、クライアントごとに 60 回 / 60 秒）
 - 期限内のリンクを生かしたまま鍵を入れ替える仕組み（例: `LINK_MASTER_KEY_PREVIOUS` も試す）を入れるか
 - Workers Free で動かすか（CPU 時間 10 ms、Time Travel 7 日）

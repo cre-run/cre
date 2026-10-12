@@ -91,7 +91,6 @@ node -e "process.stdout.write(require('node:crypto').randomBytes(32).toString('b
 | `ratelimits[].namespace_id`          | —                               | アカウントの中で重ならない数（ほかの Worker のレート制限と同じ数にしない）                                                             |
 | `previews.d1_databases`              | `cre-short-preview`             | PR ごとのプレビュー用のデータベース。プレビューを使わないなら消す                                                                      |
 | `previews.ratelimits`                | —                               | プレビュー用のレート制限。プレビューは本番の設定を引き継がないので、本番と別の `namespace_id` で定義する。プレビューを使わないなら消す |
-| `triggers.crons`                     | `0 18 * * *`                    | 期限切れを消す時刻（UTC）。変えなくてかまいません                                                                                      |
 | `observability.logs.invocation_logs` | `false`                         | **`false` のままにしてください。** `true` にすると、URL に入る ID がログに残ります                                                     |
 
 データベースを作り、テーブルを用意します。
