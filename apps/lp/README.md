@@ -1,9 +1,12 @@
 # @cre/lp
 
-`cre.run` で配信している準備中ページです。「Coming soon」の下に、次の 2 つを載せています。
+`cre.run` で配信しているページです。ロゴの下に、次の 3 枚のカードを並べています（幅に合わせて 3 列 → 2 列 → 1 列）。
 
-- いま試せるもの: プロトタイプの Message Editor（[editor.cre.run](https://editor.cre.run)）へのリンク
-- GitHub（[cre-run/cre](https://github.com/cre-run/cre)）の Star と、X（[@ToyB0x\_](https://x.com/ToyB0x_)）のフォローへのリンク
+| カード         | 色（`--accent`） | リンク先                                                 |
+| -------------- | ---------------- | -------------------------------------------------------- |
+| Message Editor | ミント           | プロトタイプ（[editor.cre.run](https://editor.cre.run)） |
+| GitHub で Star | 星の黄色         | [cre-run/cre](https://github.com/cre-run/cre)            |
+| X でフォロー   | 白               | [@ToyB0x\_](https://x.com/ToyB0x_)                       |
 
 Cloudflare Workers の静的アセット配信のみで動作し、Worker スクリプトはありません。外部のスクリプト・フォント・画像は読み込みません。
 
