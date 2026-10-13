@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" role="img" aria-label="根拠をすぐそばで">
+  <title>根拠をすぐそばで</title>
+  <rect width="48" height="48" rx="12" fill="#071B3D"/>
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.16"/>
+  <g transform="translate(12 12)" fill="none" stroke="#42D6A4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="10.5" cy="10.5" r="7"/>
+    <path d="M15.5 15.5L21 21"/>
+    <path d="M7.5 10.5l2 2 3.5-3.5"/>
+  </g>
+</svg>

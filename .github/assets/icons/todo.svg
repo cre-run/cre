@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" role="img" aria-label="送る前にやること">
+  <title>送る前にやること</title>
+  <rect width="48" height="48" rx="12" fill="#071B3D"/>
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.16"/>
+  <g transform="translate(12 12)" fill="none" stroke="#42D6A4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M8 4H6.5A1.5 1.5 0 0 0 5 5.5v15A1.5 1.5 0 0 0 6.5 22h11a1.5 1.5 0 0 0 1.5-1.5v-15A1.5 1.5 0 0 0 17.5 4H16"/>
+    <rect x="8" y="2" width="8" height="4" rx="1"/>
+    <path d="M9 13.5l2 2 4-4"/>
+  </g>
+</svg>

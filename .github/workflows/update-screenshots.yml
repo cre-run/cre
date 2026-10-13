@@ -1,7 +1,7 @@
 name: Update Screenshots
 
-# PR に `update-screenshots` ラベルが付いたら、ガイドの画像（apps/docs/docs/message-editor/*.png）を
-# E2E のコンテナで撮り直し、E2E がすべて通ったときだけ PR のブランチにコミットする。
+# PR に `update-screenshots` ラベルが付いたら、ガイドの画像（apps/docs/docs/message-editor/*.png）と
+# README の先頭の画像（.github/assets/readme-hero.png）を E2E のコンテナで撮り直し、E2E がすべて通ったときだけ PR のブランチにコミットする。
 # 差分が意図どおりかは、人が PR の画像差分（Files changed）とプレビューで確かめ、マージで承認する。
 
 on:
@@ -48,10 +48,10 @@ jobs:
           node-version: "v24.21.0"
           cache: true
 
-      - name: Update guide screenshots
+      - name: Update guide and README screenshots
         id: update
         working-directory: apps/message-editor
-        run: vp exec playwright test e2e/guide- --update-snapshots
+        run: vp exec playwright test e2e/guide- e2e/readme --update-snapshots
 
       # 撮り直した画像で、クリティカルパスを含めてすべて通ることを確かめてからコミットする
       - name: Run E2E
@@ -65,7 +65,7 @@ jobs:
         id: commit
         run: |
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
-          git add apps/docs/docs/message-editor/*.png
+          git add apps/docs/docs/message-editor/*.png .github/assets/*.png
           if git diff --cached --quiet; then
             echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -73,7 +73,7 @@ jobs:
           tested=$(git rev-parse HEAD)
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit -m "docs(message-editor): update guide screenshots"
+          git commit -m "docs: update guide and README screenshots"
           if ! git push origin "HEAD:$HEAD_REF"; then
             git fetch --depth=1 origin "$HEAD_REF"
             remote=$(git rev-parse FETCH_HEAD)
@@ -121,25 +121,25 @@ jobs:
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ "$JOB_STATUS" = "cancelled" ] && [ "$CHANGED" = "true" ]; then
-            body="ガイドの画像を撮り直して ${SHA} をコミットしたあとで中断しました（ラベルの付け直しなどで新しい実行に置き換わったか、手動で取り消されました）。CI・E2E・ドキュメントのプレビューを呼び出せたかは実行ログで確かめ、呼び出せていなければ Actions から手動で実行してください。"
+            body="ガイドと README の画像を撮り直して ${SHA} をコミットしたあとで中断しました（ラベルの付け直しなどで新しい実行に置き換わったか、手動で取り消されました）。CI・E2E・ドキュメントのプレビューを呼び出せたかは実行ログで確かめ、呼び出せていなければ Actions から手動で実行してください。"
           elif [ "$JOB_STATUS" = "cancelled" ]; then
-            body="ガイドの画像の撮り直しを中断しました（ラベルの付け直しなどで新しい実行に置き換わったか、手動で取り消されました）。コミットしていません。"
+            body="ガイドと README の画像の撮り直しを中断しました（ラベルの付け直しなどで新しい実行に置き換わったか、手動で取り消されました）。コミットしていません。"
           elif [ "$UPDATE_OUTCOME" = "failure" ]; then
-            body="ガイドの画像を撮り直せませんでした（撮り直しのステップが失敗したため、コミットしていません）。"
+            body="ガイドと README の画像を撮り直せませんでした（撮り直しのステップが失敗したため、コミットしていません）。"
           elif [ "$E2E_OUTCOME" = "failure" ]; then
-            body="ガイドの画像を撮り直しましたが、撮り直した画像で E2E が失敗したため、コミットしていません。"
+            body="ガイドと README の画像を撮り直しましたが、撮り直した画像で E2E が失敗したため、コミットしていません。"
           elif [ "$PUSH" = "moved" ]; then
-            body="ガイドの画像の撮り直しと E2E は通りましたが、実行中に PR のブランチへ新しいコミット（${REMOTE_SHA}）が push されたため、push が拒否されました。確かめていないコードに画像を載せないよう、PR には反映していません。新しいコードで撮り直すには \`$LABEL\` ラベルを付け直してください。"
+            body="ガイドと README の画像の撮り直しと E2E は通りましたが、実行中に PR のブランチへ新しいコミット（${REMOTE_SHA}）が push されたため、push が拒否されました。確かめていないコードに画像を載せないよう、PR には反映していません。新しいコードで撮り直すには \`$LABEL\` ラベルを付け直してください。"
           elif [ "$COMMIT_OUTCOME" = "failure" ]; then
-            body="ガイドの画像の撮り直しと E2E は通りましたが、コミットか push に失敗しました。"
+            body="ガイドと README の画像の撮り直しと E2E は通りましたが、コミットか push に失敗しました。"
           elif [ "$DISPATCH_OUTCOME" = "failure" ]; then
-            body="ガイドの画像を撮り直して ${SHA} をコミットしましたが、CI・E2E・ドキュメントのプレビューの呼び出しに失敗しました。Actions から手動で実行してください。"
+            body="ガイドと README の画像を撮り直して ${SHA} をコミットしましたが、CI・E2E・ドキュメントのプレビューの呼び出しに失敗しました。Actions から手動で実行してください。"
           elif [ "$JOB_STATUS" != "success" ]; then
-            body="ガイドの画像を撮り直せませんでした（撮り直しの前の準備で失敗したため、コミットしていません）。"
+            body="ガイドと README の画像を撮り直せませんでした（撮り直しの前の準備で失敗したため、コミットしていません）。"
           elif [ "$CHANGED" = "true" ]; then
-            body="ガイドの画像を撮り直して ${SHA} をコミットしました。Files changed の画像差分が意図どおりか確認してください。"
+            body="ガイドと README の画像を撮り直して ${SHA} をコミットしました。Files changed の画像差分が意図どおりか確認してください。"
           else
-            body="ガイドの画像に差分はありませんでした。"
+            body="ガイドと README の画像に差分はありませんでした。"
           fi
           body="$body [実行ログ]($RUN_URL)"
           curl -fsS -X POST \

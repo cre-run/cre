@@ -52,7 +52,7 @@ push 前に `.githooks/pre-push` が、push する差分（追加行。push 先�
   PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium vp exec playwright test
   ```
 
-- ガイドの画像（VRT の基準）は **CI で撮ったものだけ** をコミットする。ローカルとはフォントの描画が違う
+- ガイドと README の画像（VRT の基準）は **CI で撮ったものだけ** をコミットする。ローカルとはフォントの描画が違う
   - 撮り直しは PR に `update-screenshots` ラベルを付ける。付けてよいかは人に確認する
 
 ## やってはいけないこと
