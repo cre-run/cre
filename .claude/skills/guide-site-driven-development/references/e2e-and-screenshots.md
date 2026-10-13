@@ -16,6 +16,9 @@
   画像を撮らないガイド（約束の一覧など）の E2E も同じ名前の規則にし、撮らない理由を先頭に書く
 - ガイドの画像は E2E の `toHaveScreenshot` が撮り、ガイドの隣（`apps/docs/docs/<app>/*.png`）に置いたものを
   そのまま比較の基準にする（`playwright.config.ts` の `snapshotPathTemplate`）。別の場所にコピーしない
+- リポジトリの README.md の先頭の画像も同じ仕組みで撮る。`apps/message-editor/e2e/readme.e2e.ts` が画面を枠に入れて撮り、
+  `.github/assets/readme-hero.png` を比較の基準にする（`playwright.config.ts` の `readme` プロジェクト）。
+  ガイドの画像と一緒に `update-screenshots` ラベルで撮り直す
 - 約束のガイドでは、約束を表にし、「テスト」列にテストへリンクするバッジを置く（1 つの約束に複数可、
   同じテストを複数の約束に付けない。2 つの約束を 1 つのテストで確かめているなら、テストを分ける。表示は `E2E` か `単体`）:
   `<a href="https://github.com/cre-run/cre/blob/main/apps/<app>/<file>#L<テストの宣言行>"><Badge variant="success" size="xs">E2E</Badge></a>`。
@@ -42,7 +45,7 @@
 ## CI
 
 - `.github/workflows/e2e.yml` — PR と `main` で全 E2E を実行する。画像に差分があれば **失敗** する
-- `.github/workflows/update-screenshots.yml` — PR に `update-screenshots` ラベルを付けると、ガイドの画像を撮り直し、
+- `.github/workflows/update-screenshots.yml` — PR に `update-screenshots` ラベルを付けると、ガイドと README の画像を撮り直し、
   全 E2E が通ったときだけ PR のブランチにコミットする。結果は PR にコメントされ、ラベルは自動で外れる
   - コメントは失敗したステップ（撮り直し・E2E・push など）を名指しする。実行中にブランチへ push があって
     push が拒否されたときは、確かめていないコードに画像を載せないよう rebase せずに止める。ラベルを付け直して撮り直す

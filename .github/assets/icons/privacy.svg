@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" role="img" aria-label="データはブラウザの中だけ">
+  <title>データはブラウザの中だけ</title>
+  <rect width="48" height="48" rx="12" fill="#071B3D"/>
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.16"/>
+  <g transform="translate(12 12)" fill="none" stroke="#42D6A4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="4.5" y="10.5" width="15" height="11" rx="2"/>
+    <path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/>
+    <path d="M12 15v2.5"/>
+  </g>
+</svg>

@@ -2,12 +2,18 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = 4173;
 
+// ローカルで別途入っている Chromium を使う場合に指定する（CI では不要）
+const launchOptions = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
+  ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
+  : {};
+
 /**
  * E2E は 2 種類。
  * - e2e/critical-path.e2e.ts: 壊れたら困る操作の確認（毎回の PR で実行）
  * - e2e/guide-*.e2e.ts: ガイドの手順を 1:1 でなぞり、ガイドの画像を撮って比較する（VRT）
  *
  * ガイドの画像は apps/docs/docs/message-editor/ に直接置き、それを比較の基準にする。
+ * README の先頭の画像（e2e/readme.e2e.ts）は、readme プロジェクトで撮って .github/assets/ に置く。
  * 基準の更新は CI の update-screenshots（PR に `update-screenshots` ラベル）でのみ行い、人がマージで承認する。
  * フォントなどの差をなくすため、基準画像は CI のコンテナ（.github/workflows/e2e.yml）で撮る。
  */
@@ -39,15 +45,25 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
+      testIgnore: "**/readme.e2e.ts",
       use: {
         ...devices["Desktop Chrome"],
         // ガイドの画像と同じ大きさ（README の撮影条件と合わせる）
         viewport: { width: 1440, height: 1700 },
         deviceScaleFactor: 2,
-        // ローカルで別途入っている Chromium を使う場合に指定する（CI では不要）
-        launchOptions: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE
-          ? { executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE }
-          : {},
+        launchOptions,
+      },
+    },
+    {
+      // リポジトリの README.md の先頭の画像。画面を枠に入れて撮るので、画像の大きさ = viewport
+      name: "readme",
+      testMatch: "**/readme.e2e.ts",
+      snapshotPathTemplate: "../../.github/assets/{arg}{ext}",
+      use: {
+        ...devices["Desktop Chrome"],
+        viewport: { width: 1280, height: 880 },
+        deviceScaleFactor: 2,
+        launchOptions,
       },
     },
   ],

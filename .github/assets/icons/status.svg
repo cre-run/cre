@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" role="img" aria-label="段落ごとの確認状況">
+  <title>段落ごとの確認状況</title>
+  <rect width="48" height="48" rx="12" fill="#071B3D"/>
+  <rect x="0.5" y="0.5" width="47" height="47" rx="11.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.16"/>
+  <g transform="translate(12 12)" fill="none" stroke="#42D6A4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 5.5l2 2 3.5-3.5"/>
+    <path d="M12 6h9"/>
+    <path d="M3 12.5l2 2 3.5-3.5"/>
+    <path d="M12 13h9"/>
+    <circle cx="5.5" cy="19.5" r="2"/>
+    <path d="M12 20h9"/>
+  </g>
+</svg>

@@ -60,6 +60,7 @@ E2E は Playwright です（`playwright.config.ts`、`e2e/`）。
 - `e2e/guide-message-editor.e2e.ts` — ガイド（`apps/docs/docs/message-editor/index.mdx`）の手順をなぞり、
   ガイドの画像 `apps/docs/docs/message-editor/*.png` と比べる（VRT）
 - `e2e/guide-message-editor-data-handling.e2e.ts` — ガイドの「判定データの扱いについて」のとおり、判定データが外部に送られず、ブラウザにも残らないことを確かめる（画像は撮らない）
+- `e2e/readme.e2e.ts` — リポジトリの README の先頭の画像。画面をブラウザ風の枠に入れて撮り、`.github/assets/readme-hero.png` と比べる（VRT。`playwright.config.ts` の `readme` プロジェクト）
 
 ```bash
 vp exec playwright test                # ビルドしてプレビューサーバーを起動し、全 E2E を実行
