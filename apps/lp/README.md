@@ -1,9 +1,13 @@
 # @cre/lp
 
-「Coming soon」を表示するだけの準備中ページです。
-Cloudflare Workers の静的アセット配信のみで動作し、Worker スクリプトはありません。
+`cre.run` で配信している準備中ページです。「Coming soon」の下に、次の 2 つを載せています。
 
-- `public/` — 配信する HTML / favicon
+- いま試せるもの: プロトタイプの Message Editor（[editor.cre.run](https://editor.cre.run)）へのリンク
+- GitHub（[cre-run/cre](https://github.com/cre-run/cre)）の Star と、X（[@ToyB0x\_](https://x.com/ToyB0x_)）のフォローへのリンク
+
+Cloudflare Workers の静的アセット配信のみで動作し、Worker スクリプトはありません。外部のスクリプト・フォント・画像は読み込みません。
+
+- `public/` — 配信する HTML（CSS とアイコンの SVG は HTML に埋め込み）/ favicon
 - `wrangler.jsonc` — Worker 名 `cre-lp` の設定
 
 ## 開発

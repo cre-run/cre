@@ -4,7 +4,10 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="robots" content="noindex" />
-    <meta name="description" content="CRE は現在準備中です。" />
+    <meta
+      name="description"
+      content="CRE は現在準備中です。プロトタイプの Message Editor を editor.cre.run で試せます。"
+    />
     <title>CRE — Coming soon</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <style>
@@ -12,19 +15,23 @@
         --navy: #071b3d;
         --mint: #42d6a4;
         --white: #ffffff;
+        --text-muted: rgb(255 255 255 / 0.72);
+        --text-subtle: rgb(255 255 255 / 0.56);
+        --line: rgb(255 255 255 / 0.14);
+        --surface: rgb(255 255 255 / 0.04);
+        --surface-hover: rgb(255 255 255 / 0.08);
+        --card-radius: 16px;
       }
       * {
         box-sizing: border-box;
       }
-      html,
-      body {
-        height: 100%;
-        margin: 0;
-      }
       body {
         display: grid;
         place-items: center;
-        padding: 24px;
+        min-height: 100vh;
+        min-height: 100svh;
+        margin: 0;
+        padding: 48px 24px;
         background: var(--navy);
         color: var(--white);
         font-family:
@@ -34,14 +41,35 @@
           "Hiragino Sans",
           "Noto Sans JP",
           sans-serif;
+        line-height: 1.7;
         text-align: center;
+        /* 日本語を文節で折り返す（対応していないブラウザでは通常の折り返し） */
+        word-break: auto-phrase;
       }
       main {
+        display: grid;
+        gap: 56px;
+        width: 100%;
+        max-width: 32rem;
+      }
+      h1,
+      h2,
+      h3,
+      p {
+        margin: 0;
+      }
+      a:focus-visible {
+        outline: 2px solid var(--mint);
+        outline-offset: 3px;
+      }
+
+      /* Coming soon */
+      .hero {
         display: grid;
         justify-items: center;
         gap: 24px;
       }
-      svg {
+      .hero svg {
         width: 96px;
         height: 96px;
       }
@@ -50,15 +78,14 @@
         transform-origin: 184px 128px;
       }
       h1 {
-        margin: 0;
         font-size: clamp(2rem, 6vw, 3.5rem);
         font-weight: 700;
         letter-spacing: 0.04em;
+        line-height: 1.2;
       }
-      p {
-        margin: 0;
-        color: rgb(255 255 255 / 0.72);
-        line-height: 1.7;
+      .hero p {
+        color: var(--text-muted);
+        text-wrap: balance;
       }
       .rule {
         width: 48px;
@@ -66,6 +93,136 @@
         border-radius: 2px;
         background: var(--mint);
       }
+
+      /* いま試せるもの */
+      .eyebrow {
+        margin-bottom: 12px;
+        color: var(--text-subtle);
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+      }
+      .card {
+        position: relative;
+        display: grid;
+        gap: 8px;
+        padding: 20px 24px;
+        border: 1px solid var(--line);
+        border-radius: var(--card-radius);
+        background: var(--surface);
+        text-align: left;
+        transition:
+          border-color 0.2s,
+          background-color 0.2s;
+      }
+      .card:hover {
+        border-color: rgb(66 214 164 / 0.6);
+        background: var(--surface-hover);
+      }
+      .card-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 10px;
+      }
+      .card h3 {
+        font-size: 1.125rem;
+      }
+      .badge {
+        padding: 0 8px;
+        border: 1px solid rgb(66 214 164 / 0.4);
+        border-radius: 999px;
+        background: rgb(66 214 164 / 0.12);
+        color: var(--mint);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        line-height: 1.8;
+      }
+      .card p {
+        color: var(--text-muted);
+        font-size: 0.9375rem;
+        text-wrap: pretty;
+      }
+      .card a {
+        justify-self: start;
+        margin-top: 4px;
+        color: var(--mint);
+        font-size: 0.9375rem;
+        font-weight: 600;
+        text-decoration: none;
+      }
+      /* カード全体をリンクの押せる範囲にする */
+      .card a::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: var(--card-radius);
+      }
+      .card a:focus-visible {
+        outline: none;
+      }
+      .card a:focus-visible::after {
+        outline: 2px solid var(--mint);
+        outline-offset: 3px;
+      }
+      .arrow {
+        display: inline-block;
+        margin-left: 6px;
+        transition: transform 0.2s;
+      }
+      .card:hover .arrow {
+        transform: translateX(3px);
+      }
+
+      /* GitHub と X */
+      .follow {
+        display: grid;
+        justify-items: center;
+        gap: 16px;
+        padding-top: 32px;
+        border-top: 1px solid var(--line);
+      }
+      .follow p {
+        color: var(--text-subtle);
+        font-size: 0.875rem;
+        text-wrap: balance;
+      }
+      .links {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .links a {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 40px;
+        padding: 8px 16px;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--white);
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition:
+          border-color 0.2s,
+          background-color 0.2s;
+      }
+      .links a:hover {
+        border-color: rgb(255 255 255 / 0.4);
+        background: var(--surface-hover);
+      }
+      .links svg {
+        flex: none;
+        width: 16px;
+        height: 16px;
+      }
+
       @keyframes pulse {
         0%,
         100% {
@@ -79,21 +236,75 @@
         .dot {
           animation: none;
         }
+        .card,
+        .arrow,
+        .links a {
+          transition: none;
+        }
       }
     </style>
   </head>
   <body>
     <main>
-      <svg viewBox="0 0 256 256" role="img" aria-label="CRE">
-        <path
-          d="M 182.225 65.775 A 88 88 0 1 0 182.225 190.225 L 156.77 164.77 A 52 52 0 1 1 156.77 91.23 Z"
-          fill="currentColor"
-        />
-        <rect class="dot" x="164" y="108" width="40" height="40" rx="2" fill="#42D6A4" />
-      </svg>
-      <h1>Coming soon</h1>
-      <div class="rule" aria-hidden="true"></div>
-      <p>ただいま準備中です。公開まで今しばらくお待ちください。</p>
+      <header class="hero">
+        <svg viewBox="0 0 256 256" role="img" aria-label="CRE">
+          <path
+            d="M 182.225 65.775 A 88 88 0 1 0 182.225 190.225 L 156.77 164.77 A 52 52 0 1 1 156.77 91.23 Z"
+            fill="currentColor"
+          />
+          <rect class="dot" x="164" y="108" width="40" height="40" rx="2" fill="#42D6A4" />
+        </svg>
+        <h1>Coming soon</h1>
+        <div class="rule" aria-hidden="true"></div>
+        <p>ただいま準備中です。公開まで今しばらくお待ちください。</p>
+      </header>
+
+      <section aria-labelledby="try-heading">
+        <h2 id="try-heading" class="eyebrow">いま試せるもの</h2>
+        <article class="card">
+          <div class="card-head">
+            <h3>Message Editor</h3>
+            <span class="badge">Prototype</span>
+          </div>
+          <p>
+            返信の下書きを書きながら、段落ごとの根拠と確認状況をすぐそばで確かめられるエディターです。見本データで画面を試せます。
+          </p>
+          <a href="https://editor.cre.run"
+            >editor.cre.run で試す<span class="arrow" aria-hidden="true">→</span></a
+          >
+        </article>
+      </section>
+
+      <footer class="follow">
+        <p>
+          ソースコードは GitHub で公開しています。Star や X
+          のフォローをいただけると、開発の励みになります。
+        </p>
+        <ul class="links">
+          <li>
+            <a href="https://github.com/cre-run/cre">
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M8 0c4.42 0 8 3.58 8 8a8.013 8.013 0 0 1-5.45 7.59c-.4.08-.55-.17-.55-.38 0-.27.01-1.13.01-2.2 0-.75-.25-1.23-.54-1.48 1.78-.2 3.65-.88 3.65-3.95 0-.88-.31-1.59-.82-2.15.08-.2.36-1.02-.08-2.12 0 0-.67-.22-2.2.82-.64-.18-1.32-.27-2-.27-.68 0-1.36.09-2 .27-1.53-1.03-2.2-.82-2.2-.82-.44 1.1-.16 1.92-.08 2.12-.51.56-.82 1.28-.82 2.15 0 3.06 1.86 3.75 3.64 3.95-.23.2-.44.55-.51 1.07-.46.21-1.61.55-2.33-.66-.15-.24-.6-.83-1.23-.82-.67.01-.27.38.01.53.34.19.73.9.82 1.13.16.45.68 1.31 2.69.94 0 .67.01 1.3.01 1.49 0 .21-.15.45-.55.38A7.995 7.995 0 0 1 0 8c0-4.42 3.58-8 8-8Z"
+                />
+              </svg>
+              GitHub で Star
+            </a>
+          </li>
+          <li>
+            <a href="https://x.com/ToyB0x_">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  fill="currentColor"
+                  d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"
+                />
+              </svg>
+              @ToyB0x_ をフォロー
+            </a>
+          </li>
+        </ul>
+      </footer>
     </main>
   </body>
 </html>
