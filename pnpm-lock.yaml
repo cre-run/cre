@@ -174,8 +174,8 @@ catalogs:
       specifier: 24.19.2
       version: 24.19.2
     blume:
-      specifier: 2.2.2
-      version: 2.2.2
+      specifier: 2.2.3
+      version: 2.2.3
     typescript:
       specifier: 7.0.2
       version: 7.0.2
@@ -204,7 +204,7 @@ importers:
     dependencies:
       blume:
         specifier: 'catalog:'
-        version: 2.2.2(@emnapi/runtime@1.11.3)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.9.11(ws@8.22.0))(@voidzero-dev/vite-plus-core@1.1.0(@types/node@22.20.5)(@volar/typescript@2.4.28(typescript@6.0.3))(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1))(@volar/typescript@2.4.28(typescript@6.0.3))(csstype@3.2.3)(esbuild@0.28.2)(prettier@3.9.9)(supports-color@10.2.2)(ws@8.22.0)(yaml@2.9.1)
+        version: 2.2.3(@emnapi/runtime@1.11.3)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.9.11(ws@8.22.0))(@voidzero-dev/vite-plus-core@1.1.0(@types/node@22.20.5)(@volar/typescript@2.4.28(typescript@6.0.3))(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1))(@volar/typescript@2.4.28(typescript@6.0.3))(csstype@3.2.3)(esbuild@0.28.2)(prettier@3.9.9)(supports-color@10.2.2)(ws@8.22.0)(yaml@2.9.1)
     devDependencies:
       wrangler:
         specifier: 'catalog:'
@@ -2856,8 +2856,8 @@ packages:
   blake3-wasm@2.1.5:
     resolution: {integrity: sha512-F1+K8EbfOZE49dtoPtmxUQrpXaBIl3ICvasLh+nJta0xkz+9kF/7uet9fLnwKqhDrmj6g+6K3Tw9yQPUg2ka5g==}
 
-  blume@2.2.2:
-    resolution: {integrity: sha512-ADbtK/Mz103Wd+CLTdpvHs21skL5nbAQNvV+34cHIJOuqPl9RQSBkNafXsgfpOU0h6kE8+w9706PjI3t4mXHXQ==}
+  blume@2.2.3:
+    resolution: {integrity: sha512-8hQEumRGxZDg8haZeZaCl9c7aGLfS8fxNvcSFw+hhicCPqLTJB1ZHUyRkHWYufJ7l3Y2ZABiucCANPfkGxgFmw==}
     engines: {node: '>=22.19.0'}
     hasBin: true
     peerDependencies:
@@ -7496,7 +7496,7 @@ snapshots:
 
   blake3-wasm@2.1.5: {}
 
-  blume@2.2.2(@emnapi/runtime@1.11.3)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.9.11(ws@8.22.0))(@voidzero-dev/vite-plus-core@1.1.0(@types/node@22.20.5)(@volar/typescript@2.4.28(typescript@6.0.3))(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1))(@volar/typescript@2.4.28(typescript@6.0.3))(csstype@3.2.3)(esbuild@0.28.2)(prettier@3.9.9)(supports-color@10.2.2)(ws@8.22.0)(yaml@2.9.1):
+  blume@2.2.3(@emnapi/runtime@1.11.3)(@shikijs/themes@4.5.0)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(@vercel/functions@3.9.11(ws@8.22.0))(@voidzero-dev/vite-plus-core@1.1.0(@types/node@22.20.5)(@volar/typescript@2.4.28(typescript@6.0.3))(esbuild@0.28.2)(jiti@2.7.0)(typescript@6.0.3)(yaml@2.9.1))(@volar/typescript@2.4.28(typescript@6.0.3))(csstype@3.2.3)(esbuild@0.28.2)(prettier@3.9.9)(supports-color@10.2.2)(ws@8.22.0)(yaml@2.9.1):
     dependencies:
       '@astrojs/check': 0.9.10(@emnapi/runtime@1.11.3)(prettier@3.9.9)(typescript@6.0.3)
       '@astrojs/markdown-satteri': 0.4.3
