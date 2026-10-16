@@ -14,7 +14,7 @@ catalog:
   vite-plus: 1.1.0
   "@playwright/test": 1.64.0
   blume: 2.2.3
-  wrangler: 4.149.0
+  wrangler: 4.150.0
   "@cloudflare/workers-types": 5.20261013.1
 overrides:
   vite@*: "catalog:"
