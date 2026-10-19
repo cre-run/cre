@@ -52,6 +52,33 @@ test("URL の判定データを表示する", async ({ page }) => {
   await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
 });
 
+test("判定データで指定した時機の欄に、次のアクションを表示する", async ({ page }) => {
+  // 見本: r2 は条件あり（既定は送った後）、r3 は再確認（既定は送る前）。それぞれ逆の欄を指定する
+  const payload = {
+    ...samplePayload,
+    reply: {
+      ...samplePayload.reply,
+      paragraphs: samplePayload.reply.paragraphs.map((p) =>
+        p.id === "r2"
+          ? { ...p, nextActionTiming: "beforeSend" as const }
+          : p.id === "r3"
+            ? { ...p, nextActionTiming: "afterSend" as const }
+            : p,
+      ),
+    },
+  };
+  await page.goto(`/${toHash(payload)}`);
+  const actions = page.getByLabel("改善アクション");
+  await expect(actions.getByText("送る前にやること（1件）")).toBeVisible();
+  await expect(
+    actions.getByRole("checkbox", { name: "SSO 環境での API キー発行 を確認済みにする" }),
+  ).toBeVisible();
+  await expect(actions.getByText("送った後のフォロー（1件）")).toBeVisible();
+  // 再確認の段落を送った後に回したときは、お客様の回答待ちとは案内しない
+  await expect(actions.getByText("送った後に対応します")).toBeVisible();
+  await expect(actions.getByText("お客様の回答を受けて対応します")).toHaveCount(0);
+});
+
 test("確認の観点がない段落では、評価のタブを出さない（問題なしと誤って見せない）", async ({
   page,
 }) => {

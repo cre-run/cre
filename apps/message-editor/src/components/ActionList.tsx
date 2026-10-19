@@ -106,7 +106,11 @@ export const ActionList = ({
               <Icon name="clock" size={14} />
               送った後のフォロー（{afterSend.length}件）
             </h3>
-            <span className="muted small">お客様の回答を受けて対応します</span>
+            <span className="muted small">
+              {afterSend.every((item) => item.status === "conditional")
+                ? "お客様の回答を受けて対応します"
+                : "送った後に対応します"}
+            </span>
           </div>
           {render(afterSend)}
         </>
