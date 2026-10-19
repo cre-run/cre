@@ -20,6 +20,7 @@ export type {
   EvidenceType,
   Inquiry,
   InquiryParagraph,
+  NextActionTiming,
   ParagraphStatus,
   Reply,
   ReplyParagraph,

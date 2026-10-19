@@ -36,3 +36,40 @@ test("すべて確認済みならアクションはない", () => {
   const all = paragraphs.map((p) => ({ ...p, status: "verified" as const }));
   expect(collectActions(all)).toEqual({ beforeSend: [], afterSend: [] });
 });
+
+test("条件ありでも送る前を指定すれば「送る前にやること」に入り、再確認の後に並ぶ", () => {
+  const [first, second] = paragraphs;
+  const { beforeSend, afterSend } = collectActions([
+    {
+      ...first!,
+      id: "a",
+      status: "conditional",
+      nextAction: "送る前に開発担当へ開示してよいかを確認する。",
+      nextActionTiming: "beforeSend",
+    },
+    { ...second!, id: "b", status: "recheck" },
+  ]);
+  expect(beforeSend.map((item) => [item.paragraphId, item.status])).toEqual([
+    ["b", "recheck"],
+    ["a", "conditional"],
+  ]);
+  expect(beforeSend[1]?.action).toBe("送る前に開発担当へ開示してよいかを確認する。");
+  expect(afterSend).toEqual([]);
+});
+
+test("再確認でも送った後を指定すれば「送った後のフォロー」に入る", () => {
+  const [first] = paragraphs;
+  const { beforeSend, afterSend } = collectActions([
+    { ...first!, id: "a", status: "recheck", nextActionTiming: "afterSend" },
+  ]);
+  expect(beforeSend).toEqual([]);
+  expect(afterSend.map((item) => item.paragraphId)).toEqual(["a"]);
+});
+
+test("確認済みの段落は送る前を指定してもアクションに含めない", () => {
+  const [first] = paragraphs;
+  const { beforeSend, afterSend } = collectActions([
+    { ...first!, id: "a", status: "verified", nextActionTiming: "beforeSend" },
+  ]);
+  expect([...beforeSend, ...afterSend]).toEqual([]);
+});

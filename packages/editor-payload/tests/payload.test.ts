@@ -58,3 +58,17 @@ test("形式の違うデータは受け付けない", () => {
 test("圧縮データが長すぎるものは展開しない", () => {
   expect(() => decodePayload("A".repeat(MAX_ENCODED_LENGTH + 1))).toThrow(/大きすぎます/u);
 });
+
+test("nextActionTiming は beforeSend・afterSend だけを受け付ける", () => {
+  const withTiming = (nextActionTiming: unknown) => ({
+    ...payload,
+    reply: {
+      ...payload.reply,
+      paragraphs: [{ ...payload.reply.paragraphs[0], nextActionTiming }],
+    },
+  });
+  expect(isPayload(withTiming("beforeSend"))).toBe(true);
+  expect(isPayload(withTiming("afterSend"))).toBe(true);
+  expect(isPayload(withTiming(undefined))).toBe(true);
+  expect(isPayload(withTiming("later"))).toBe(false);
+});

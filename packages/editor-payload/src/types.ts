@@ -52,19 +52,32 @@ export interface ReplyParagraph {
   /** 回答が成り立つ条件（例: 対象プラン・機能） */
   conditions?: string;
   evidence: Evidence[];
-  /** 送る前・送った後にすること */
+  /**
+   * 送る前・送った後にすること。確認済み以外の段落で、改善アクションに表示する。
+   * どちらの欄に出すかは nextActionTiming で決まり、省略時は status で決まる（ParagraphStatus を参照）。
+   */
   nextAction?: string;
+  /**
+   * nextAction をいつ行うか。省略時は status で決める（unverified・recheck は送る前、conditional は送った後）。
+   * 条件ありでも送る前に担当へ確かめたい段落は "beforeSend" を指定する。
+   */
+  nextActionTiming?: NextActionTiming;
   /** 確認に関わる担当（例: 「開発担当」「CS担当」） */
   owners?: string[];
 }
 
 /**
- * - verified: 根拠が確認できている
- * - conditional: 条件つきで成り立つ（条件の確認が必要）
- * - recheck: 根拠が古い・食い違うなど、確認し直しが必要
- * - unverified: 根拠が見つからない
+ * - verified: 根拠が確認できている（改善アクションに出さない）
+ * - conditional: 条件つきで成り立つ（条件の確認が必要）。既定では「送った後のフォロー」に出す
+ * - recheck: 根拠が古い・食い違うなど、確認し直しが必要。既定では「送る前にやること」に出す
+ * - unverified: 根拠が見つからない。既定では「送る前にやること」に出す
+ *
+ * 既定の欄は ReplyParagraph.nextActionTiming で変えられる。
  */
 export type ParagraphStatus = "verified" | "conditional" | "recheck" | "unverified";
+
+/** 次のアクションを行う時機。beforeSend: 送る前、afterSend: 送った後 */
+export type NextActionTiming = "beforeSend" | "afterSend";
 
 export interface CheckItem {
   label: string;

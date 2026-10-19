@@ -121,6 +121,7 @@ const isEvidenceType = oneOf(
   "help",
 );
 const isStance = oneOf("supports", "conditional", "contradicts", "related");
+const isNextActionTiming = oneOf("beforeSend", "afterSend");
 
 const isInquiryParagraph = (v: unknown): v is Shape =>
   isObject(v) && isString(v.id) && isString(v.text);
@@ -143,6 +144,7 @@ const isReplyParagraph = (v: unknown): v is Shape =>
   ["method", "conditions", "nextAction"].every((key) => isOptionalString(v[key])) &&
   isArrayOf(v.respondsTo, isString) &&
   isStatus(v.status) &&
+  (v.nextActionTiming === undefined || isNextActionTiming(v.nextActionTiming)) &&
   isArrayOf(v.checks, isCheck) &&
   isArrayOf(v.evidence, isEvidence) &&
   (v.owners === undefined || isArrayOf(v.owners, isString));
