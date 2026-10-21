@@ -15,6 +15,7 @@ export {
 export type {
   CheckItem,
   CheckResult,
+  Claim,
   Evidence,
   EvidenceStance,
   EvidenceType,

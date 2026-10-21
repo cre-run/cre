@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CHECK_RESULT, EVIDENCE_TYPE, STANCE, STATUS, formatDate, freshness } from "../labels.ts";
 import type { Evidence, EvidenceType, InquiryParagraph, ReplyParagraph } from "@cre/editor-payload";
+import { hasContradiction, stanceSummary } from "../paragraphs.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 
 const TYPE_ICON: Record<EvidenceType, IconName> = {
@@ -65,10 +66,13 @@ export const EvidencePanel = ({
   paragraph,
   questions,
   generatedAt,
+  edited = false,
 }: {
   paragraph: ReplyParagraph | undefined;
   questions: InquiryParagraph[];
   generatedAt: string;
+  /** 本文が書き換えられているか（判定は編集前の文面に対するもの） */
+  edited?: boolean;
 }) => {
   // 段落を選び直すとパネルごと作り直される（App の key）ので、いつも「要点」から始まる。
   // URL のデータが変わっても段落 ID が同じだと作り直されないので、段落のデータが変わったら「要点」に戻す
@@ -86,6 +90,7 @@ export const EvidencePanel = ({
     );
   }
   const ok = paragraph.checks.filter((check) => check.result === "ok").length;
+  const flagged = (paragraph.claims ?? []).filter((claim) => claim.status !== "verified");
   // 中身が無いタブは出さない（評価が空のときに「問題なし」と誤って見せないためでもある）
   const tabs: { id: TabId; label: string; count?: string; alert?: boolean }[] = [
     { id: "summary", label: "要点" },
@@ -100,7 +105,13 @@ export const EvidencePanel = ({
           },
         ]
       : []),
-    { id: "sources", label: "出典", count: String(paragraph.evidence.length) },
+    {
+      id: "sources",
+      label: "出典",
+      count: String(paragraph.evidence.length),
+      // 主張と食い違う出典があるときは赤くする（数だけでは見落とすため）
+      alert: hasContradiction(paragraph.evidence),
+    },
     ...(questions.length > 0
       ? [{ id: "questions" as const, label: "質問", count: String(questions.length) }]
       : []),
@@ -121,6 +132,13 @@ export const EvidencePanel = ({
           {STATUS[paragraph.status].icon} {STATUS[paragraph.status].label}
         </span>
       </div>
+
+      {edited && (
+        <p className="panel-edited">
+          <span aria-hidden="true">✎</span>
+          編集済み。判定は編集前の文面に対するものです
+        </p>
+      )}
 
       <div className="tabs" role="tablist" aria-label="段落の確認の表示">
         {tabs.map((t) => (
@@ -157,6 +175,26 @@ export const EvidencePanel = ({
         {tab === "summary" && (
           <>
             <p>{paragraph.summary}</p>
+            {/* 確認済みの文は左の本文でも印を付けないので、ここでも確かめが必要な文だけを理由と並べる */}
+            {flagged.length > 0 && (
+              <div className="claims">
+                <p className="claims-label">確かめが必要な文</p>
+                <ul>
+                  {flagged.map((claim) => (
+                    <li key={claim.text} className={`claim-item status-${claim.status}`}>
+                      <span className={`status-label status-${claim.status}`}>
+                        <span aria-hidden="true">{STATUS[claim.status].icon}</span>{" "}
+                        {STATUS[claim.status].label}
+                      </span>
+                      <span>
+                        {claim.text}
+                        {claim.note && <span className="claim-note">{claim.note}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             {(paragraph.method || paragraph.conditions) && (
               <dl className="panel-facts">
                 {paragraph.method && (
@@ -173,22 +211,7 @@ export const EvidencePanel = ({
                 )}
               </dl>
             )}
-            {/* 確認済みの段落は「やることがない」のが確認状況から分かるので、次のアクションは出さない */}
-            {paragraph.status !== "verified" && paragraph.nextAction && (
-              <div className="next">
-                <p className="next-label">
-                  <Icon name="check" size={14} />
-                  次のアクション
-                </p>
-                <p>{paragraph.nextAction}</p>
-                {paragraph.owners && (
-                  <p className="muted small owners">
-                    <Icon name="shield" size={12} />
-                    {paragraph.owners.join("・")}
-                  </p>
-                )}
-              </div>
-            )}
+            {/* 取るべきアクションと担当は、返信の下部の「送る前にやること」にまとめて出す（ここでは繰り返さない） */}
           </>
         )}
 
@@ -207,11 +230,20 @@ export const EvidencePanel = ({
         )}
 
         {tab === "sources" && (
-          <ul className="evidence-list">
-            {paragraph.evidence.map((evidence) => (
-              <EvidenceItem key={evidence.title} evidence={evidence} generatedAt={generatedAt} />
-            ))}
-          </ul>
+          <>
+            {paragraph.evidence.length > 0 && (
+              <p
+                className={`sources-summary ${hasContradiction(paragraph.evidence) ? "has-contradiction" : ""}`}
+              >
+                {stanceSummary(paragraph.evidence)}
+              </p>
+            )}
+            <ul className="evidence-list">
+              {paragraph.evidence.map((evidence) => (
+                <EvidenceItem key={evidence.title} evidence={evidence} generatedAt={generatedAt} />
+              ))}
+            </ul>
+          </>
         )}
 
         {tab === "questions" && (
