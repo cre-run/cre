@@ -187,20 +187,25 @@ test("段落の中で確かめが必要な文に印が付き、書き換える�
   await expect(page.getByRole("group", { name: "確認状況の内訳" })).toContainText(/編集済み\s*1/u);
 });
 
-test("要点に文ごとの判定と根拠の内訳を表示し、食い違う出典があれば出典タブの数を赤くする", async ({
+test("要点に確かめが必要な文を、出典に根拠の内訳を表示し、食い違う出典があれば出典タブの数を赤くする", async ({
   page,
 }) => {
-  await page.goto("/#p=r3");
+  await page.goto("/#p=r2");
   const panel = page.getByRole("complementary");
+  // 確認済みの文は出さず、確かめが必要な文だけを理由と並べる
+  await expect(panel.getByText(/SSO の強制」を有効に/u)).toBeVisible();
+  await expect(panel.getByText("社内FAQ で確認")).toHaveCount(0);
+  // 取るべきアクションは返信の下部にまとめ、右側では繰り返さない
+  await expect(panel.getByText("次のアクション")).toHaveCount(0);
+
+  await page.getByLabel("段落 データの保存期間と削除").click();
+  const sourcesTab = panel.getByRole("tab", { name: /出典/u });
+  await expect(sourcesTab.locator(".tab-count")).toHaveClass(/is-alert/u);
+  await sourcesTab.click();
   await expect(panel.getByText("支持 1・食い違い 1")).toBeVisible();
-  await expect(panel.getByText("現時点では保存期間を確約することができません。")).toBeVisible();
-  await expect(panel.getByRole("tab", { name: /出典/u }).locator(".tab-count")).toHaveClass(
-    /is-alert/u,
-  );
 
   await page.getByLabel("段落 エラー行があるときの取り込み").click();
+  await expect(sourcesTab.locator(".tab-count")).not.toHaveClass(/is-alert/u);
+  await sourcesTab.click();
   await expect(panel.getByText("支持 2")).toBeVisible();
-  await expect(panel.getByRole("tab", { name: /出典/u }).locator(".tab-count")).not.toHaveClass(
-    /is-alert/u,
-  );
 });

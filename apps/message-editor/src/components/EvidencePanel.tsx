@@ -90,6 +90,7 @@ export const EvidencePanel = ({
     );
   }
   const ok = paragraph.checks.filter((check) => check.result === "ok").length;
+  const flagged = (paragraph.claims ?? []).filter((claim) => claim.status !== "verified");
   // 中身が無いタブは出さない（評価が空のときに「問題なし」と誤って見せないためでもある）
   const tabs: { id: TabId; label: string; count?: string; alert?: boolean }[] = [
     { id: "summary", label: "要点" },
@@ -135,7 +136,7 @@ export const EvidencePanel = ({
       {edited && (
         <p className="panel-edited">
           <span aria-hidden="true">✎</span>
-          この段落は編集済みです。確認状況と根拠は編集前の文面に対する判定なので、書き換えた内容は送る前に確かめてください。
+          編集済み。判定は編集前の文面に対するものです
         </p>
       )}
 
@@ -174,12 +175,13 @@ export const EvidencePanel = ({
         {tab === "summary" && (
           <>
             <p>{paragraph.summary}</p>
-            {paragraph.claims && paragraph.claims.length > 0 && (
+            {/* 確認済みの文は左の本文でも印を付けないので、ここでも確かめが必要な文だけを理由と並べる */}
+            {flagged.length > 0 && (
               <div className="claims">
-                <p className="claims-label">文ごとの判定</p>
+                <p className="claims-label">確かめが必要な文</p>
                 <ul>
-                  {paragraph.claims.map((claim) => (
-                    <li key={claim.text} className="claim-item">
+                  {flagged.map((claim) => (
+                    <li key={claim.text} className={`claim-item status-${claim.status}`}>
                       <span className={`status-label status-${claim.status}`}>
                         <span aria-hidden="true">{STATUS[claim.status].icon}</span>{" "}
                         {STATUS[claim.status].label}
@@ -193,7 +195,7 @@ export const EvidencePanel = ({
                 </ul>
               </div>
             )}
-            {(paragraph.method || paragraph.conditions || paragraph.evidence.length > 0) && (
+            {(paragraph.method || paragraph.conditions) && (
               <dl className="panel-facts">
                 {paragraph.method && (
                   <div>
@@ -207,32 +209,9 @@ export const EvidencePanel = ({
                     <dd>{paragraph.conditions}</dd>
                   </div>
                 )}
-                {paragraph.evidence.length > 0 && (
-                  <div>
-                    <dt>根拠の内訳</dt>
-                    <dd className={hasContradiction(paragraph.evidence) ? "has-contradiction" : ""}>
-                      {stanceSummary(paragraph.evidence)}
-                    </dd>
-                  </div>
-                )}
               </dl>
             )}
-            {/* 確認済みの段落は「やることがない」のが確認状況から分かるので、次のアクションは出さない */}
-            {paragraph.status !== "verified" && paragraph.nextAction && (
-              <div className="next">
-                <p className="next-label">
-                  <Icon name="check" size={14} />
-                  次のアクション
-                </p>
-                <p>{paragraph.nextAction}</p>
-                {paragraph.owners && (
-                  <p className="muted small owners">
-                    <Icon name="shield" size={12} />
-                    {paragraph.owners.join("・")}
-                  </p>
-                )}
-              </div>
-            )}
+            {/* 取るべきアクションと担当は、返信の下部の「送る前にやること」にまとめて出す（ここでは繰り返さない） */}
           </>
         )}
 
@@ -251,11 +230,20 @@ export const EvidencePanel = ({
         )}
 
         {tab === "sources" && (
-          <ul className="evidence-list">
-            {paragraph.evidence.map((evidence) => (
-              <EvidenceItem key={evidence.title} evidence={evidence} generatedAt={generatedAt} />
-            ))}
-          </ul>
+          <>
+            {paragraph.evidence.length > 0 && (
+              <p
+                className={`sources-summary ${hasContradiction(paragraph.evidence) ? "has-contradiction" : ""}`}
+              >
+                {stanceSummary(paragraph.evidence)}
+              </p>
+            )}
+            <ul className="evidence-list">
+              {paragraph.evidence.map((evidence) => (
+                <EvidenceItem key={evidence.title} evidence={evidence} generatedAt={generatedAt} />
+              ))}
+            </ul>
+          </>
         )}
 
         {tab === "questions" && (
