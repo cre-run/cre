@@ -1,6 +1,6 @@
-import { collectActions } from "../actions.ts";
+import type { ActionGroups } from "../actions.ts";
 import { STATUS } from "../labels.ts";
-import { isEdited, nextWith, splitByClaims, statusCounts } from "../paragraphs.ts";
+import { nextWith, splitByClaims, statusCounts } from "../paragraphs.ts";
 import type { ParagraphStatus, Reply, ReplyParagraph } from "@cre/editor-payload";
 import { ActionList } from "./ActionList.tsx";
 import { Icon } from "./Icon.tsx";
@@ -75,6 +75,8 @@ export const ReplyEditor = ({
   isSample,
   done,
   onToggleDone,
+  groups,
+  editedIds,
 }: {
   reply: Reply;
   texts: Record<string, string>;
@@ -86,9 +88,12 @@ export const ReplyEditor = ({
   /** アクションを確認済みにした段落 ID（画面を開いている間だけ保持） */
   done: Set<string>;
   onToggleDone: (paragraphId: string) => void;
+  /** 改善アクション（送る前／送った後） */
+  groups: ActionGroups;
+  /** 本文を書き換えた段落 ID */
+  editedIds: Set<string>;
 }) => {
   const paragraphs = reply.paragraphs;
-  const editedIds = new Set(paragraphs.filter((p) => isEdited(p, texts[p.id])).map((p) => p.id));
 
   return (
     <section className="card reply" aria-labelledby="reply-title">
@@ -132,6 +137,12 @@ export const ReplyEditor = ({
             >
               {/* 全段落の確認状況をひと目で追えるよう、アイコンと色付きの文字だけを目印として本文の上に置く。詳しくは右のパネル */}
               <span className="paragraph-chips">
+                {/* 送る前にやることでチェックを付けた段落。済んだかどうかを本文の側でも分かるようにする */}
+                {done.has(p.id) && (
+                  <span className="status-chip status-done">
+                    <span aria-hidden="true">✓</span> 確認した
+                  </span>
+                )}
                 {edited && (
                   <span className="status-chip status-edited">
                     <span aria-hidden="true">✎</span> 編集済み
@@ -160,12 +171,7 @@ export const ReplyEditor = ({
       </div>
 
       <div className="reply-foot">
-        <ActionList
-          groups={collectActions(paragraphs)}
-          done={done}
-          onToggle={onToggleDone}
-          onSelect={onSelect}
-        />
+        <ActionList groups={groups} done={done} onToggle={onToggleDone} onSelect={onSelect} />
       </div>
     </section>
   );

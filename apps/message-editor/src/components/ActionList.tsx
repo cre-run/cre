@@ -1,4 +1,4 @@
-import type { ActionGroups, ActionItem } from "../actions.ts";
+import { remainingBeforeSend, type ActionGroups, type ActionItem } from "../actions.ts";
 import { STATUS } from "../labels.ts";
 import { Icon } from "./Icon.tsx";
 
@@ -22,9 +22,17 @@ const Item = ({
     />
     <div className="action-body">
       <p className="action-title">
-        <span className={`status-label status-${item.status}`}>
-          <span aria-hidden="true">{STATUS[item.status].icon}</span> {STATUS[item.status].label}
-        </span>
+        {/* 書き換えた確認済みの段落は「確認済み」と出すと誤解されるので、編集済みとだけ出す */}
+        {item.status === "verified" ? (
+          <span className="status-label status-edited">
+            <span aria-hidden="true">✎</span> 編集済み
+          </span>
+        ) : (
+          <span className={`status-label status-${item.status}`}>
+            <span aria-hidden="true">{STATUS[item.status].icon}</span> {STATUS[item.status].label}
+            {item.edited && <span className="action-edited">・編集済み</span>}
+          </span>
+        )}
         {item.topic}
         <span className="muted small">（段落{item.index}）</span>
       </p>
@@ -55,7 +63,7 @@ export const ActionList = ({
   onSelect: (paragraphId: string) => void;
 }) => {
   const { beforeSend, afterSend } = groups;
-  const remaining = beforeSend.filter((item) => !done.has(item.paragraphId)).length;
+  const remaining = remainingBeforeSend(groups, done);
 
   if (beforeSend.length === 0 && afterSend.length === 0) {
     return (
@@ -83,7 +91,7 @@ export const ActionList = ({
   );
 
   return (
-    <div className="actions" aria-label="改善アクション">
+    <div className="actions" id="actions" aria-label="改善アクション">
       <div className="actions-head">
         <h3>
           <Icon name="shield" size={14} />
