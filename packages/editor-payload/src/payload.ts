@@ -5,13 +5,13 @@ import type { ReplyReviewPayload } from "./types.ts";
 export const HASH_KEY = "d";
 
 /**
- * 受け付ける圧縮データの最大長（文字数）。見本データで約 3,500 文字。
+ * 受け付ける圧縮データの最大長（文字数）。見本データで約 3,700 文字。
  * deflate は 700 倍以上に展開できるので、上限がないと巨大な URL で開いたタブが固まる。
  */
 export const MAX_ENCODED_LENGTH = 100_000;
 
 /**
- * 展開後の JSON の最大バイト数。見本データで約 4 KB。
+ * 展開後の JSON の最大バイト数。見本データで約 8 KB。
  * 圧縮後の長さだけでは展開爆弾を防げない（10 万文字の圧縮データが 70 MB 以上に展開できる）ので、
  * 展開しながら大きさを見て、超えた時点で打ち切る。
  */
@@ -138,6 +138,9 @@ const isEvidence = (v: unknown): v is Shape =>
   (v.url === undefined || isHttpUrl(v.url)) &&
   (v.checkedAt === undefined || isDate(v.checkedAt));
 
+const isClaim = (v: unknown): v is Shape =>
+  isObject(v) && isString(v.text) && isStatus(v.status) && isOptionalString(v.note);
+
 const isReplyParagraph = (v: unknown): v is Shape =>
   isObject(v) &&
   ["id", "topic", "text", "summary"].every((key) => isString(v[key])) &&
@@ -147,7 +150,8 @@ const isReplyParagraph = (v: unknown): v is Shape =>
   (v.nextActionTiming === undefined || isNextActionTiming(v.nextActionTiming)) &&
   isArrayOf(v.checks, isCheck) &&
   isArrayOf(v.evidence, isEvidence) &&
-  (v.owners === undefined || isArrayOf(v.owners, isString));
+  (v.owners === undefined || isArrayOf(v.owners, isString)) &&
+  (v.claims === undefined || isArrayOf(v.claims, isClaim));
 
 const isUnique = (ids: unknown[]): boolean => new Set(ids).size === ids.length;
 

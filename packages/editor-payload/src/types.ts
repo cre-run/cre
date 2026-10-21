@@ -64,6 +64,19 @@ export interface ReplyParagraph {
   nextActionTiming?: NextActionTiming;
   /** 確認に関わる担当（例: 「開発担当」「CS担当」） */
   owners?: string[];
+  /**
+   * 段落の中の文ごとの判定。1 つの段落に確認済みの文と確かめが必要な文が混ざるときに使う。
+   * 画面は確認済み以外の文に印を付ける。段落の確認状況・改善アクションは status で決まり、ここは影響しない。
+   */
+  claims?: Claim[];
+}
+
+export interface Claim {
+  /** 段落の本文（text）の一部をそのまま書く。本文に見つからない文には印を付けない */
+  text: string;
+  status: ParagraphStatus;
+  /** 判定の理由（例: 「お客様の設定は未確認」） */
+  note?: string;
 }
 
 /**

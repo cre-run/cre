@@ -115,6 +115,18 @@ export const samplePayload: ReplyReviewPayload = {
         ],
         nextAction: "お客様から設定の状況を聞いたら、手順を案内する。",
         owners: ["CS担当"],
+        claims: [
+          {
+            text: "SSO をご利用の環境でも、API キーを発行できます。",
+            status: "verified",
+            note: "社内FAQ で確認",
+          },
+          {
+            text: "ただし、管理者が「SSO の強制」を有効にしている場合は、組織の設定で API キーの発行を許可する必要があります。",
+            status: "conditional",
+            note: "お客様の組織で SSO の強制が有効かは未確認",
+          },
+        ],
       },
       {
         id: "r3",
@@ -151,6 +163,13 @@ export const samplePayload: ReplyReviewPayload = {
         ],
         nextAction: "開発担当に保持日数を確認し、規約と実装のどちらが正しいかを決める。",
         owners: ["開発担当", "法務担当"],
+        claims: [
+          {
+            text: "現時点では保存期間を確約することができません。",
+            status: "recheck",
+            note: "規約（30 日）と実装（60 日）で保持日数が食い違っている",
+          },
+        ],
       },
       {
         id: "r4",

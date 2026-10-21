@@ -72,3 +72,18 @@ test("nextActionTiming は beforeSend・afterSend だけを受け付ける", () 
   expect(isPayload(withTiming(undefined))).toBe(true);
   expect(isPayload(withTiming("later"))).toBe(false);
 });
+
+test("文ごとの判定（claims）は、文と確認状況がそろっているものだけを受け付ける", () => {
+  const withClaims = (claims: unknown) => ({
+    ...payload,
+    reply: {
+      ...payload.reply,
+      paragraphs: [{ ...payload.reply.paragraphs[0], claims }],
+    },
+  });
+  expect(isPayload(withClaims(undefined))).toBe(true);
+  expect(isPayload(withClaims([{ text: "返信", status: "recheck", note: "理由" }]))).toBe(true);
+  expect(isPayload(withClaims([{ text: "返信", status: "unknown" }]))).toBe(false);
+  expect(isPayload(withClaims([{ status: "recheck" }]))).toBe(false);
+  expect(isPayload(withClaims("返信"))).toBe(false);
+});

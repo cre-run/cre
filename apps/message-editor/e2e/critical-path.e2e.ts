@@ -140,3 +140,67 @@ test("ガイドに載せた URL の例を開くと、見本と同じ内容が表
   await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
   await expect(page.getByText("URL のデータを読み込めませんでした")).toHaveCount(0);
 });
+
+test("確認状況の内訳を押すと、その状態の段落へ移動する", async ({ page }) => {
+  await page.goto("/");
+  const summary = page.getByRole("group", { name: "確認状況の内訳" });
+  await expect(summary.getByRole("button")).toHaveText([
+    /確認済み\s*2/u,
+    /条件あり\s*1/u,
+    /再確認\s*1/u,
+  ]);
+  await summary.getByRole("button", { name: /再確認/u }).click();
+  await expect(page.getByRole("complementary").getByRole("heading", { level: 3 })).toHaveText(
+    "データの保存期間と削除",
+  );
+  // 確認済みは 2 段落あるので、押すたびに今の段落より後ろの段落へ移り、最後まで行ったら先頭に戻る
+  await summary.getByRole("button", { name: /確認済み/u }).click();
+  await expect(page.getByLabel("段落 初期設定のサポート")).toHaveAttribute("aria-current", "true");
+  await summary.getByRole("button", { name: /確認済み/u }).click();
+  await expect(page.getByLabel("段落 エラー行があるときの取り込み")).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+});
+
+test("段落の中で確かめが必要な文に印が付き、書き換えると「編集済み」になって印が消える", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const paragraph = page.getByLabel("段落 SSO 環境での API キー発行");
+  // 確認済みの文には印を付けず、条件ありの文だけに付ける
+  await expect(paragraph.locator("mark")).toHaveCount(1);
+  await expect(paragraph.locator("mark")).toContainText("SSO の強制");
+  await expect(paragraph.getByText("編集済み")).toHaveCount(0);
+
+  const text = paragraph.locator(".paragraph-text");
+  await text.click();
+  await page.keyboard.press("End");
+  await page.keyboard.type("（追記）");
+  await page.getByRole("heading", { level: 1 }).click();
+
+  await expect(paragraph.getByText("編集済み")).toBeVisible();
+  await expect(paragraph.locator("mark")).toHaveCount(0);
+  await expect(text).toContainText("（追記）");
+  await paragraph.click();
+  await expect(page.getByRole("complementary").getByText(/編集前の文面/u)).toBeVisible();
+  await expect(page.getByRole("group", { name: "確認状況の内訳" })).toContainText(/編集済み\s*1/u);
+});
+
+test("要点に文ごとの判定と根拠の内訳を表示し、食い違う出典があれば出典タブの数を赤くする", async ({
+  page,
+}) => {
+  await page.goto("/#p=r3");
+  const panel = page.getByRole("complementary");
+  await expect(panel.getByText("支持 1・食い違い 1")).toBeVisible();
+  await expect(panel.getByText("現時点では保存期間を確約することができません。")).toBeVisible();
+  await expect(panel.getByRole("tab", { name: /出典/u }).locator(".tab-count")).toHaveClass(
+    /is-alert/u,
+  );
+
+  await page.getByLabel("段落 エラー行があるときの取り込み").click();
+  await expect(panel.getByText("支持 2")).toBeVisible();
+  await expect(panel.getByRole("tab", { name: /出典/u }).locator(".tab-count")).not.toHaveClass(
+    /is-alert/u,
+  );
+});

@@ -6,6 +6,7 @@ import { PreviewDialog } from "./components/PreviewDialog.tsx";
 import { ReplyEditor } from "./components/ReplyEditor.tsx";
 import { formatDotDate } from "./labels.ts";
 import { decodePayload, readHash, type ReplyReviewPayload } from "@cre/editor-payload";
+import { isEdited } from "./paragraphs.ts";
 import { samplePayload } from "./sample.ts";
 
 type Loaded =
@@ -138,6 +139,7 @@ export const App = () => {
             paragraph={selected}
             questions={questions}
             generatedAt={payload.generatedAt}
+            edited={selected ? isEdited(selected, texts[selected.id]) : false}
           />
         </div>
 

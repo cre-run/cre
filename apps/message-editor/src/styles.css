@@ -337,17 +337,6 @@ h1 {
   white-space: pre-wrap;
 }
 
-/* 本文の上の右端に、右の詳細カラムと同じ背景色付きのバッジで置く。
-   幅をそろえて文字を中央に置き、文字数が違ってもバッジの左右の端を縦一直線にする */
-.paragraph > .status-chip {
-  justify-self: end;
-  width: 84px;
-  margin-bottom: 2px;
-  line-height: 1.7;
-  text-align: center;
-  white-space: nowrap;
-}
-
 .status-label {
   font-size: 12px;
   font-weight: 600;
@@ -826,4 +815,122 @@ h1 {
   .topbar-user {
     display: none;
   }
+}
+
+/* 確認状況の内訳（返信の上）。押すとその状態の段落へ移動する */
+.status-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 28px 0;
+}
+
+.status-summary .status-chip {
+  border: 0;
+  padding: 3px 10px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.status-summary .status-chip:hover {
+  filter: brightness(0.96);
+}
+
+.status-summary .status-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.status-count {
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-chip.status-edited {
+  background: #eaeef6;
+  color: #4a5f86;
+}
+
+/* 段落の右上のバッジ（編集済み・確認状況）を右寄せで横に並べる。
+   幅をそろえて文字を中央に置き、文字数が違ってもバッジの左右の端を縦一直線にする */
+.paragraph-chips {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.paragraph-chips > .status-chip {
+  width: 84px;
+  margin-bottom: 2px;
+  line-height: 1.7;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* 段落の中で確かめが必要な文。背景は薄く、下線で状態の色を示す */
+mark.claim {
+  border-bottom: 2px solid currentColor;
+  background: transparent;
+  color: inherit;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+mark.claim.status-conditional {
+  border-bottom-color: var(--conditional);
+  background: var(--conditional-bg);
+}
+mark.claim.status-recheck {
+  border-bottom-color: var(--recheck);
+  background: var(--recheck-bg);
+}
+mark.claim.status-unverified {
+  border-bottom-color: var(--unverified);
+  background: var(--unverified-bg);
+}
+
+.panel-edited {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: #eaeef6;
+  color: #4a5f86;
+  font-size: 13px;
+}
+
+/* 要点タブの「文ごとの判定」 */
+.claims {
+  margin: 12px 0;
+}
+
+.claims-label {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.claims ul {
+  display: grid;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.claim-item {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.claim-note {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.panel-facts dd.has-contradiction {
+  color: var(--recheck);
+  font-weight: 600;
 }
