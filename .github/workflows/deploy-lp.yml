@@ -26,7 +26,7 @@ jobs:
 
       - uses: voidzero-dev/setup-vp@68f39c78aaf39be468cabd2afb09c162574c84af # v1.21.2
         with:
-          node-version: "24.22.0"
+          node-version: "24.22.1"
           cache: true
 
       # `vp run` は環境変数を引き継がずキャッシュも効くため、デプロイは wrangler を直接実行する
