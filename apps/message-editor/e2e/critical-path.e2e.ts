@@ -209,3 +209,53 @@ test("要点に確かめが必要な文を、出典に根拠の内訳を表示�
   await sourcesTab.click();
   await expect(panel.getByText("支持 2")).toBeVisible();
 });
+
+test("画面の上に送る前にやることの残りを表示し、押すと一覧へ移動する。チェックした段落には「確認した」が付く", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const remaining = page.getByRole("button", { name: /送る前にやること 残り 1 件/u });
+  await expect(remaining).toBeVisible();
+  await remaining.click();
+  const actions = page.getByLabel("改善アクション");
+  await expect(actions).toBeInViewport();
+
+  const paragraph = page.getByLabel("段落 データの保存期間と削除");
+  await expect(paragraph.getByText("確認した")).toHaveCount(0);
+  await actions.getByRole("checkbox", { name: "データの保存期間と削除 を確認済みにする" }).check();
+  await expect(paragraph.getByText("確認した")).toBeVisible();
+  await expect(page.getByRole("button", { name: /送る前の確認 完了/u })).toBeVisible();
+});
+
+test("確認済みの段落を書き換えると、送る前にやることに「編集した内容を確かめる」が加わる", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const text = page.getByLabel("段落 エラー行があるときの取り込み").locator(".paragraph-text");
+  await text.click();
+  await page.keyboard.press("End");
+  await page.keyboard.type("（追記）");
+  await page.getByRole("heading", { level: 1 }).click();
+
+  const actions = page.getByLabel("改善アクション");
+  await expect(actions.getByText("送る前にやること（2件）")).toBeVisible();
+  await expect(actions.getByText("編集した内容を確かめる。")).toBeVisible();
+  await expect(page.getByRole("button", { name: /送る前にやること 残り 2 件/u })).toBeVisible();
+});
+
+test("送る前にやることが残っているときは、返信プレビューに残りの件数を表示する", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "返信プレビュー" }).click();
+  const dialog = page.getByRole("dialog", { name: "返信プレビュー" });
+  await expect(dialog.getByRole("alert")).toContainText("送る前にやることが残り 1 件あります");
+  await dialog.getByRole("button", { name: "閉じる" }).click();
+
+  await page
+    .getByLabel("改善アクション")
+    .getByRole("checkbox", { name: "データの保存期間と削除 を確認済みにする" })
+    .check();
+  await page.getByRole("button", { name: "返信プレビュー" }).click();
+  await expect(dialog.getByRole("alert")).toHaveCount(0);
+});

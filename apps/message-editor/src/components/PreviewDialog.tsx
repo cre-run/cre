@@ -14,10 +14,13 @@ const COPY_LABEL: Record<CopyState, string> = {
 export const PreviewDialog = ({
   reply,
   texts,
+  remaining = 0,
   onClose,
 }: {
   reply: Reply;
   texts: Record<string, string>;
+  /** 送る前にやることのうち、まだチェックしていない件数 */
+  remaining?: number;
   onClose: () => void;
 }) => {
   const body = [
@@ -67,6 +70,13 @@ export const PreviewDialog = ({
             </button>
           </div>
         </div>
+        {/* コピーは止めない（送った後にフォローする前提で送ることもある）が、残っていることは見落とさないよう目立たせる */}
+        {remaining > 0 && (
+          <p className="dialog-warning" role="alert">
+            <Icon name="shield" size={14} />
+            送る前にやることが残り {remaining} 件あります。確かめてからコピーしてください。
+          </p>
+        )}
         <p className="muted small">
           宛先: {reply.to} ・ 件名: {reply.subject}
         </p>

@@ -6,6 +6,7 @@ import { PreviewDialog } from "./components/PreviewDialog.tsx";
 import { ReplyEditor } from "./components/ReplyEditor.tsx";
 import { formatDotDate } from "./labels.ts";
 import { decodePayload, readHash, type ReplyReviewPayload } from "@cre/editor-payload";
+import { collectActions, remainingBeforeSend } from "./actions.ts";
 import { isEdited } from "./paragraphs.ts";
 import { samplePayload } from "./sample.ts";
 
@@ -79,6 +80,11 @@ export const App = () => {
       return next;
     });
 
+  const editedIds = new Set(
+    reply.paragraphs.filter((p) => isEdited(p, texts[p.id])).map((p) => p.id),
+  );
+  const groups = collectActions(reply.paragraphs, editedIds);
+  const remaining = remainingBeforeSend(groups, done);
   const selected = reply.paragraphs.find((p) => p.id === selectedId);
   const questions = inquiry.paragraphs.filter((q) => selected?.respondsTo.includes(q.id));
 
@@ -111,9 +117,26 @@ export const App = () => {
               </p>
             )}
           </div>
-          <button type="button" className="primary" onClick={() => setPreviewOpen(true)}>
-            返信プレビュー <Icon name="arrowRight" />
-          </button>
+          <div className="page-actions">
+            {/* 送る前にやることは返信の一番下にあるので、残りの件数を上にも出し、押すとそこへ移動する */}
+            {groups.beforeSend.length > 0 && (
+              <button
+                type="button"
+                className={`remaining ${remaining === 0 ? "is-clear" : ""}`}
+                onClick={() =>
+                  document
+                    .getElementById("actions")
+                    ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                }
+              >
+                <Icon name={remaining === 0 ? "check" : "shield"} size={14} />
+                {remaining === 0 ? "送る前の確認 完了" : `送る前にやること 残り ${remaining} 件`}
+              </button>
+            )}
+            <button type="button" className="primary" onClick={() => setPreviewOpen(true)}>
+              返信プレビュー <Icon name="arrowRight" />
+            </button>
+          </div>
         </div>
 
         <div className="layout">
@@ -128,6 +151,8 @@ export const App = () => {
               isSample={loaded.kind !== "data"}
               done={done}
               onToggleDone={toggleDone}
+              groups={groups}
+              editedIds={editedIds}
             />
             <p className="muted small keep-note">
               <Icon name="clock" size={12} />
@@ -139,7 +164,7 @@ export const App = () => {
             paragraph={selected}
             questions={questions}
             generatedAt={payload.generatedAt}
-            edited={selected ? isEdited(selected, texts[selected.id]) : false}
+            edited={selected ? editedIds.has(selected.id) : false}
           />
         </div>
 
@@ -154,7 +179,12 @@ export const App = () => {
       </div>
 
       {previewOpen && (
-        <PreviewDialog reply={reply} texts={texts} onClose={() => setPreviewOpen(false)} />
+        <PreviewDialog
+          reply={reply}
+          texts={texts}
+          remaining={remaining}
+          onClose={() => setPreviewOpen(false)}
+        />
       )}
     </div>
   );

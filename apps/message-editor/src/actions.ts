@@ -6,12 +6,14 @@ export interface ActionItem {
   index: number;
   topic: string;
   status: ParagraphStatus;
+  /** 本文を書き換えた段落か（判定は編集前の文面に対するもの） */
+  edited: boolean;
   action: string;
   owners: string[];
 }
 
 export interface ActionGroups {
-  /** 送る前に確認・修正すること（既定は再確認・根拠なし） */
+  /** 送る前に確認・修正すること（既定は再確認・根拠なし・書き換えた確認済み） */
   beforeSend: ActionItem[];
   /** 送った後にフォローすること（既定は条件あり：お客様の回答を待って案内するなど） */
   afterSend: ActionItem[];
@@ -24,8 +26,8 @@ const DEFAULT_TIMING: Record<Exclude<ParagraphStatus, "verified">, NextActionTim
   conditional: "afterSend",
 };
 
-/** 欄の中の並び順。根拠なし → 再確認 → 条件あり */
-const ORDER: ParagraphStatus[] = ["unverified", "recheck", "conditional"];
+/** 欄の中の並び順。根拠なし → 再確認 → 条件あり → 書き換えた確認済み */
+const ORDER: ParagraphStatus[] = ["unverified", "recheck", "conditional", "verified"];
 
 const FALLBACK: Record<ParagraphStatus, string> = {
   verified: "",
@@ -34,21 +36,30 @@ const FALLBACK: Record<ParagraphStatus, string> = {
   unverified: "根拠を探して確認する。",
 };
 
+/** 書き換えた確認済みの段落で取るアクション */
+export const EDITED_ACTION = "編集した内容を確かめる。";
+
 /**
- * 確認済み以外の段落から、取るべきアクションを「送る前／送った後」に分けて集める。
- * 欄は段落の nextActionTiming を優先し、なければ status で決める。
+ * 段落から、取るべきアクションを「送る前／送った後」に分けて集める。
+ * 確認済みの段落は、本文を書き換えたとき（editedIds に含まれるとき）だけ送る前に入れる。
+ * それ以外の欄は段落の nextActionTiming を優先し、なければ status で決める。
  */
-export const collectActions = (paragraphs: ReplyParagraph[]): ActionGroups => {
+export const collectActions = (
+  paragraphs: ReplyParagraph[],
+  editedIds: ReadonlySet<string> = new Set(),
+): ActionGroups => {
   const groups: ActionGroups = { beforeSend: [], afterSend: [] };
   paragraphs.forEach((p, i) => {
+    const edited = editedIds.has(p.id);
+    const base = { paragraphId: p.id, index: i + 1, topic: p.topic, status: p.status, edited };
     if (p.status === "verified") {
+      if (edited) {
+        groups.beforeSend.push({ ...base, action: EDITED_ACTION, owners: [] });
+      }
       return;
     }
     groups[p.nextActionTiming ?? DEFAULT_TIMING[p.status]].push({
-      paragraphId: p.id,
-      index: i + 1,
-      topic: p.topic,
-      status: p.status,
+      ...base,
       action: p.nextAction ?? FALLBACK[p.status],
       owners: p.owners ?? [],
     });
@@ -60,3 +71,7 @@ export const collectActions = (paragraphs: ReplyParagraph[]): ActionGroups => {
   groups.afterSend.sort(byStatus);
   return groups;
 };
+
+/** 送る前にやることのうち、まだチェックしていない件数 */
+export const remainingBeforeSend = (groups: ActionGroups, done: ReadonlySet<string>): number =>
+  groups.beforeSend.filter((item) => !done.has(item.paragraphId)).length;

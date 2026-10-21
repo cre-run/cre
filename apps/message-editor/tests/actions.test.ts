@@ -1,5 +1,5 @@
 import { expect, test } from "vite-plus/test";
-import { collectActions } from "../src/actions.ts";
+import { EDITED_ACTION, collectActions, remainingBeforeSend } from "../src/actions.ts";
 import { samplePayload } from "../src/sample.ts";
 
 const paragraphs = samplePayload.reply.paragraphs;
@@ -72,4 +72,24 @@ test("確認済みの段落は送る前を指定してもアクションに含�
     { ...first!, id: "a", status: "verified", nextActionTiming: "beforeSend" },
   ]);
   expect([...beforeSend, ...afterSend]).toEqual([]);
+});
+
+test("確認済みの段落は、書き換えたときだけ送る前に「編集した内容を確かめる」を入れ、最後に並べる", () => {
+  const edited = new Set(["r1", "r3"]);
+  const { beforeSend } = collectActions(paragraphs, edited);
+  expect(beforeSend.map((item) => [item.paragraphId, item.status, item.edited])).toEqual([
+    ["r3", "recheck", true],
+    ["r1", "verified", true],
+  ]);
+  expect(beforeSend[1]).toMatchObject({ action: EDITED_ACTION, owners: [] });
+  // 書き換えていなければ、確認済みの段落は入れない
+  expect(collectActions(paragraphs).beforeSend.map((item) => item.paragraphId)).toEqual(["r3"]);
+});
+
+test("送る前にやることの残りは、チェックしていない件数", () => {
+  const groups = collectActions(paragraphs, new Set(["r1"]));
+  expect(remainingBeforeSend(groups, new Set())).toBe(2);
+  expect(remainingBeforeSend(groups, new Set(["r3"]))).toBe(1);
+  // 送った後のフォローは数えない
+  expect(remainingBeforeSend(groups, new Set(["r1", "r3"]))).toBe(0);
 });
