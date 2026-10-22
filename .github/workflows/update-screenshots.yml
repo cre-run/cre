@@ -48,10 +48,12 @@ jobs:
           node-version: "24.22.1"
           cache: true
 
+      # `all` で全画像を撮り直す。既定（changed）は比較に落ちた画像だけを上書きするため、
+      # 閾値（maxDiffPixelRatio）未満の小さな変化（ヘッダのバッジなど）が画像に反映されないまま残る
       - name: Update guide and README screenshots
         id: update
         working-directory: apps/message-editor
-        run: vp exec playwright test e2e/guide- e2e/readme --update-snapshots
+        run: vp exec playwright test e2e/guide- e2e/readme --update-snapshots=all
 
       # 撮り直した画像で、クリティカルパスを含めてすべて通ることを確かめてからコミットする
       - name: Run E2E
