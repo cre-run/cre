@@ -272,3 +272,14 @@ test("判定データが速報（mode: flash）のときは、上部に速報モ
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
   await expect(banner).toHaveCount(0);
 });
+
+test("速報モードでも、返信プレビューは帯に覆われず閉じられる", async ({ page }) => {
+  // 狭い画面では帯が折り返して高くなり、ダイアログの上端に重なりうる
+  await page.setViewportSize({ width: 390, height: 700 });
+  await page.goto(`/${toHash({ ...samplePayload, mode: "flash" })}`);
+  await page.getByRole("button", { name: "返信プレビュー" }).click();
+  const dialog = page.getByRole("dialog", { name: "返信プレビュー" });
+  // 帯が前面にあると、クリックが帯に遮られて失敗する
+  await dialog.getByRole("button", { name: "閉じる" }).click({ timeout: 2000 });
+  await expect(dialog).toBeHidden();
+});

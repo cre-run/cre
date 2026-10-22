@@ -726,6 +726,8 @@ h1 {
 /* preview dialog */
 .dialog-backdrop {
   position: fixed;
+  /* 速報モードの帯（z-index: 20）より前に出し、帯がダイアログの見出しやボタンを覆わないようにする */
+  z-index: 30;
   inset: 0;
   display: grid;
   place-items: center;
