@@ -24,6 +24,7 @@ export type {
   NextActionTiming,
   ParagraphStatus,
   Reply,
+  ReplyMode,
   ReplyParagraph,
   ReplyReviewPayload,
 } from "./types.ts";
