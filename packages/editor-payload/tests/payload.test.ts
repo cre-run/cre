@@ -87,3 +87,11 @@ test("文ごとの判定（claims）は、文と確認状況がそろってい�
   expect(isPayload(withClaims([{ status: "recheck" }]))).toBe(false);
   expect(isPayload(withClaims("返信"))).toBe(false);
 });
+
+test("作成モード（mode）は standard・flash だけを受け付け、省略もできる", () => {
+  expect(isPayload(payload)).toBe(true);
+  expect(isPayload({ ...payload, mode: "standard" })).toBe(true);
+  expect(isPayload({ ...payload, mode: "flash" })).toBe(true);
+  expect(isPayload({ ...payload, mode: "fast" })).toBe(false);
+  expect(isPayload({ ...payload, mode: 1 })).toBe(false);
+});

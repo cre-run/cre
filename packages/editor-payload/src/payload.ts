@@ -174,6 +174,9 @@ export const isPayload = (data: unknown): data is ReplyReviewPayload => {
   if (!isObject(data) || data.version !== 1 || !isDate(data.generatedAt)) {
     return false;
   }
+  if (data.mode !== undefined && data.mode !== "standard" && data.mode !== "flash") {
+    return false;
+  }
   const { inquiry, reply } = data;
   return (
     isObject(inquiry) &&

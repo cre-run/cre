@@ -35,6 +35,30 @@ const initialSelection = (hash: string, payload: ReplyReviewPayload): string | u
   return (paragraphs.find((p) => p.id === requested) ?? paragraphs[0])?.id;
 };
 
+/**
+ * 速報モードか。データがあるときは `mode` に従う。見本データのときだけ `#mode=flash` で切り替えられる
+ * （モック画像の撮影用。実データの mode を URL で上書きはしない）
+ */
+const isFlash = (hash: string, loaded: Loaded): boolean =>
+  loaded.kind === "data"
+    ? loaded.payload.mode === "flash"
+    : new URLSearchParams(hash.replace(/^#/u, "")).get("mode") === "flash";
+
+/** 速報モードの帯。画面の一番上に固定し、どこまでスクロールしても見えるようにする */
+const FlashBanner = () => (
+  <div className="flash-banner" role="status">
+    <span className="flash-banner-label">
+      <Icon name="bolt" size={14} />
+      速報モード
+    </span>
+    <span className="flash-banner-text">
+      {
+        "速さを優先し、根拠の確認を省いた下書きです。誤りを含む可能性が高いため、そのまま送らず完成版で確かめてください。"
+      }
+    </span>
+  </div>
+);
+
 const BrandMark = () => (
   <svg className="brand-mark" viewBox="0 0 256 256" aria-hidden="true">
     <rect width="256" height="256" rx="56" fill="currentColor" />
@@ -59,6 +83,7 @@ export const App = () => {
   const loaded = useMemo(() => load(hash), [hash]);
   const { payload } = loaded;
   const { inquiry, reply } = payload;
+  const flash = isFlash(hash, loaded);
 
   const [selectedId, setSelectedId] = useState(() => initialSelection(hash, payload));
   const [texts, setTexts] = useState<Record<string, string>>({});
@@ -89,7 +114,8 @@ export const App = () => {
   const questions = inquiry.paragraphs.filter((q) => selected?.respondsTo.includes(q.id));
 
   return (
-    <div className="app">
+    <div className={`app ${flash ? "is-flash" : ""}`}>
+      {flash && <FlashBanner />}
       <header className="topbar">
         <div className="topbar-brand">
           <BrandMark />
@@ -97,6 +123,12 @@ export const App = () => {
           <span className="divider">/</span>
           <span>Message Editor</span>
           <span className="badge">プロトタイプ</span>
+          {flash && (
+            <span className="badge badge-flash">
+              <Icon name="bolt" size={11} />
+              速報
+            </span>
+          )}
         </div>
         <div className="topbar-user">
           <span className="online" aria-hidden="true" />

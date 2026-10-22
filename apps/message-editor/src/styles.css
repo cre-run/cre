@@ -994,3 +994,72 @@ mark.claim.status-unverified {
     margin-top: 0;
   }
 }
+
+/* 速報モード: 速さ優先で信頼性が低いので、背景全体を薄い警告色にし、上部に帯を固定する。
+   段落の状態色（条件あり＝琥珀）と混ざらないよう、黄色寄りの色を使う */
+.app {
+  min-height: 100vh;
+}
+
+.app.is-flash {
+  --bg: #fdf6d3;
+  --border: #ece2b4;
+  --flash: #8a6a00;
+  --flash-strong: #f2c230;
+
+  background: var(--bg);
+}
+
+.flash-banner {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 40px;
+  border-bottom: 1px solid #d9ac1c;
+  background:
+    repeating-linear-gradient(-45deg, #2c2a1d 0 10px, var(--flash-strong) 10px 20px) left / 6px 100%
+      no-repeat,
+    repeating-linear-gradient(-45deg, #2c2a1d 0 10px, var(--flash-strong) 10px 20px) right / 6px
+      100% no-repeat,
+    #ffe88a;
+  color: #3d3200;
+  font-size: 13px;
+}
+
+.flash-banner-label {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  background: #2c2a1d;
+  color: #ffe88a;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+/* 上に帯が固定されるので、根拠パネルが帯の下に潜らないようずらす */
+.is-flash .panel {
+  top: 56px;
+}
+
+.badge-flash {
+  display: inline-flex;
+  white-space: nowrap;
+  align-items: center;
+  gap: 3px;
+  background: var(--flash-strong);
+  color: #2c2a1d;
+  font-weight: 700;
+}
+
+@media (max-width: 960px) {
+  .flash-banner {
+    align-items: flex-start;
+    padding: 8px 16px;
+  }
+}

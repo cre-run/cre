@@ -2,12 +2,20 @@
  * 画面描画に渡すデータ。初期は URL の `#d=` に pako で圧縮して載せる（バックエンドなし）。
  * 判定モデルの出力形式が固まるまでは、ここを唯一のスキーマとして扱う。
  */
+/** 作成モード。`standard` は慎重な完成版、`flash` は速さ優先の速報 */
+export type ReplyMode = "standard" | "flash";
+
 export interface ReplyReviewPayload {
   version: 1;
   /** 判定を行った日時（ISO 8601）。根拠の鮮度はこの日時を基準に計算する */
   generatedAt: string;
   /** 判定に使ったモデル（表示用） */
   model?: { name: string; version?: string };
+  /**
+   * 作成モード。`flash`（速報）は速さを優先し、根拠の確認を省いた下書き。省略時は `standard`（完成版）。
+   * 速報は全体の信頼性が低いので、画面は背景を警告色にし、上部に帯を出す
+   */
+  mode?: ReplyMode;
   inquiry: Inquiry;
   reply: Reply;
 }

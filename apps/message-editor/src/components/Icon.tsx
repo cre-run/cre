@@ -14,6 +14,7 @@ const PATHS = {
   check: "M5 12l5 5 9-10",
   x: "M6 6l12 12M18 6L6 18",
   copy: "M9 9h11v11H9zM5 15H4V4h11v1",
+  bolt: "M13 3L5 14h6l-1 7 8-11h-6z",
 } as const;
 
 export type IconName = keyof typeof PATHS;

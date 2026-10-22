@@ -259,3 +259,16 @@ test("送る前にやることが残っているときは、返信プレビュ�
   await page.getByRole("button", { name: "返信プレビュー" }).click();
   await expect(dialog.getByRole("alert")).toHaveCount(0);
 });
+
+test("判定データが速報（mode: flash）のときは、上部に速報モードの帯を出す", async ({ page }) => {
+  const banner = page.getByRole("status").filter({ hasText: "速報モード" });
+
+  await page.goto(`/${toHash({ ...samplePayload, mode: "flash" })}`);
+  await expect(banner).toBeVisible();
+  await expect(page.locator(".app")).toHaveClass(/is-flash/u);
+
+  // 完成版（mode を省略・standard）では出さない。実データの mode は URL の #mode= で上書きしない
+  await page.goto(`/${toHash({ ...samplePayload, mode: "standard" })}&mode=flash`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
+  await expect(banner).toHaveCount(0);
+});
