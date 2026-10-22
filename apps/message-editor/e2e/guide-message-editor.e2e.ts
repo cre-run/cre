@@ -40,7 +40,6 @@ test.describe("Message Editor ガイド", () => {
   }) => {
     await page.goto(`/${toHash({ ...samplePayload, mode: "flash" })}`);
     await expect(page.getByRole("status").filter({ hasText: "速報モード" })).toBeVisible();
-    await expect(page.locator(".badge-flash")).toHaveText("速報");
     await expect(page).toHaveScreenshot("message-editor-flash.png");
   });
 });

@@ -122,13 +122,6 @@ export const App = () => {
           <span className="brand-name">CRE</span>
           <span className="divider">/</span>
           <span>Message Editor</span>
-          <span className="badge">プロトタイプ</span>
-          {flash && (
-            <span className="badge badge-flash">
-              <Icon name="bolt" size={11} />
-              速報
-            </span>
-          )}
         </div>
         <div className="topbar-user">
           <span className="online" aria-hidden="true" />

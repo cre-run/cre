@@ -100,13 +100,6 @@ button {
   color: var(--border);
 }
 
-.badge {
-  padding: 0 8px;
-  border-radius: 4px;
-  background: var(--accent-soft);
-  font-size: 11px;
-}
-
 .online {
   width: 6px;
   height: 6px;
@@ -1006,7 +999,6 @@ mark.claim.status-unverified {
 .app.is-flash {
   --bg: #fdf6d3;
   --border: #ece2b4;
-  --flash: #8a6a00;
   --flash-strong: #f2c230;
 
   background: var(--bg);
@@ -1047,16 +1039,6 @@ mark.claim.status-unverified {
 /* 上に帯が固定されるので、根拠パネルが帯の下に潜らないようずらす */
 .is-flash .panel {
   top: 56px;
-}
-
-.badge-flash {
-  display: inline-flex;
-  white-space: nowrap;
-  align-items: center;
-  gap: 3px;
-  background: var(--flash-strong);
-  color: #2c2a1d;
-  font-weight: 700;
 }
 
 @media (max-width: 960px) {
