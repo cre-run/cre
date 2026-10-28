@@ -1,5 +1,5 @@
 import { remainingBeforeSend, type ActionGroups, type ActionItem } from "../actions.ts";
-import { STATUS } from "../labels.ts";
+import { STATUS_OR_GAP } from "../labels.ts";
 import { Icon } from "./Icon.tsx";
 
 const Item = ({
@@ -7,11 +7,13 @@ const Item = ({
   done,
   onToggle,
   onSelect,
+  selectLabel,
 }: {
   item: ActionItem;
   done: boolean;
   onToggle: () => void;
   onSelect: () => void;
+  selectLabel: string;
 }) => (
   <li className={`action ${done ? "is-done" : ""}`}>
     <input
@@ -29,7 +31,8 @@ const Item = ({
           </span>
         ) : (
           <span className={`status-label status-${item.status}`}>
-            <span aria-hidden="true">{STATUS[item.status].icon}</span> {STATUS[item.status].label}
+            <span aria-hidden="true">{STATUS_OR_GAP[item.status].icon}</span>{" "}
+            {STATUS_OR_GAP[item.status].label}
             {item.edited && <span className="action-edited">・編集済み</span>}
           </span>
         )}
@@ -45,7 +48,7 @@ const Item = ({
       )}
     </div>
     <button type="button" className="link-button" onClick={onSelect}>
-      段落を見る <Icon name="arrowRight" size={12} />
+      {selectLabel} <Icon name="arrowRight" size={12} />
     </button>
   </li>
 );
@@ -56,11 +59,14 @@ export const ActionList = ({
   done,
   onToggle,
   onSelect,
+  selectLabel = "段落を見る",
 }: {
   groups: ActionGroups;
   done: Set<string>;
-  onToggle: (paragraphId: string) => void;
-  onSelect: (paragraphId: string) => void;
+  onToggle: (id: string) => void;
+  onSelect: (id: string) => void;
+  /** 対象へ移動するボタンの文言（下線ごとの画面では「箇所を見る」） */
+  selectLabel?: string;
 }) => {
   const { beforeSend, afterSend } = groups;
   const remaining = remainingBeforeSend(groups, done);
@@ -80,11 +86,12 @@ export const ActionList = ({
     <ul className="action-list">
       {items.map((item) => (
         <Item
-          key={item.paragraphId}
+          key={item.id}
           item={item}
-          done={done.has(item.paragraphId)}
-          onToggle={() => onToggle(item.paragraphId)}
-          onSelect={() => onSelect(item.paragraphId)}
+          done={done.has(item.id)}
+          onToggle={() => onToggle(item.id)}
+          onSelect={() => onSelect(item.id)}
+          selectLabel={selectLabel}
         />
       ))}
     </ul>

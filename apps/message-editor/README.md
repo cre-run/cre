@@ -23,7 +23,13 @@ vp run @cre/message-editor#build
 前回の URL が出ることがあり、生成した URL（判定データを含む）が `node_modules/.vite/task-cache/` に残ります。
 また `vp run ... -- payload.json --base URL` の形では `--` 以降がすべてファイル名として扱われ、`--base` が効きません。
 
-受け取ったデータは `@cre/editor-payload`（`packages/editor-payload`）の `isPayload` で検証し、形式が合わないもの（必須の項目がない、
+判定データには 2 つの形があり、`version` で画面を切り替えます（変換はしません）。
+
+- `version: 1` — 段落ごとに判定する形（`ReplyReviewPayload`）。段落ごとの画面で表示し、本文を編集できる
+- `version: 2` — 本文の一部（下線）ごとに判定する形（`ReplyReviewPayloadV2`）。下線ごとの画面で表示し、読み取り専用。
+  根拠が足りない箇所は文章を作らず空欄（`gap`）にする。見本は `#sample=v2`、URL は `node scripts/encode.ts --sample v2`
+
+受け取ったデータは `@cre/editor-payload`（`packages/editor-payload`）の `isPayload`（v1）・`isPayloadV2`（v2）で検証し、形式が合わないもの（必須の項目がない、
 根拠の `url` が `http(s)` 以外、圧縮データが `MAX_ENCODED_LENGTH`（10 万文字）を超える、
 展開後が `MAX_DECODED_BYTES`（1 MB）を超える、など）は表示せず、
 見本データとエラーを表示します。`javascript:` などの URL はリンクになりません。

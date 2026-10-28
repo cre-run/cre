@@ -1047,3 +1047,160 @@ mark.claim.status-unverified {
     padding: 8px 16px;
   }
 }
+
+/* ===== 下線ごとの画面（判定データ version 2） ===== */
+:root {
+  --gap: #7a4f96;
+  --gap-bg: #f3ecf7;
+}
+
+.status-chip.status-gap {
+  background: var(--gap-bg);
+  color: var(--gap);
+}
+.status-label.status-gap {
+  color: var(--gap);
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* 段落は区切りの余白だけにし、選んでも段落全体には色を付けない（選んだ下線だけを強調する） */
+.reader-paragraph {
+  margin: 0 0 14px;
+  font-size: 15px;
+  line-height: 2.1;
+  white-space: pre-wrap;
+}
+
+/* 判定した本文の一部。状態ごとに線の色と種類を変え、色の区別がつきにくくても見分けられるようにする */
+mark.assertion {
+  padding: 1px 0;
+  border-radius: 2px;
+  background: transparent;
+  color: inherit;
+  text-decoration-line: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  cursor: pointer;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+mark.assertion.status-verified {
+  text-decoration-color: var(--verified);
+  text-decoration-thickness: 1.5px;
+}
+mark.assertion.status-conditional {
+  text-decoration-color: var(--conditional);
+  text-decoration-style: dotted;
+}
+mark.assertion.status-recheck {
+  text-decoration-color: var(--recheck);
+  text-decoration-style: wavy;
+  text-decoration-thickness: 1.5px;
+}
+
+mark.assertion:hover {
+  background: #f1f1ea;
+}
+
+/* 選んだ箇所だけを強調する（右パネルはこの箇所の根拠）。行をまたいでも読めるよう、枠ではなく背景と太い下線で示す */
+mark.assertion.is-focused {
+  text-decoration-thickness: 3px;
+}
+.gap.is-focused {
+  border-style: solid;
+  box-shadow: 0 0 0 2px var(--gap-bg);
+}
+mark.assertion.is-focused.status-verified {
+  background: var(--verified-bg);
+}
+mark.assertion.is-focused.status-conditional {
+  background: var(--conditional-bg);
+}
+mark.assertion.is-focused.status-recheck {
+  background: var(--recheck-bg);
+}
+
+mark.assertion:focus-visible,
+.gap:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* 下線のすぐ後ろの確認状況。本文より小さく、状態の色で示す（inline-block にして下線を引き継がない） */
+.assertion-label {
+  display: inline-block;
+  margin-left: 3px;
+  padding: 0 5px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.6;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+.assertion-label.status-verified {
+  padding: 0 3px;
+  color: var(--verified);
+}
+.assertion-label.status-conditional {
+  background: var(--conditional-bg);
+  color: var(--conditional);
+}
+.assertion-label.status-recheck {
+  background: var(--recheck-bg);
+  color: var(--recheck);
+}
+.assertion-label.status-gap {
+  margin: 0 6px 0 0;
+  background: var(--gap-bg);
+  color: var(--gap);
+}
+
+/* 根拠が足りず、文章を作っていない空欄。点線の枠で、書き起こす場所だと分かるようにする */
+.gap {
+  display: inline-block;
+  margin: 2px 4px;
+  padding: 0 10px;
+  border: 1.5px dashed var(--gap);
+  border-radius: 4px;
+  background: repeating-linear-gradient(-45deg, #fbf8fd, #fbf8fd 6px, #f6f0fa 6px, #f6f0fa 12px);
+  color: var(--gap);
+  font-size: 13px;
+  line-height: 2;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.gap-question {
+  font-weight: 600;
+}
+
+.gap-options {
+  margin: 14px 0 10px;
+}
+
+.gap-options ol {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  list-style: none;
+}
+
+.gap-option {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.gap-option-label {
+  margin-bottom: 4px;
+  font-weight: 600;
+}

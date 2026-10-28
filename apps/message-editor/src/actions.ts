@@ -1,11 +1,13 @@
 import type { NextActionTiming, ParagraphStatus, ReplyParagraph } from "@cre/editor-payload";
 
 export interface ActionItem {
-  paragraphId: string;
+  /** チェックと「見る」の対象の ID（段落ごとの画面では段落、下線ごとの画面では下線・空欄） */
+  id: string;
   /** 返信の何段落目か（1 始まり） */
   index: number;
   topic: string;
-  status: ParagraphStatus;
+  /** gap は下線ごとの画面の空欄（要記入） */
+  status: ParagraphStatus | "gap";
   /** 本文を書き換えた段落か（判定は編集前の文面に対するもの） */
   edited: boolean;
   action: string;
@@ -27,7 +29,7 @@ const DEFAULT_TIMING: Record<Exclude<ParagraphStatus, "verified">, NextActionTim
 };
 
 /** 欄の中の並び順。根拠なし → 再確認 → 条件あり → 書き換えた確認済み */
-const ORDER: ParagraphStatus[] = ["unverified", "recheck", "conditional", "verified"];
+const ORDER: ActionItem["status"][] = ["unverified", "recheck", "conditional", "verified"];
 
 const FALLBACK: Record<ParagraphStatus, string> = {
   verified: "",
@@ -51,7 +53,7 @@ export const collectActions = (
   const groups: ActionGroups = { beforeSend: [], afterSend: [] };
   paragraphs.forEach((p, i) => {
     const edited = editedIds.has(p.id);
-    const base = { paragraphId: p.id, index: i + 1, topic: p.topic, status: p.status, edited };
+    const base = { id: p.id, index: i + 1, topic: p.topic, status: p.status, edited };
     if (p.status === "verified") {
       if (edited) {
         groups.beforeSend.push({ ...base, action: EDITED_ACTION, owners: [] });
@@ -74,4 +76,4 @@ export const collectActions = (
 
 /** 送る前にやることのうち、まだチェックしていない件数 */
 export const remainingBeforeSend = (groups: ActionGroups, done: ReadonlySet<string>): number =>
-  groups.beforeSend.filter((item) => !done.has(item.paragraphId)).length;
+  groups.beforeSend.filter((item) => !done.has(item.id)).length;

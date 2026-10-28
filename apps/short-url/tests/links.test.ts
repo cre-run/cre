@@ -27,6 +27,18 @@ test("Message Editor が表示できる判定データだけを受け付ける",
   }
 });
 
+test("version 2（下線ごとの判定）の判定データも登録できる", () => {
+  const v2 = encodePayload({
+    ...payload,
+    version: 2,
+    reply: {
+      ...payload.reply,
+      paragraphs: [{ id: "r1", respondsTo: ["q1"], parts: [{ text: "返信" }] }],
+    },
+  });
+  expect(validateData(v2)).toBe(v2);
+});
+
 test("登録した行は UUID v4 の id を持ち、data をそのまま返す", async () => {
   const db = new FakeDb();
   const id = await insertLink(db, data, 1_760_000_000_123);

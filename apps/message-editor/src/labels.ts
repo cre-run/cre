@@ -12,6 +12,15 @@ export const STATUS: Record<ParagraphStatus, { label: string; icon: string }> = 
   unverified: { label: "根拠なし", icon: "!" },
 };
 
+/** 下線ごとの画面（判定データ version 2）の空欄。根拠が足りず、人が書き起こす箇所 */
+export const GAP = { label: "要記入", icon: "□" };
+
+/** 段落の確認状況と、空欄（要記入）のラベル */
+export const STATUS_OR_GAP: Record<ParagraphStatus | "gap", { label: string; icon: string }> = {
+  ...STATUS,
+  gap: GAP,
+};
+
 export const EVIDENCE_TYPE: Record<EvidenceType, string> = {
   terms: "利用規約",
   "internal-rule": "社内ルール",

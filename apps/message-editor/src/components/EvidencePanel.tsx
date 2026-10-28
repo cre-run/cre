@@ -14,7 +14,13 @@ const TYPE_ICON: Record<EvidenceType, IconName> = {
   "case-law": "scale",
 };
 
-const EvidenceItem = ({ evidence, generatedAt }: { evidence: Evidence; generatedAt: string }) => {
+export const EvidenceItem = ({
+  evidence,
+  generatedAt,
+}: {
+  evidence: Evidence;
+  generatedAt: string;
+}) => {
   const [open, setOpen] = useState(false);
   const fresh = evidence.checkedAt ? freshness(evidence.checkedAt, generatedAt) : undefined;
   return (
@@ -62,17 +68,30 @@ const EvidenceItem = ({ evidence, generatedAt }: { evidence: Evidence; generated
 
 type TabId = "summary" | "assessment" | "sources" | "questions";
 
+/**
+ * 右パネルに出す判定。段落ごとの画面では段落（ReplyParagraph）、
+ * 下線ごとの画面では下線（Assertion）を渡す。どちらも同じ項目を持つ
+ */
+export type PanelSubject = Pick<
+  ReplyParagraph,
+  "topic" | "status" | "summary" | "checks" | "evidence" | "method" | "conditions"
+> &
+  Partial<Pick<ReplyParagraph, "claims">>;
+
 export const EvidencePanel = ({
   paragraph,
   questions,
   generatedAt,
   edited = false,
+  label = "この段落の根拠",
 }: {
-  paragraph: ReplyParagraph | undefined;
+  paragraph: PanelSubject | undefined;
   questions: InquiryParagraph[];
   generatedAt: string;
   /** 本文が書き換えられているか（判定は編集前の文面に対するもの） */
   edited?: boolean;
+  /** パネルの名前（下線ごとの画面では「選んだ箇所の根拠」） */
+  label?: string;
 }) => {
   // 段落を選び直すとパネルごと作り直される（App の key）ので、いつも「要点」から始まる。
   // URL のデータが変わっても段落 ID が同じだと作り直されないので、段落のデータが変わったら「要点」に戻す
@@ -84,7 +103,7 @@ export const EvidencePanel = ({
   }
   if (!paragraph) {
     return (
-      <aside className="panel" aria-label="この段落の根拠">
+      <aside className="panel" aria-label={label}>
         <p className="muted">返信の段落を選んでください。</p>
       </aside>
     );
@@ -124,7 +143,7 @@ export const EvidencePanel = ({
   };
 
   return (
-    <aside className="panel" aria-label="この段落の根拠">
+    <aside className="panel" aria-label={label}>
       {/* タブを切り替えても、どの段落のどんな状態かは常に見えるようにする。説明はタブの中に置く */}
       <div className="panel-head">
         <h3 className="panel-topic">{paragraph.topic}</h3>

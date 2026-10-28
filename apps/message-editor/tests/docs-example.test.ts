@@ -5,6 +5,7 @@
  */
 import { expect, test } from "vite-plus/test";
 import { decodePayload } from "@cre/editor-payload";
+import { samplePayloadV2 } from "../src/sample-v2.ts";
 import { samplePayload } from "../src/sample.ts";
 import { guideExampleHashes } from "./guide-example.ts";
 
@@ -14,5 +15,14 @@ test("ガイドの URL の例は、見本データと同じ内容を表す", () 
   expect(hashes.length).toBeGreaterThanOrEqual(2);
   for (const encoded of hashes) {
     expect(decodePayload(encoded)).toEqual(samplePayload);
+  }
+});
+
+test("下線ごとの確認のガイドの URL の例は、version 2 の見本データと同じ内容を表す", () => {
+  // 落ちたら `node scripts/encode.ts --sample v2 --base https://editor.cre.run/` の出力で置き換える
+  const hashes = guideExampleHashes("assertions.mdx");
+  expect(hashes.length).toBeGreaterThanOrEqual(1);
+  for (const encoded of hashes) {
+    expect(decodePayload(encoded)).toEqual(samplePayloadV2);
   }
 });

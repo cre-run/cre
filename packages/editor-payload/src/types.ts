@@ -1,7 +1,15 @@
 /**
  * 画面描画に渡すデータ。初期は URL の `#d=` に pako で圧縮して載せる（バックエンドなし）。
  * 判定モデルの出力形式が固まるまでは、ここを唯一のスキーマとして扱う。
+ *
+ * このファイルの ReplyReviewPayload は version 1（段落ごとに判定する形）。
+ * 本文の一部ごとに判定する version 2 は types-v2.ts。2 つは別の画面で表示する。
  */
+import type { ReplyReviewPayloadV2 } from "./types-v2.ts";
+
+/** 画面が表示できる判定データ。version で見分ける */
+export type AnyReplyReviewPayload = ReplyReviewPayload | ReplyReviewPayloadV2;
+
 /** 作成モード。`standard` は慎重な完成版、`flash` は速さ優先の速報 */
 export type ReplyMode = "standard" | "flash";
 
