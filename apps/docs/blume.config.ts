@@ -18,6 +18,7 @@ export default defineConfig({
   redirects: [
     { from: "/features/message-editor", to: "/message-editor" },
     { from: "/features/message-editor-data-handling", to: "/message-editor/data-handling" },
+    { from: "/message-editor/assertions", to: "/message-editor" },
   ],
   theme: {
     accent: "#42D6A4",

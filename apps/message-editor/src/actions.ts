@@ -1,72 +1,69 @@
-import type { NextActionTiming, ParagraphStatus, ReplyParagraph } from "@cre/editor-payload";
+import type { AssertionStatus, NextActionTiming } from "@cre/editor-payload";
+import type { ItemStatus, ReplyItem } from "./reader.ts";
 
 export interface ActionItem {
-  /** チェックと「見る」の対象の ID（段落ごとの画面では段落、下線ごとの画面では下線・空欄） */
+  /** チェックと「箇所を見る」の対象（下線・空欄）の ID */
   id: string;
-  /** 返信の何段落目か（1 始まり） */
+  /** 箇所を含む段落が、返信の何段落目か（1 始まり） */
   index: number;
+  /** 下線の見出し、または空欄で決める必要があること */
   topic: string;
-  /** gap は下線ごとの画面の空欄（要記入） */
-  status: ParagraphStatus | "gap";
-  /** 本文を書き換えた段落か（判定は編集前の文面に対するもの） */
-  edited: boolean;
+  status: Exclude<ItemStatus, "verified">;
   action: string;
   owners: string[];
 }
 
 export interface ActionGroups {
-  /** 送る前に確認・修正すること（既定は再確認・根拠なし・書き換えた確認済み） */
+  /** 送る前に確認・書き起こすこと（要記入の空欄・再確認の下線） */
   beforeSend: ActionItem[];
-  /** 送った後にフォローすること（既定は条件あり：お客様の回答を待って案内するなど） */
+  /** 送った後にフォローすること（条件ありの下線：お客様の回答を待って案内するなど） */
   afterSend: ActionItem[];
 }
 
-/** nextActionTiming の指定がないときの欄 */
-const DEFAULT_TIMING: Record<Exclude<ParagraphStatus, "verified">, NextActionTiming> = {
-  unverified: "beforeSend",
+const DEFAULT_TIMING: Record<Exclude<AssertionStatus, "verified">, NextActionTiming> = {
   recheck: "beforeSend",
   conditional: "afterSend",
 };
 
-/** 欄の中の並び順。根拠なし → 再確認 → 条件あり → 書き換えた確認済み */
-const ORDER: ActionItem["status"][] = ["unverified", "recheck", "conditional", "verified"];
-
-const FALLBACK: Record<ParagraphStatus, string> = {
-  verified: "",
+const FALLBACK: Record<Exclude<AssertionStatus, "verified">, string> = {
   conditional: "条件に当てはまるかをお客様に確認する。",
   recheck: "根拠を確認し直す。",
-  unverified: "根拠を探して確認する。",
 };
 
-/** 書き換えた確認済みの段落で取るアクション */
-export const EDITED_ACTION = "編集した内容を確かめる。";
+/** 欄の中の並び順。要記入 → 再確認 → 条件あり */
+const ORDER: ActionItem["status"][] = ["gap", "recheck", "conditional"];
 
 /**
- * 段落から、取るべきアクションを「送る前／送った後」に分けて集める。
- * 確認済みの段落は、本文を書き換えたとき（editedIds に含まれるとき）だけ送る前に入れる。
- * それ以外の欄は段落の nextActionTiming を優先し、なければ status で決める。
+ * 下線と空欄から、取るべきアクションを「送る前／送った後」に分けて集める。
+ * 空欄はいつも送る前。下線は nextActionTiming を優先し、なければ確認状況で決める。確認済みの下線は出さない
  */
-export const collectActions = (
-  paragraphs: ReplyParagraph[],
-  editedIds: ReadonlySet<string> = new Set(),
-): ActionGroups => {
+export const collectActions = (items: ReplyItem[]): ActionGroups => {
   const groups: ActionGroups = { beforeSend: [], afterSend: [] };
-  paragraphs.forEach((p, i) => {
-    const edited = editedIds.has(p.id);
-    const base = { id: p.id, index: i + 1, topic: p.topic, status: p.status, edited };
-    if (p.status === "verified") {
-      if (edited) {
-        groups.beforeSend.push({ ...base, action: EDITED_ACTION, owners: [] });
-      }
-      return;
+  for (const item of items) {
+    const base = { id: item.id, index: item.paragraphIndex };
+    if (item.kind === "gap") {
+      groups.beforeSend.push({
+        ...base,
+        status: "gap",
+        topic: item.gap.question,
+        action: item.gap.guidance ?? "確かめて、空欄を書き起こす。",
+        owners: item.gap.owners ?? [],
+      });
+      continue;
     }
-    groups[p.nextActionTiming ?? DEFAULT_TIMING[p.status]].push({
+    const { assertion } = item;
+    if (assertion.status === "verified") {
+      continue;
+    }
+    groups[assertion.nextActionTiming ?? DEFAULT_TIMING[assertion.status]].push({
       ...base,
-      action: p.nextAction ?? FALLBACK[p.status],
-      owners: p.owners ?? [],
+      status: assertion.status,
+      topic: assertion.topic,
+      action: assertion.nextAction ?? FALLBACK[assertion.status],
+      owners: assertion.owners ?? [],
     });
-  });
-  // 状態の順に並べる（同じ状態の中は段落の順。sort は安定）
+  }
+  // 状態の順に並べる（同じ状態の中は本文の順。sort は安定）
   const byStatus = (a: ActionItem, b: ActionItem) =>
     ORDER.indexOf(a.status) - ORDER.indexOf(b.status);
   groups.beforeSend.sort(byStatus);

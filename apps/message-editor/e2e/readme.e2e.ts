@@ -11,7 +11,7 @@ import { expect, test } from "@playwright/test";
 const EDITOR_WIDTH = 1440;
 const SCALE = 0.8;
 
-test("README の画像: 再確認が必要な段落で「評価」タブを開いたところ", async ({ page, baseURL }) => {
+test("README の画像: 再確認が必要な下線で「評価」タブを開いたところ", async ({ page, baseURL }) => {
   const viewport = page.viewportSize();
   if (!viewport || !baseURL) throw new Error("viewport と baseURL が必要です");
   const inset = 64;
@@ -93,7 +93,7 @@ test("README の画像: 再確認が必要な段落で「評価」タブを開�
     <div class="stage">
       <div class="window">
         <div class="chrome"><i></i><i></i><i></i><span class="url">editor.cre.run</span></div>
-        <div class="viewport"><iframe src="${baseURL}/#p=r3" title="Message Editor"></iframe></div>
+        <div class="viewport"><iframe src="${baseURL}/#f=a4" title="Message Editor"></iframe></div>
       </div>
     </div>
   </body>
@@ -101,9 +101,9 @@ test("README の画像: 再確認が必要な段落で「評価」タブを開�
 
   const editor = page.frameLocator("iframe");
   const panel = editor.getByRole("complementary");
-  await expect(panel.getByRole("heading", { level: 3 })).toHaveText("データの保存期間と削除");
+  await expect(panel.getByRole("heading", { level: 3 })).toHaveText("個別契約があるときの扱い");
   await panel.getByRole("tab", { name: /評価/u }).click();
-  await expect(panel.getByText("実装との一致")).toBeVisible();
+  await expect(panel.getByText("契約による違い")).toBeVisible();
   // 枠の外（角丸の外側）は透明にして、GitHub のライト・ダークどちらの背景にもなじませる
   await expect(page).toHaveScreenshot("readme-hero.png", { omitBackground: true });
 });

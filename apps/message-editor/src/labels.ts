@@ -1,24 +1,16 @@
 import type {
+  AssertionStatus,
   CheckResult,
   EvidenceStance,
   EvidenceType,
-  ParagraphStatus,
 } from "@cre/editor-payload";
 
-export const STATUS: Record<ParagraphStatus, { label: string; icon: string }> = {
+/** 下線の確認状況と、空欄（要記入: 根拠が足りず、人が書き起こす箇所）のラベル */
+export const STATUS: Record<AssertionStatus | "gap", { label: string; icon: string }> = {
   verified: { label: "確認済み", icon: "✓" },
   conditional: { label: "条件あり", icon: "◐" },
   recheck: { label: "再確認", icon: "↻" },
-  unverified: { label: "根拠なし", icon: "!" },
-};
-
-/** 下線ごとの画面（判定データ version 2）の空欄。根拠が足りず、人が書き起こす箇所 */
-export const GAP = { label: "要記入", icon: "□" };
-
-/** 段落の確認状況と、空欄（要記入）のラベル */
-export const STATUS_OR_GAP: Record<ParagraphStatus | "gap", { label: string; icon: string }> = {
-  ...STATUS,
-  gap: GAP,
+  gap: { label: "要記入", icon: "□" },
 };
 
 export const EVIDENCE_TYPE: Record<EvidenceType, string> = {

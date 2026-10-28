@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { CHECK_RESULT, EVIDENCE_TYPE, STANCE, STATUS, formatDate, freshness } from "../labels.ts";
-import type { Evidence, EvidenceType, InquiryParagraph, ReplyParagraph } from "@cre/editor-payload";
-import { hasContradiction, stanceSummary } from "../paragraphs.ts";
+import type { Assertion, Evidence, EvidenceType, InquiryParagraph } from "@cre/editor-payload";
+import { hasContradiction, stanceSummary } from "../evidence.ts";
 import { Icon, type IconName } from "./Icon.tsx";
 
 const TYPE_ICON: Record<EvidenceType, IconName> = {
@@ -68,68 +68,53 @@ export const EvidenceItem = ({
 
 type TabId = "summary" | "assessment" | "sources" | "questions";
 
-/**
- * 右パネルに出す判定。段落ごとの画面では段落（ReplyParagraph）、
- * 下線ごとの画面では下線（Assertion）を渡す。どちらも同じ項目を持つ
- */
-export type PanelSubject = Pick<
-  ReplyParagraph,
-  "topic" | "status" | "summary" | "checks" | "evidence" | "method" | "conditions"
-> &
-  Partial<Pick<ReplyParagraph, "claims">>;
-
+/** 選んだ下線の根拠。空欄を選んだときは GapPanel を出す */
 export const EvidencePanel = ({
-  paragraph,
+  assertion,
   questions,
   generatedAt,
-  edited = false,
-  label = "この段落の根拠",
 }: {
-  paragraph: PanelSubject | undefined;
+  assertion: Assertion | undefined;
+  /** 下線を含む段落が答えている、お客様の質問 */
   questions: InquiryParagraph[];
   generatedAt: string;
-  /** 本文が書き換えられているか（判定は編集前の文面に対するもの） */
-  edited?: boolean;
-  /** パネルの名前（下線ごとの画面では「選んだ箇所の根拠」） */
-  label?: string;
 }) => {
-  // 段落を選び直すとパネルごと作り直される（App の key）ので、いつも「要点」から始まる。
-  // URL のデータが変わっても段落 ID が同じだと作り直されないので、段落のデータが変わったら「要点」に戻す
+  // 箇所を選び直すとパネルごと作り直される（App の key）ので、いつも「要点」から始まる。
+  // URL のデータが変わっても ID が同じだと作り直されないので、下線のデータが変わったら「要点」に戻す
   const [tab, setTab] = useState<TabId>("summary");
-  const [shownParagraph, setShownParagraph] = useState(paragraph);
-  if (shownParagraph !== paragraph) {
-    setShownParagraph(paragraph);
+  const [shown, setShown] = useState(assertion);
+  if (shown !== assertion) {
+    setShown(assertion);
     setTab("summary");
   }
-  if (!paragraph) {
+  if (!assertion) {
     return (
-      <aside className="panel" aria-label={label}>
-        <p className="muted">返信の段落を選んでください。</p>
+      <aside className="panel" aria-label="選んだ箇所の根拠">
+        <p className="muted">返信の下線か空欄を選んでください。</p>
       </aside>
     );
   }
-  const ok = paragraph.checks.filter((check) => check.result === "ok").length;
-  const flagged = (paragraph.claims ?? []).filter((claim) => claim.status !== "verified");
+  const ok = assertion.checks.filter((check) => check.result === "ok").length;
   // 中身が無いタブは出さない（評価が空のときに「問題なし」と誤って見せないためでもある）
   const tabs: { id: TabId; label: string; count?: string; alert?: boolean }[] = [
     { id: "summary", label: "要点" },
-    ...(paragraph.checks.length > 0
+    ...(assertion.checks.length > 0
       ? [
           {
             id: "assessment" as const,
             label: "評価",
             // 「観点のうち OK の数 / 観点の数」。OK 以外があるときは赤くする
-            count: `${ok}/${paragraph.checks.length}`,
-            alert: ok < paragraph.checks.length,
+            count: `${ok}/${assertion.checks.length}`,
+            alert: ok < assertion.checks.length,
           },
         ]
       : []),
     {
       id: "sources",
       label: "出典",
-      count: String(paragraph.evidence.length),
+      count: String(assertion.evidence.length),
       // 主張と食い違う出典があるときは赤くする（数だけでは見落とすため）
-      alert: hasContradiction(paragraph.evidence),
+      alert: hasContradiction(assertion.evidence),
     },
     ...(questions.length > 0
       ? [{ id: "questions" as const, label: "質問", count: String(questions.length) }]
@@ -143,23 +128,16 @@ export const EvidencePanel = ({
   };
 
   return (
-    <aside className="panel" aria-label={label}>
-      {/* タブを切り替えても、どの段落のどんな状態かは常に見えるようにする。説明はタブの中に置く */}
+    <aside className="panel" aria-label="選んだ箇所の根拠">
+      {/* タブを切り替えても、どの下線のどんな状態かは常に見えるようにする。説明はタブの中に置く */}
       <div className="panel-head">
-        <h3 className="panel-topic">{paragraph.topic}</h3>
-        <span className={`status-chip status-${paragraph.status}`}>
-          {STATUS[paragraph.status].icon} {STATUS[paragraph.status].label}
+        <h3 className="panel-topic">{assertion.topic}</h3>
+        <span className={`status-chip status-${assertion.status}`}>
+          {STATUS[assertion.status].icon} {STATUS[assertion.status].label}
         </span>
       </div>
 
-      {edited && (
-        <p className="panel-edited">
-          <span aria-hidden="true">✎</span>
-          編集済み。判定は編集前の文面に対するものです
-        </p>
-      )}
-
-      <div className="tabs" role="tablist" aria-label="段落の確認の表示">
+      <div className="tabs" role="tablist" aria-label="下線の確認の表示">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -193,39 +171,19 @@ export const EvidencePanel = ({
       >
         {tab === "summary" && (
           <>
-            <p>{paragraph.summary}</p>
-            {/* 確認済みの文は左の本文でも印を付けないので、ここでも確かめが必要な文だけを理由と並べる */}
-            {flagged.length > 0 && (
-              <div className="claims">
-                <p className="claims-label">確かめが必要な文</p>
-                <ul>
-                  {flagged.map((claim) => (
-                    <li key={claim.text} className={`claim-item status-${claim.status}`}>
-                      <span className={`status-label status-${claim.status}`}>
-                        <span aria-hidden="true">{STATUS[claim.status].icon}</span>{" "}
-                        {STATUS[claim.status].label}
-                      </span>
-                      <span>
-                        {claim.text}
-                        {claim.note && <span className="claim-note">{claim.note}</span>}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {(paragraph.method || paragraph.conditions) && (
+            <p>{assertion.summary}</p>
+            {(assertion.method || assertion.conditions) && (
               <dl className="panel-facts">
-                {paragraph.method && (
+                {assertion.method && (
                   <div>
                     <dt>確かめ方</dt>
-                    <dd>{paragraph.method}</dd>
+                    <dd>{assertion.method}</dd>
                   </div>
                 )}
-                {paragraph.conditions && (
+                {assertion.conditions && (
                   <div>
                     <dt>この説明が成り立つ条件</dt>
-                    <dd>{paragraph.conditions}</dd>
+                    <dd>{assertion.conditions}</dd>
                   </div>
                 )}
               </dl>
@@ -236,7 +194,7 @@ export const EvidencePanel = ({
 
         {tab === "assessment" && (
           <ul className="checks">
-            {paragraph.checks.map((check) => (
+            {assertion.checks.map((check) => (
               <li key={check.label} className={`check result-${check.result}`}>
                 <span className="check-result">{CHECK_RESULT[check.result]}</span>
                 <span>
@@ -250,15 +208,15 @@ export const EvidencePanel = ({
 
         {tab === "sources" && (
           <>
-            {paragraph.evidence.length > 0 && (
+            {assertion.evidence.length > 0 && (
               <p
-                className={`sources-summary ${hasContradiction(paragraph.evidence) ? "has-contradiction" : ""}`}
+                className={`sources-summary ${hasContradiction(assertion.evidence) ? "has-contradiction" : ""}`}
               >
-                {stanceSummary(paragraph.evidence)}
+                {stanceSummary(assertion.evidence)}
               </p>
             )}
             <ul className="evidence-list">
-              {paragraph.evidence.map((evidence) => (
+              {assertion.evidence.map((evidence) => (
                 <EvidenceItem key={evidence.title} evidence={evidence} generatedAt={generatedAt} />
               ))}
             </ul>

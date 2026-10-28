@@ -1,16 +1,8 @@
 /**
- * 下線ごとの画面（判定データ version 2）のロジック。
- * 下線（assertion）と空欄（gap）を「箇所」として扱い、確認状況・改善アクション・送る文面を作る。
+ * 返信の本文のロジック。下線（assertion）と空欄（gap）を「箇所」として扱い、
+ * 確認状況の内訳・送る文面・最初に選ぶ箇所を決める。
  */
-import type {
-  Assertion,
-  AssertionStatus,
-  Gap,
-  NextActionTiming,
-  ReplyParagraphV2,
-  ReplyV2,
-} from "@cre/editor-payload";
-import type { ActionGroups, ActionItem } from "./actions.ts";
+import type { Assertion, AssertionStatus, Gap, Reply, ReplyParagraph } from "@cre/editor-payload";
 
 /** 箇所の状態。下線の確認状況か、空欄（gap） */
 export type ItemStatus = AssertionStatus | "gap";
@@ -29,7 +21,7 @@ export type ReplyItem = {
 );
 
 /** 返信の中の下線と空欄を、本文の順に並べる */
-export const replyItems = (reply: ReplyV2): ReplyItem[] =>
+export const replyItems = (reply: Reply): ReplyItem[] =>
   reply.paragraphs.flatMap((paragraph, i) =>
     paragraph.parts.flatMap((part): ReplyItem[] => {
       const base = { paragraphId: paragraph.id, paragraphIndex: i + 1 };
@@ -57,7 +49,7 @@ export const itemStatusCounts = (items: ReplyItem[]): { status: ItemStatus; coun
 export const gapMarker = (gap: Gap): string => `［要記入：${gap.question}］`;
 
 /** 段落の送る文面。下線は文章だけにし、空欄は「［要記入：…］」として残す */
-export const paragraphText = (paragraph: ReplyParagraphV2): string =>
+export const paragraphText = (paragraph: ReplyParagraph): string =>
   paragraph.parts
     .map((part) =>
       "text" in part ? part.text : "assertion" in part ? part.assertion.text : gapMarker(part.gap),
@@ -67,57 +59,6 @@ export const paragraphText = (paragraph: ReplyParagraphV2): string =>
 /** 空欄の数（送る前に書き起こす必要がある） */
 export const gapCount = (items: ReplyItem[]): number =>
   items.filter((item) => item.kind === "gap").length;
-
-const DEFAULT_TIMING: Record<Exclude<AssertionStatus, "verified">, NextActionTiming> = {
-  recheck: "beforeSend",
-  conditional: "afterSend",
-};
-
-const FALLBACK: Record<Exclude<AssertionStatus, "verified">, string> = {
-  conditional: "条件に当てはまるかをお客様に確認する。",
-  recheck: "根拠を確認し直す。",
-};
-
-/** 欄の中の並び順。要記入 → 再確認 → 条件あり */
-const ORDER: ActionItem["status"][] = ["gap", "recheck", "conditional"];
-
-/**
- * 下線と空欄から、取るべきアクションを「送る前／送った後」に分けて集める。
- * 空欄はいつも送る前。下線は nextActionTiming を優先し、なければ確認状況で決める。確認済みの下線は出さない
- */
-export const collectItemActions = (items: ReplyItem[]): ActionGroups => {
-  const groups: ActionGroups = { beforeSend: [], afterSend: [] };
-  for (const item of items) {
-    const base = { id: item.id, index: item.paragraphIndex, edited: false };
-    if (item.kind === "gap") {
-      groups.beforeSend.push({
-        ...base,
-        status: "gap",
-        topic: item.gap.question,
-        action: item.gap.guidance ?? "確かめて、空欄を書き起こす。",
-        owners: item.gap.owners ?? [],
-      });
-      continue;
-    }
-    const { assertion } = item;
-    if (assertion.status === "verified") {
-      continue;
-    }
-    groups[assertion.nextActionTiming ?? DEFAULT_TIMING[assertion.status]].push({
-      ...base,
-      status: assertion.status,
-      topic: assertion.topic,
-      action: assertion.nextAction ?? FALLBACK[assertion.status],
-      owners: assertion.owners ?? [],
-    });
-  }
-  // 状態の順に並べる（同じ状態の中は本文の順。sort は安定）
-  const byStatus = (a: ActionItem, b: ActionItem) =>
-    ORDER.indexOf(a.status) - ORDER.indexOf(b.status);
-  groups.beforeSend.sort(byStatus);
-  groups.afterSend.sort(byStatus);
-  return groups;
-};
 
 /**
  * 最初に選ぶ箇所。`#f=<ID>` で指定があればそれ（モック画像の撮影用）、
@@ -129,3 +70,17 @@ export const initialFocus = (items: ReplyItem[], requested: string | null): stri
     items.find((item) => item.status !== "verified") ??
     items[0]
   )?.id;
+
+/**
+ * 条件に合う箇所のうち、今選んでいる箇所の次のもの（最後まで行ったら先頭に戻る）。
+ * 今選んでいる箇所が条件に合わなければ、先頭から数えて最初のもの。
+ */
+export const nextWith = <T extends { id: string }>(
+  items: T[],
+  matches: (item: T) => boolean,
+  currentId: string | undefined,
+): T | undefined => {
+  const at = items.findIndex((item) => item.id === currentId);
+  const ordered = [...items.slice(at + 1), ...items.slice(0, at + 1)];
+  return ordered.find(matches);
+};

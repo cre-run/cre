@@ -1,20 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
+import { ActionList } from "./components/ActionList.tsx";
 import { Chrome, RemainingButton } from "./components/Chrome.tsx";
 import { EvidencePanel } from "./components/EvidencePanel.tsx";
+import { GapPanel } from "./components/GapPanel.tsx";
 import { Icon } from "./components/Icon.tsx";
 import { InquiryCard } from "./components/InquiryCard.tsx";
 import { PreviewDialog } from "./components/PreviewDialog.tsx";
-import { ReplyEditor } from "./components/ReplyEditor.tsx";
-import { ReaderScreen } from "./ReaderScreen.tsx";
+import { ReplyReader } from "./components/ReplyReader.tsx";
 import type { ReplyReviewPayload } from "@cre/editor-payload";
 import { collectActions, remainingBeforeSend } from "./actions.ts";
-import { isEdited } from "./paragraphs.ts";
 import { hashParam, isFlash, load, type Loaded } from "./load.ts";
+import { gapCount, initialFocus, paragraphText, replyItems } from "./reader.ts";
 
-/**
- * 判定データの version で画面を切り替える。
- * version 1 は段落ごとの画面（編集できる）、version 2 は下線ごとの画面（読み取り専用）。
- */
 export const App = () => {
   const [hash, setHash] = useState(() => window.location.hash);
   useEffect(() => {
@@ -24,24 +21,14 @@ export const App = () => {
   }, []);
 
   const loaded = useMemo(() => load(hash), [hash]);
-  const { payload } = loaded;
-  return payload.version === 2 ? (
-    // 箇所の選択などは URL のデータごとに作り直す
-    <ReaderScreen key={hash} hash={hash} loaded={loaded} payload={payload} />
-  ) : (
-    <EditorScreen hash={hash} loaded={loaded} payload={payload} />
-  );
+  return <Screen key={hash} hash={hash} loaded={loaded} payload={loaded.payload} />;
 };
 
-/** `#...&p=r3` で最初に選択する段落を指定できる（モック画像の撮影用） */
-const initialSelection = (hash: string, payload: ReplyReviewPayload): string | undefined => {
-  const requested = hashParam(hash, "p");
-  const paragraphs = payload.reply.paragraphs;
-  return (paragraphs.find((p) => p.id === requested) ?? paragraphs[0])?.id;
-};
-
-/** 段落ごとの画面（判定データ version 1） */
-const EditorScreen = ({
+/**
+ * 返信の画面。本文は読み取り専用で、下線・空欄を選ぶと、右側にその箇所の根拠を表示する。
+ * 箇所の選択やチェックは URL のデータごとに作り直す（App の key）
+ */
+const Screen = ({
   hash,
   loaded,
   payload,
@@ -51,16 +38,10 @@ const EditorScreen = ({
   payload: ReplyReviewPayload;
 }) => {
   const { inquiry, reply } = payload;
-
-  const [selectedId, setSelectedId] = useState(() => initialSelection(hash, payload));
-  const [texts, setTexts] = useState<Record<string, string>>({});
+  const items = replyItems(reply);
+  const [focusedId, setFocusedId] = useState(() => initialFocus(items, hashParam(hash, "f")));
   const [previewOpen, setPreviewOpen] = useState(false);
   const [done, setDone] = useState<Set<string>>(() => new Set());
-  useEffect(() => {
-    setSelectedId(initialSelection(hash, payload));
-    setTexts({});
-    setDone(new Set());
-  }, [hash, payload]);
   const toggleDone = (id: string) =>
     setDone((prev) => {
       const next = new Set(prev);
@@ -72,26 +53,29 @@ const EditorScreen = ({
       return next;
     });
 
-  const editedIds = new Set(
-    reply.paragraphs.filter((p) => isEdited(p, texts[p.id])).map((p) => p.id),
-  );
-  const groups = collectActions(reply.paragraphs, editedIds);
+  const groups = collectActions(items);
   const remaining = remainingBeforeSend(groups, done);
-  const selected = reply.paragraphs.find((p) => p.id === selectedId);
-  const questions = inquiry.paragraphs.filter((q) => selected?.respondsTo.includes(q.id));
+  const focused = items.find((item) => item.id === focusedId);
+  const paragraph = reply.paragraphs.find((p) => p.id === focused?.paragraphId);
+  const questions = inquiry.paragraphs.filter((q) => paragraph?.respondsTo.includes(q.id));
+
+  /** 箇所を選び、本文の中のその箇所が見えるようにする */
+  const focus = (id: string) => {
+    setFocusedId(id);
+    document.getElementById(`item-${id}`)?.scrollIntoView({ block: "nearest" });
+  };
 
   return (
     <Chrome
       flash={isFlash(hash, loaded)}
       subject={inquiry.subject}
-      lead="いつものメールを書くように。気になる段落の根拠を、すぐそばで。"
+      lead="確かめた部分に下線を。下線ごとの根拠を、すぐそばで。"
       error={loaded.kind === "error" ? loaded.message : undefined}
       isData={loaded.kind === "data"}
       model={payload.model}
       generatedAt={payload.generatedAt}
       actions={
         <>
-          {/* 送る前にやることは返信の一番下にあるので、残りの件数を上にも出し、押すとそこへ移動する */}
           {groups.beforeSend.length > 0 && <RemainingButton remaining={remaining} />}
           <button type="button" className="primary" onClick={() => setPreviewOpen(true)}>
             返信プレビュー <Icon name="arrowRight" />
@@ -102,8 +86,9 @@ const EditorScreen = ({
         previewOpen && (
           <PreviewDialog
             reply={reply}
-            paragraphs={reply.paragraphs.map((p) => texts[p.id] ?? p.text)}
+            paragraphs={reply.paragraphs.map(paragraphText)}
             remaining={remaining}
+            gaps={gapCount(items)}
             onClose={() => setPreviewOpen(false)}
           />
         )
@@ -112,30 +97,26 @@ const EditorScreen = ({
       <div className="layout">
         <main className="main">
           <InquiryCard inquiry={inquiry} />
-          <ReplyEditor
+          <ReplyReader
             reply={reply}
-            texts={texts}
-            onEdit={(id, text) => setTexts((prev) => ({ ...prev, [id]: text }))}
-            selectedId={selectedId}
-            onSelect={setSelectedId}
+            items={items}
+            focusedId={focusedId}
+            onFocus={focus}
             isSample={loaded.kind !== "data"}
-            done={done}
-            onToggleDone={toggleDone}
-            groups={groups}
-            editedIds={editedIds}
-          />
-          <p className="muted small keep-note">
-            <Icon name="clock" size={12} />
-            編集内容はこの画面を開いている間のみ保持されます。
-          </p>
+          >
+            <ActionList groups={groups} done={done} onToggle={toggleDone} onSelect={focus} />
+          </ReplyReader>
         </main>
-        <EvidencePanel
-          key={selected?.id}
-          paragraph={selected}
-          questions={questions}
-          generatedAt={payload.generatedAt}
-          edited={selected ? editedIds.has(selected.id) : false}
-        />
+        {focused?.kind === "gap" ? (
+          <GapPanel key={focused.id} gap={focused.gap} generatedAt={payload.generatedAt} />
+        ) : (
+          <EvidencePanel
+            key={focused?.id}
+            assertion={focused?.assertion}
+            questions={questions}
+            generatedAt={payload.generatedAt}
+          />
+        )}
       </div>
     </Chrome>
   );

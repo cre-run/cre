@@ -1,14 +1,15 @@
 # @cre/message-editor
 
-Message Editor のモック（SPA）です。返信の下書きを段落ごとに編集しながら、
-各段落の確認状況（確認済み・条件あり・再確認・根拠なし）と、根拠（種類・立場・確認日時の鮮度）を表示します。
+Message Editor のモック（SPA）です。返信の下書きのうち判定した部分に下線を引き、
+下線ごとの確認状況（確認済み・条件あり・再確認）と、根拠（種類・立場・確認日時の鮮度）を表示します。
+根拠が足りない箇所は文章を作らず、人が書き起こす空欄（要記入）にします。本文は読み取り専用です。
 
 ドキュメント: `apps/docs/docs/message-editor/`（`index.mdx` がガイド、`data-handling.mdx` がデータの取り扱い。どちらも `preview`）
 
 ## データの渡し方
 
 バックエンドはなく、画面に渡すデータ（`@cre/editor-payload` の `ReplyReviewPayload`）を JSON にして
-pako で圧縮し、base64url で URL の `#d=` に載せます。`#...&p=r3` で最初に選ぶ段落を指定できます。
+pako で圧縮し、base64url で URL の `#d=` に載せます。`#...&f=a4` で最初に選ぶ下線・空欄を指定できます。
 データがないときは `src/sample.ts` の見本（架空のデータ）を表示します。
 
 ```bash
@@ -23,13 +24,10 @@ vp run @cre/message-editor#build
 前回の URL が出ることがあり、生成した URL（判定データを含む）が `node_modules/.vite/task-cache/` に残ります。
 また `vp run ... -- payload.json --base URL` の形では `--` 以降がすべてファイル名として扱われ、`--base` が効きません。
 
-判定データには 2 つの形があり、`version` で画面を切り替えます（変換はしません）。
+判定データは `version: 2` の形だけを受け付けます。段落の本文 `parts` に、文章（`text`）・判定した一部（`assertion`。画面では下線）・
+人が書く必要のある箇所（`gap`。画面では空欄）を並べます。段落ごとに判定する `version: 1` の URL を開くと、作り直しを案内するエラーを表示します。
 
-- `version: 1` — 段落ごとに判定する形（`ReplyReviewPayload`）。段落ごとの画面で表示し、本文を編集できる
-- `version: 2` — 本文の一部（下線）ごとに判定する形（`ReplyReviewPayloadV2`）。下線ごとの画面で表示し、読み取り専用。
-  根拠が足りない箇所は文章を作らず空欄（`gap`）にする。見本は `#sample=v2`、URL は `node scripts/encode.ts --sample v2`
-
-受け取ったデータは `@cre/editor-payload`（`packages/editor-payload`）の `isPayload`（v1）・`isPayloadV2`（v2）で検証し、形式が合わないもの（必須の項目がない、
+受け取ったデータは `@cre/editor-payload`（`packages/editor-payload`）の `parsePayload` で検証し、形式が合わないもの（必須の項目がない、
 根拠の `url` が `http(s)` 以外、圧縮データが `MAX_ENCODED_LENGTH`（10 万文字）を超える、
 展開後が `MAX_DECODED_BYTES`（1 MB）を超える、など）は表示せず、
 見本データとエラーを表示します。`javascript:` などの URL はリンクになりません。

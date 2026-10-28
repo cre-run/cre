@@ -1,15 +1,9 @@
-import {
-  decodePayload,
-  readHash,
-  type AnyReplyReviewPayload,
-  type ReplyReviewPayload,
-} from "@cre/editor-payload";
+import { decodePayload, readHash, type ReplyReviewPayload } from "@cre/editor-payload";
 import { samplePayload } from "./sample.ts";
-import { samplePayloadV2 } from "./sample-v2.ts";
 
 export type Loaded =
-  | { kind: "data"; payload: AnyReplyReviewPayload }
-  | { kind: "sample"; payload: AnyReplyReviewPayload }
+  | { kind: "data"; payload: ReplyReviewPayload }
+  | { kind: "sample"; payload: ReplyReviewPayload }
   | { kind: "error"; message: string; payload: ReplyReviewPayload };
 
 export const hashParam = (hash: string, key: string): string | null =>
@@ -18,9 +12,7 @@ export const hashParam = (hash: string, key: string): string | null =>
 export const load = (hash: string): Loaded => {
   const encoded = readHash(hash);
   if (!encoded) {
-    // `#sample=v2` で下線ごとの画面（version 2）の見本を表示する
-    const sample = hashParam(hash, "sample") === "v2" ? samplePayloadV2 : samplePayload;
-    return { kind: "sample", payload: sample };
+    return { kind: "sample", payload: samplePayload };
   }
   try {
     return { kind: "data", payload: decodePayload(encoded) };

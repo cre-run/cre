@@ -23,6 +23,7 @@ import {
   isPayload,
 } from "@cre/editor-payload";
 import { samplePayload } from "../src/sample.ts";
+import { withAssertion } from "./sample-edit.ts";
 
 const APP = fileURLToPath(new URL("..", import.meta.url));
 const README = join(APP, "README.md");
@@ -95,8 +96,11 @@ test("ドキュメントの encode の例は vp run を使わない（出力を�
 });
 
 test("形式の違うデータは読み込まない", () => {
-  const broken = encodePayload({ ...samplePayload, version: 2 as 1 });
+  const broken = encodePayload({ ...samplePayload, version: 3 as 2 });
   expect(() => decodePayload(broken)).toThrow();
+  // 段落ごとに判定する version 1 のデータにも対応しない（作り直しを案内する）
+  const v1 = encodePayload({ ...samplePayload, version: 1 as 2 });
+  expect(() => decodePayload(v1)).toThrow(/version 1/u);
   expect(() => decodePayload("not-a-payload")).toThrow();
 });
 
@@ -104,29 +108,24 @@ test("入れ子の必須項目や値が不正なデータは読み込まない",
   const { inquiry, reply } = samplePayload;
   const [first, ...rest] = reply.paragraphs;
   const withoutFrom = { ...samplePayload, inquiry: { ...inquiry, from: undefined } };
-  const withoutEvidence = {
-    ...samplePayload,
-    reply: { ...reply, paragraphs: [{ ...first, evidence: undefined }, ...rest] },
-  };
-  const unknownStatus = {
-    ...samplePayload,
-    reply: { ...reply, paragraphs: [{ ...first, status: "done" }, ...rest] },
-  };
+  const withoutEvidence = withAssertion(samplePayload, "a1", (a) => ({
+    ...a,
+    evidence: undefined,
+  }));
+  const unknownStatus = withAssertion(samplePayload, "a1", (a) => ({ ...a, status: "done" }));
   const invalidDate = { ...samplePayload, generatedAt: "x" };
-  const invalidCheckedAt = {
-    ...samplePayload,
-    reply: {
-      ...reply,
-      paragraphs: [{ ...first, evidence: [{ ...first.evidence[0], checkedAt: "昨日" }] }, ...rest],
-    },
-  };
+  const invalidCheckedAt = withAssertion(samplePayload, "a1", (a) => ({
+    ...a,
+    evidence: [{ ...a.evidence[0], checkedAt: "昨日" }],
+  }));
   const duplicateIds = {
     ...samplePayload,
-    reply: { ...reply, paragraphs: [first, { ...rest[0], id: first.id }, ...rest.slice(1)] },
+    reply: { ...reply, paragraphs: [first, { ...rest[0]!, id: first!.id }, ...rest.slice(1)] },
   };
+  const duplicateItemIds = withAssertion(samplePayload, "a1", (a) => ({ ...a, id: "a2" }));
   const danglingRef = {
     ...samplePayload,
-    reply: { ...reply, paragraphs: [{ ...first, respondsTo: ["q9"] }, ...rest] },
+    reply: { ...reply, paragraphs: [{ ...first!, respondsTo: ["q9"] }, ...rest] },
   };
   const duplicateInquiryIds = {
     ...samplePayload,
@@ -144,6 +143,7 @@ test("入れ子の必須項目や値が不正なデータは読み込まない",
     invalidDate,
     invalidCheckedAt,
     duplicateIds,
+    duplicateItemIds,
   ]) {
     expect(isPayload(data)).toBe(false);
     expect(() => decodePayload(encodePayload(data as typeof samplePayload))).toThrow();
@@ -152,15 +152,8 @@ test("入れ子の必須項目や値が不正なデータは読み込まない",
 });
 
 test("根拠のリンクは http(s) だけを受け付ける", () => {
-  const { reply } = samplePayload;
-  const [first, ...rest] = reply.paragraphs;
-  const withUrl = (url: string) => ({
-    ...samplePayload,
-    reply: {
-      ...reply,
-      paragraphs: [{ ...first!, evidence: [{ ...first!.evidence[0]!, url }] }, ...rest],
-    },
-  });
+  const withUrl = (url: string) =>
+    withAssertion(samplePayload, "a1", (a) => ({ ...a, evidence: [{ ...a.evidence[0]!, url }] }));
   for (const url of ["https://example.com/terms", "http://intranet/rules#3"]) {
     expect(isPayload(withUrl(url)), url).toBe(true);
   }

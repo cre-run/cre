@@ -22,7 +22,7 @@ export const PreviewDialog = ({
   paragraphs: string[];
   /** 送る前にやることのうち、まだチェックしていない件数 */
   remaining?: number;
-  /** 書き起こしが必要な空欄の数（下線ごとの画面） */
+  /** 書き起こしが必要な空欄の数 */
   gaps?: number;
   onClose: () => void;
 }) => {

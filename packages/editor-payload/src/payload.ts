@@ -1,6 +1,5 @@
 import { Inflate, deflate } from "pako";
-import type { AnyReplyReviewPayload, ReplyReviewPayload } from "./types.ts";
-import { isPayloadV2 } from "./v2.ts";
+import type { ReplyReviewPayload } from "./types.ts";
 import {
   type Shape,
   isArrayOf,
@@ -11,8 +10,9 @@ import {
   isOptionalArrayOf,
   isOptionalString,
   isPayloadOf,
-  isStatus,
   isString,
+  isUnique,
+  oneOf,
 } from "./validate.ts";
 
 /** URL ハッシュのキー（`#d=<base64url>`） */
@@ -72,11 +72,11 @@ const fromBase64Url = (text: string): Uint8Array => {
 };
 
 /** payload を pako で圧縮し、URL に載せられる文字列にする */
-export const encodePayload = (payload: AnyReplyReviewPayload): string =>
+export const encodePayload = (payload: ReplyReviewPayload): string =>
   toBase64Url(deflate(new TextEncoder().encode(JSON.stringify(payload))));
 
-/** encodePayload の逆。version 1 か 2 の判定データを返す。形式が不正なら例外を投げる */
-export const decodePayload = (encoded: string): AnyReplyReviewPayload => {
+/** encodePayload の逆。形式が不正なら例外を投げる */
+export const decodePayload = (encoded: string): ReplyReviewPayload => {
   if (encoded.length > MAX_ENCODED_LENGTH) {
     throw tooLarge(`${MAX_ENCODED_LENGTH.toLocaleString("ja-JP")} 文字`);
   }
@@ -90,34 +90,80 @@ export const readHash = (hash: string): string | null => {
   return params.get(HASH_KEY);
 };
 
-export const toHash = (payload: AnyReplyReviewPayload): string =>
+export const toHash = (payload: ReplyReviewPayload): string =>
   `#${HASH_KEY}=${encodePayload(payload)}`;
 
-const isClaim = (v: unknown): v is Shape =>
-  isObject(v) && isString(v.text) && isStatus(v.status) && isOptionalString(v.note);
+const isAssertionStatus = oneOf("verified", "conditional", "recheck");
 
-/** version 1 の返信の段落（id・respondsTo は isPayloadOf が確かめる） */
-const isReplyParagraphV1 = (v: Shape): boolean =>
-  ["topic", "text", "summary"].every((key) => isString(v[key])) &&
+const isAssertion = (v: unknown): v is Shape =>
+  isObject(v) &&
+  ["id", "text", "topic", "summary"].every((key) => isString(v[key])) &&
   ["method", "conditions", "nextAction"].every((key) => isOptionalString(v[key])) &&
-  isStatus(v.status) &&
+  isAssertionStatus(v.status) &&
   (v.nextActionTiming === undefined || isNextActionTiming(v.nextActionTiming)) &&
   isArrayOf(v.checks, isCheck) &&
   isArrayOf(v.evidence, isEvidence) &&
-  isOptionalArrayOf(v.owners, isString) &&
-  isOptionalArrayOf(v.claims, isClaim);
+  isOptionalArrayOf(v.owners, isString);
 
-/** version 1 の形かを確かめる */
+const isGapOption = (v: unknown): v is Shape =>
+  isObject(v) && isString(v.label) && isOptionalArrayOf(v.evidence, isEvidence);
+
+const isGap = (v: unknown): v is Shape =>
+  isObject(v) &&
+  isString(v.id) &&
+  isString(v.question) &&
+  isOptionalString(v.guidance) &&
+  isOptionalArrayOf(v.options, isGapOption) &&
+  isOptionalArrayOf(v.owners, isString);
+
+const KINDS = ["text", "assertion", "gap"] as const;
+
+/** text・assertion・gap のどれか 1 つだけを持つ */
+const isPart = (v: unknown): v is Shape => {
+  if (!isObject(v)) {
+    return false;
+  }
+  const kinds = KINDS.filter((kind) => kind in v);
+  if (kinds.length !== 1) {
+    return false;
+  }
+  return kinds[0] === "text"
+    ? isString(v.text)
+    : kinds[0] === "assertion"
+      ? isAssertion(v.assertion)
+      : isGap(v.gap);
+};
+
+const isReplyParagraph = (v: Shape): boolean => isArrayOf(v.parts, isPart);
+
+/** 下線と空欄の ID。画面で選ぶ・チェックを付ける対象なので、返信全体で重複させない */
+const itemIds = (data: Shape): unknown[] =>
+  ((data.reply as Shape).paragraphs as Shape[]).flatMap((p) =>
+    (p.parts as Shape[]).flatMap((part) => {
+      const item = (part.assertion ?? part.gap) as Shape | undefined;
+      return item ? [item.id] : [];
+    }),
+  );
+
+/** 判定データ（version 2）の形かを確かめる */
 export const isPayload = (data: unknown): data is ReplyReviewPayload =>
-  isPayloadOf(data, 1, isReplyParagraphV1);
+  isPayloadOf(data, 2, isReplyParagraph) && isUnique(itemIds(data as Shape));
+
+/** version 1（段落ごとに判定する形）の判定データか。対応をやめたので、作り直しを案内する */
+const isVersion1 = (data: unknown): boolean => isObject(data) && data.version === 1;
 
 /**
- * JSON から読んだ値が、画面が表示できる判定データ（version 1 か 2）かを確かめて返す。
- * version 1 と 2 は別の画面で表示するので、変換はしない。どちらでもなければ例外を投げる
+ * JSON から読んだ値が、画面が表示できる判定データ（version 2）かを確かめて返す。
+ * そうでなければ例外を投げる（version 1 は作り直しを案内する）
  */
-export const parsePayload = (data: unknown): AnyReplyReviewPayload => {
-  if (isPayload(data) || isPayloadV2(data)) {
+export const parsePayload = (data: unknown): ReplyReviewPayload => {
+  if (isPayload(data)) {
     return data;
   }
-  throw new Error("データの形式が正しくありません（version 1・2 の payload ではありません）");
+  if (isVersion1(data)) {
+    throw new Error(
+      "version 1（段落ごとの判定）のデータには対応していません。version 2 で URL を作り直してください",
+    );
+  }
+  throw new Error("データの形式が正しくありません（version 2 の payload ではありません）");
 };
