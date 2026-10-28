@@ -6,16 +6,16 @@ const paragraphs = samplePayload.reply.paragraphs;
 
 test("確認済みの段落はアクションに含めない", () => {
   const { beforeSend, afterSend } = collectActions(paragraphs);
-  const ids = [...beforeSend, ...afterSend].map((item) => item.paragraphId);
+  const ids = [...beforeSend, ...afterSend].map((item) => item.id);
   expect(ids).toEqual(["r3", "r2"]);
 });
 
 test("再確認は送る前、条件ありは送った後に分ける", () => {
   const { beforeSend, afterSend } = collectActions(paragraphs);
-  expect(beforeSend.map((item) => [item.paragraphId, item.index, item.status])).toEqual([
+  expect(beforeSend.map((item) => [item.id, item.index, item.status])).toEqual([
     ["r3", 3, "recheck"],
   ]);
-  expect(afterSend.map((item) => [item.paragraphId, item.index, item.status])).toEqual([
+  expect(afterSend.map((item) => [item.id, item.index, item.status])).toEqual([
     ["r2", 2, "conditional"],
   ]);
   expect(beforeSend[0]?.action).toBe(paragraphs[2]?.nextAction);
@@ -28,7 +28,7 @@ test("根拠なしは再確認より先に並べ、次のアクションがな�
     { ...first!, id: "a", status: "recheck" },
     { ...second!, id: "b", status: "unverified", nextAction: undefined, owners: undefined },
   ]);
-  expect(beforeSend.map((item) => item.paragraphId)).toEqual(["b", "a"]);
+  expect(beforeSend.map((item) => item.id)).toEqual(["b", "a"]);
   expect(beforeSend[0]).toMatchObject({ action: "根拠を探して確認する。", owners: [] });
 });
 
@@ -49,7 +49,7 @@ test("条件ありでも送る前を指定すれば「送る前にやること�
     },
     { ...second!, id: "b", status: "recheck" },
   ]);
-  expect(beforeSend.map((item) => [item.paragraphId, item.status])).toEqual([
+  expect(beforeSend.map((item) => [item.id, item.status])).toEqual([
     ["b", "recheck"],
     ["a", "conditional"],
   ]);
@@ -63,7 +63,7 @@ test("再確認でも送った後を指定すれば「送った後のフォロ�
     { ...first!, id: "a", status: "recheck", nextActionTiming: "afterSend" },
   ]);
   expect(beforeSend).toEqual([]);
-  expect(afterSend.map((item) => item.paragraphId)).toEqual(["a"]);
+  expect(afterSend.map((item) => item.id)).toEqual(["a"]);
 });
 
 test("確認済みの段落は送る前を指定してもアクションに含めない", () => {
@@ -77,13 +77,13 @@ test("確認済みの段落は送る前を指定してもアクションに含�
 test("確認済みの段落は、書き換えたときだけ送る前に「編集した内容を確かめる」を入れ、最後に並べる", () => {
   const edited = new Set(["r1", "r3"]);
   const { beforeSend } = collectActions(paragraphs, edited);
-  expect(beforeSend.map((item) => [item.paragraphId, item.status, item.edited])).toEqual([
+  expect(beforeSend.map((item) => [item.id, item.status, item.edited])).toEqual([
     ["r3", "recheck", true],
     ["r1", "verified", true],
   ]);
   expect(beforeSend[1]).toMatchObject({ action: EDITED_ACTION, owners: [] });
   // 書き換えていなければ、確認済みの段落は入れない
-  expect(collectActions(paragraphs).beforeSend.map((item) => item.paragraphId)).toEqual(["r3"]);
+  expect(collectActions(paragraphs).beforeSend.map((item) => item.id)).toEqual(["r3"]);
 });
 
 test("送る前にやることの残りは、チェックしていない件数", () => {

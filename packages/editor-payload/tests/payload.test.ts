@@ -8,17 +8,17 @@ import {
   decodePayload,
   encodePayload,
   isPayload,
-  isPayloadV1,
+  isPayloadV2,
   parsePayload,
   readHash,
   toHash,
-  upgradeV1,
+  type Assertion,
   type ReplyReviewPayload,
-  type ReplyReviewPayloadV1,
+  type ReplyReviewPayloadV2,
 } from "../src/index.ts";
 
 const payload: ReplyReviewPayload = {
-  version: 2,
+  version: 1,
   generatedAt: "2026-10-06T10:00:00+09:00",
   inquiry: {
     from: "田中 様",
@@ -33,7 +33,7 @@ const payload: ReplyReviewPayload = {
       {
         id: "r1",
         topic: "要点",
-        parts: [{ text: "返信" }],
+        text: "返信",
         summary: "要約",
         respondsTo: ["q1"],
         status: "verified",
@@ -55,10 +55,8 @@ test("ハッシュは #d= と URL で安全な文字だけでできている", (
 });
 
 test("形式の違うデータは受け付けない", () => {
-  expect(isPayload({ ...payload, version: 3 })).toBe(false);
-  expect(() => decodePayload(encodePayload({ ...payload, version: 3 as 2 }))).toThrow(
-    /形式が正しくありません/u,
-  );
+  expect(isPayload({ ...payload, version: 2 })).toBe(false);
+  expect(() => decodePayload(encodePayload({ ...payload, version: 2 as 1 }))).toThrow();
 });
 
 test("圧縮データが長すぎるものは展開しない", () => {
@@ -102,27 +100,66 @@ test("作成モード（mode）は standard・flash だけを受け付け、省�
   expect(isPayload({ ...payload, mode: 1 })).toBe(false);
 });
 
+const assertion: Assertion = {
+  id: "a1",
+  text: "確かめた文。",
+  status: "conditional",
+  topic: "見出し",
+  summary: "要約",
+  checks: [],
+  evidence: [{ type: "faq", stance: "conditional", title: "FAQ" }],
+};
+const gap = { id: "g1", question: "決めること" };
+
+const payloadV2: ReplyReviewPayloadV2 = {
+  version: 2,
+  generatedAt: payload.generatedAt,
+  inquiry: payload.inquiry,
+  reply: {
+    to: "田中 様",
+    subject: "Re: 件名",
+    paragraphs: [
+      {
+        id: "r1",
+        respondsTo: ["q1"],
+        parts: [{ text: "あいさつ。" }, { assertion }, { gap }],
+      },
+    ],
+  },
+};
+
 const withParts = (parts: unknown) => ({
-  ...payload,
-  reply: { ...payload.reply, paragraphs: [{ ...payload.reply.paragraphs[0], parts }] },
+  ...payloadV2,
+  reply: { ...payloadV2.reply, paragraphs: [{ ...payloadV2.reply.paragraphs[0], parts }] },
 });
 
-test("本文（parts）は文章と、書く必要のある箇所（gap）を並べたものだけを受け付ける", () => {
-  const gap = { id: "g1", question: "保存期間は何日か" };
-  expect(isPayload(withParts([]))).toBe(true);
-  expect(isPayload(withParts([{ text: "前" }, { gap }, { text: "後" }]))).toBe(true);
+test("version 1 と 2 は、それぞれの形のまま圧縮・展開できる（変換しない）", () => {
+  expect(decodePayload(encodePayload(payload))).toEqual(payload);
+  expect(decodePayload(encodePayload(payloadV2))).toEqual(payloadV2);
+  expect(parsePayload(payload)).toBe(payload);
+  expect(parsePayload(payloadV2)).toBe(payloadV2);
+});
+
+test("version 1 と 2 の形は混ぜられない", () => {
+  expect(isPayload(payloadV2)).toBe(false);
+  expect(isPayloadV2(payload)).toBe(false);
+  expect(isPayloadV2({ ...payload, version: 2 })).toBe(false);
+  expect(isPayload({ ...payloadV2, version: 1 })).toBe(false);
+  expect(() => parsePayload({ ...payloadV2, version: 3 })).toThrow(/形式が正しくありません/u);
+});
+
+test("version 2 の本文は、文章・下線（assertion）・空欄（gap）のどれか 1 つを並べたものだけを受け付ける", () => {
+  expect(isPayloadV2(withParts([]))).toBe(true);
   expect(
-    isPayload(
+    isPayloadV2(
       withParts([
         {
           gap: {
             ...gap,
+            guidance: "案内",
             options: [
-              {
-                label: "30 日（利用規約）",
-                evidence: [{ type: "terms", stance: "supports", title: "第 12 条" }],
-              },
-              { label: "60 日（実装）" },
+              { label: "30 日", evidence: [{ type: "terms", stance: "supports", title: "規約" }] },
+              { label: "60 日" },
             ],
             owners: ["法務担当"],
           },
@@ -131,119 +168,33 @@ test("本文（parts）は文章と、書く必要のある箇所（gap）を並
     ),
   ).toBe(true);
 
-  expect(isPayload(withParts(undefined))).toBe(false);
-  expect(isPayload(withParts("返信"))).toBe(false);
-  expect(isPayload(withParts([{}]))).toBe(false);
-  expect(isPayload(withParts([{ text: "返信", gap }]))).toBe(false);
-  expect(isPayload(withParts([{ gap: { id: "g1" } }]))).toBe(false);
-  expect(isPayload(withParts([{ gap: { ...gap, options: [{}] } }]))).toBe(false);
-  // 段落の中で同じ ID の箇所は区別できない
-  expect(isPayload(withParts([{ gap }, { gap }]))).toBe(false);
+  expect(isPayloadV2(withParts(undefined))).toBe(false);
+  expect(isPayloadV2(withParts("本文"))).toBe(false);
+  expect(isPayloadV2(withParts([{}]))).toBe(false);
+  expect(isPayloadV2(withParts([{ text: "本文", gap }]))).toBe(false);
+  expect(isPayloadV2(withParts([{ gap: { id: "g1" } }]))).toBe(false);
+  expect(isPayloadV2(withParts([{ gap: { ...gap, options: [{}] } }]))).toBe(false);
 });
 
-test("version 2 に text だけの段落（version 1 の形）は受け付けない", () => {
-  const v1Paragraph = { ...payload.reply.paragraphs[0], parts: undefined, text: "返信" };
-  expect(isPayload({ ...payload, reply: { ...payload.reply, paragraphs: [v1Paragraph] } })).toBe(
-    false,
-  );
+test("下線の確認状況は確認済み・条件あり・再確認だけ。根拠のない箇所は空欄（gap）にする", () => {
+  const withStatus = (status: unknown) => withParts([{ assertion: { ...assertion, status } }]);
+  expect(isPayloadV2(withStatus("verified"))).toBe(true);
+  expect(isPayloadV2(withStatus("recheck"))).toBe(true);
+  expect(isPayloadV2(withStatus("unverified"))).toBe(false);
+  // 根拠・評価・見出しがない下線は、右パネルに出すものがないので受け付けない
+  for (const key of ["evidence", "checks", "topic", "summary"]) {
+    expect(isPayloadV2(withParts([{ assertion: { ...assertion, [key]: undefined } }])), key).toBe(
+      false,
+    );
+  }
 });
 
-/** version 1 の形のデータ。v1 で使えた項目をひととおり入れる */
-const v1Json: ReplyReviewPayloadV1 = {
-  version: 1,
-  generatedAt: "2026-10-06T10:00:00+09:00",
-  model: { name: "decision-model", version: "0.1" },
-  mode: "flash",
-  inquiry: payload.inquiry,
-  reply: {
-    to: "田中 様",
-    subject: "Re: 件名",
-    opening: "田中 様",
-    closing: "サポートチーム",
-    paragraphs: [
-      {
-        id: "r1",
-        topic: "要点",
-        text: "確認済みの文です。確かめが必要な文です。",
-        respondsTo: ["q1"],
-        status: "conditional",
-        method: "社内FAQ で確認",
-        summary: "要約",
-        checks: [{ label: "観点", result: "warn", note: "メモ" }],
-        conditions: "条件",
-        evidence: [
-          {
-            type: "faq",
-            stance: "conditional",
-            title: "FAQ",
-            excerpt: "抜粋",
-            source: "社内FAQ",
-            url: "https://example.com/faq",
-            checkedAt: "2026-10-01T10:00:00+09:00",
-          },
-        ],
-        nextAction: "確かめる",
-        nextActionTiming: "beforeSend",
-        owners: ["CS担当"],
-        claims: [{ text: "確かめが必要な文です。", status: "conditional", note: "理由" }],
-      },
-      {
-        id: "r2",
-        topic: "要点 2",
-        text: "2 つ目の段落です。",
-        respondsTo: ["q1"],
-        status: "verified",
-        summary: "要約",
-        checks: [],
-        evidence: [],
-      },
-    ],
-  },
-};
-/**
- * version 1 の時点の URL の文字列。圧縮の方式（JSON → deflate → base64url）は v1 から変えていないので、
- * v1 の JSON を encodePayload に通したものは、v1 の画面で作った URL と同じ文字列になる
- */
-const v1Encoded = encodePayload(v1Json as unknown as ReplyReviewPayload);
-
-test("version 1 で作った URL の文字列は、そのまま version 2 の形で読める", () => {
-  expect(isPayloadV1(v1Json)).toBe(true);
-  const decoded = decodePayload(v1Encoded);
-  expect(isPayload(decoded)).toBe(true);
-  expect(decoded).toEqual(upgradeV1(v1Json));
-});
-
-test("upgradeV1 は本文（text）を文章 1 つの parts にし、ほかの項目はそのまま残す", () => {
-  const upgraded = upgradeV1(v1Json);
-  expect(upgraded.version).toBe(2);
-  const { reply: v1Reply, version: _v1, ...v1Rest } = v1Json;
-  const { reply, version: _v2, ...rest } = upgraded;
-  expect(rest).toEqual(v1Rest);
-  expect({ ...reply, paragraphs: undefined }).toEqual({ ...v1Reply, paragraphs: undefined });
-  expect(reply.paragraphs).toHaveLength(v1Reply.paragraphs.length);
-  reply.paragraphs.forEach((paragraph, i) => {
-    const { text, ...v1Paragraph } = v1Reply.paragraphs[i];
-    expect(paragraph).toEqual({ ...v1Paragraph, parts: [{ text }] });
-    expect(paragraph).not.toHaveProperty("text");
-  });
-});
-
-test("upgradeV1 は元のデータを書き換えない", () => {
-  const before = structuredClone(v1Json);
-  upgradeV1(v1Json);
-  expect(v1Json).toEqual(before);
-});
-
-test("version 1 でも、形式が不正なものは読み込まない", () => {
-  const [first, ...rest] = v1Json.reply.paragraphs;
-  const broken = (paragraph: unknown) => ({
-    ...v1Json,
-    reply: { ...v1Json.reply, paragraphs: [paragraph, ...rest] },
-  });
-  expect(() => parsePayload(broken({ ...first, text: undefined }))).toThrow();
-  expect(() => parsePayload(broken({ ...first, status: "done" }))).toThrow();
-  // version 1 に parts だけの段落は v1 の形ではない
-  expect(() =>
-    parsePayload(broken({ ...first, text: undefined, parts: [{ text: "x" }] })),
-  ).toThrow();
+test("下線と空欄の ID は、段落をまたいでも重複させない", () => {
+  const second = { id: "r2", respondsTo: ["q1"], parts: [{ gap: { ...gap, id: "a1" } }] };
+  const duplicated = {
+    ...payloadV2,
+    reply: { ...payloadV2.reply, paragraphs: [...payloadV2.reply.paragraphs, second] },
+  };
+  expect(isPayloadV2(duplicated)).toBe(false);
+  expect(isPayloadV2(withParts([{ assertion }, { assertion }]))).toBe(false);
 });

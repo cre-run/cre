@@ -1,13 +1,13 @@
 import type { ActionGroups } from "../actions.ts";
 import { STATUS } from "../labels.ts";
-import { nextWith, paragraphText, splitByClaims, statusCounts } from "../paragraphs.ts";
+import { nextWith, splitByClaims, statusCounts } from "../paragraphs.ts";
 import type { ParagraphStatus, Reply, ReplyParagraph } from "@cre/editor-payload";
 import { ActionList } from "./ActionList.tsx";
 import { Icon } from "./Icon.tsx";
 
 /** 段落の本文。確認済み以外の文には、その状態の色で印を付ける */
 const ParagraphBody = ({ paragraph }: { paragraph: ReplyParagraph }) =>
-  splitByClaims(paragraphText(paragraph), paragraph.claims).map((segment, i) =>
+  splitByClaims(paragraph.text, paragraph.claims).map((segment, i) =>
     segment.claim ? (
       <mark key={i} className={`claim status-${segment.claim.status}`} title={segment.claim.note}>
         {segment.text}

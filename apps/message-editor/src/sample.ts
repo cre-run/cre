@@ -5,7 +5,7 @@ import type { ReplyReviewPayload } from "@cre/editor-payload";
  * 問い合わせ・根拠・確認結果はすべて架空。
  */
 export const samplePayload: ReplyReviewPayload = {
-  version: 2,
+  version: 1,
   generatedAt: "2026-10-06T10:00:00+09:00",
   model: { name: "decision-model（仮）", version: "0.1" },
   inquiry: {
@@ -40,11 +40,7 @@ export const samplePayload: ReplyReviewPayload = {
       {
         id: "r1",
         topic: "エラー行があるときの取り込み",
-        parts: [
-          {
-            text: "お問い合わせありがとうございます。エラーのある行が含まれていても、正しい行の取り込みは継続されます。エラーとなった行は、取り込み結果の画面からご確認いただけます。",
-          },
-        ],
+        text: "お問い合わせありがとうございます。エラーのある行が含まれていても、正しい行の取り込みは継続されます。エラーとなった行は、取り込み結果の画面からご確認いただけます。",
         respondsTo: ["q1"],
         status: "verified",
         method: "一次情報で確認",
@@ -88,11 +84,7 @@ export const samplePayload: ReplyReviewPayload = {
       {
         id: "r2",
         topic: "SSO 環境での API キー発行",
-        parts: [
-          {
-            text: "SSO をご利用の環境でも、API キーを発行できます。ただし、管理者が「SSO の強制」を有効にしている場合は、組織の設定で API キーの発行を許可する必要があります。ご利用の設定をお知らせいただけますでしょうか。",
-          },
-        ],
+        text: "SSO をご利用の環境でも、API キーを発行できます。ただし、管理者が「SSO の強制」を有効にしている場合は、組織の設定で API キーの発行を許可する必要があります。ご利用の設定をお知らせいただけますでしょうか。",
         respondsTo: ["q2"],
         status: "conditional",
         method: "社内FAQ と先行事例で確認",
@@ -139,11 +131,7 @@ export const samplePayload: ReplyReviewPayload = {
       {
         id: "r3",
         topic: "データの保存期間と削除",
-        parts: [
-          {
-            text: "インポートしたデータの保存期間と、解約時の取り扱いについては、ご契約内容を確認のうえ、改めてご案内いたします。現時点では保存期間を確約することができません。",
-          },
-        ],
+        text: "インポートしたデータの保存期間と、解約時の取り扱いについては、ご契約内容を確認のうえ、改めてご案内いたします。現時点では保存期間を確約することができません。",
         respondsTo: ["q3"],
         status: "recheck",
         method: "利用規約と実装を照合",
@@ -186,11 +174,7 @@ export const samplePayload: ReplyReviewPayload = {
       {
         id: "r4",
         topic: "初期設定のサポート",
-        parts: [
-          {
-            text: "設定にご不安がある場合は、サポート窓口で設定内容をご一緒に確認できます。取り込みたいファイルの形式と、設定画面の状況をお知らせください。パスワードなどの認証情報はお送りいただく必要はありません。",
-          },
-        ],
+        text: "設定にご不安がある場合は、サポート窓口で設定内容をご一緒に確認できます。取り込みたいファイルの形式と、設定画面の状況をお知らせください。パスワードなどの認証情報はお送りいただく必要はありません。",
         respondsTo: ["q4"],
         status: "verified",
         method: "社内ルールで確認",

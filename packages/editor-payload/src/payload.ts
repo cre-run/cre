@@ -1,7 +1,19 @@
 import { Inflate, deflate } from "pako";
-import type { ReplyReviewPayload } from "./types.ts";
-import { isPayloadV1, upgradeV1 } from "./v1.ts";
-import { isArrayOf, isEvidence, isObject, isPayloadOf, isString, isUnique } from "./validate.ts";
+import type { AnyReplyReviewPayload, ReplyReviewPayload } from "./types.ts";
+import { isPayloadV2 } from "./v2.ts";
+import {
+  type Shape,
+  isArrayOf,
+  isCheck,
+  isEvidence,
+  isNextActionTiming,
+  isObject,
+  isOptionalArrayOf,
+  isOptionalString,
+  isPayloadOf,
+  isStatus,
+  isString,
+} from "./validate.ts";
 
 /** URL ハッシュのキー（`#d=<base64url>`） */
 export const HASH_KEY = "d";
@@ -60,11 +72,11 @@ const fromBase64Url = (text: string): Uint8Array => {
 };
 
 /** payload を pako で圧縮し、URL に載せられる文字列にする */
-export const encodePayload = (payload: ReplyReviewPayload): string =>
+export const encodePayload = (payload: AnyReplyReviewPayload): string =>
   toBase64Url(deflate(new TextEncoder().encode(JSON.stringify(payload))));
 
-/** encodePayload の逆。version 1 のデータは version 2 の形にして返す。形式が不正なら例外を投げる */
-export const decodePayload = (encoded: string): ReplyReviewPayload => {
+/** encodePayload の逆。version 1 か 2 の判定データを返す。形式が不正なら例外を投げる */
+export const decodePayload = (encoded: string): AnyReplyReviewPayload => {
   if (encoded.length > MAX_ENCODED_LENGTH) {
     throw tooLarge(`${MAX_ENCODED_LENGTH.toLocaleString("ja-JP")} 文字`);
   }
@@ -78,46 +90,34 @@ export const readHash = (hash: string): string | null => {
   return params.get(HASH_KEY);
 };
 
-export const toHash = (payload: ReplyReviewPayload): string =>
+export const toHash = (payload: AnyReplyReviewPayload): string =>
   `#${HASH_KEY}=${encodePayload(payload)}`;
 
-type Shape = Record<string, unknown>;
+const isClaim = (v: unknown): v is Shape =>
+  isObject(v) && isString(v.text) && isStatus(v.status) && isOptionalString(v.note);
 
-const isGapOption = (v: unknown): v is Shape =>
-  isObject(v) &&
-  isString(v.label) &&
-  (v.evidence === undefined || isArrayOf(v.evidence, isEvidence));
+/** version 1 の返信の段落（id・respondsTo は isPayloadOf が確かめる） */
+const isReplyParagraphV1 = (v: Shape): boolean =>
+  ["topic", "text", "summary"].every((key) => isString(v[key])) &&
+  ["method", "conditions", "nextAction"].every((key) => isOptionalString(v[key])) &&
+  isStatus(v.status) &&
+  (v.nextActionTiming === undefined || isNextActionTiming(v.nextActionTiming)) &&
+  isArrayOf(v.checks, isCheck) &&
+  isArrayOf(v.evidence, isEvidence) &&
+  isOptionalArrayOf(v.owners, isString) &&
+  isOptionalArrayOf(v.claims, isClaim);
 
-const isGap = (v: unknown): v is Shape =>
-  isObject(v) &&
-  isString(v.id) &&
-  isString(v.question) &&
-  (v.options === undefined || isArrayOf(v.options, isGapOption)) &&
-  (v.owners === undefined || isArrayOf(v.owners, isString));
-
-/** 文章（text）か書く必要のある箇所（gap）のどちらか一方だけを持つ */
-const isPart = (v: unknown): v is Shape =>
-  isObject(v) && ("gap" in v ? !("text" in v) && isGap(v.gap) : isString(v.text));
-
-/** 本文は文章と書く必要のある箇所を並べたもの。書く必要のある箇所の ID は段落の中で重複させない */
-const hasParts = (paragraph: Shape): boolean =>
-  isArrayOf(paragraph.parts, isPart) &&
-  isUnique(paragraph.parts.filter((part) => "gap" in part).map((part) => (part.gap as Shape).id));
-
-/** version 2 の形かを確かめる。version 1 は parsePayload が変換してから渡す */
+/** version 1 の形かを確かめる */
 export const isPayload = (data: unknown): data is ReplyReviewPayload =>
-  isPayloadOf(data, 2, hasParts);
+  isPayloadOf(data, 1, isReplyParagraphV1);
 
 /**
- * JSON から読んだ値を、画面が扱う version 2 の形にする。version 1 は upgradeV1 で変換する。
- * どちらの形でもなければ例外を投げる
+ * JSON から読んだ値が、画面が表示できる判定データ（version 1 か 2）かを確かめて返す。
+ * version 1 と 2 は別の画面で表示するので、変換はしない。どちらでもなければ例外を投げる
  */
-export const parsePayload = (data: unknown): ReplyReviewPayload => {
-  if (isPayload(data)) {
+export const parsePayload = (data: unknown): AnyReplyReviewPayload => {
+  if (isPayload(data) || isPayloadV2(data)) {
     return data;
-  }
-  if (isPayloadV1(data)) {
-    return upgradeV1(data);
   }
   throw new Error("データの形式が正しくありません（version 1・2 の payload ではありません）");
 };

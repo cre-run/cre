@@ -57,7 +57,7 @@ export const request = (path: string, token?: string): Request =>
 
 /** 最小限の判定データ（Message Editor が表示できる形） */
 export const payload: ReplyReviewPayload = {
-  version: 2,
+  version: 1,
   generatedAt: "2026-10-06T10:00:00+09:00",
   inquiry: {
     from: "田中 様",
@@ -72,7 +72,7 @@ export const payload: ReplyReviewPayload = {
       {
         id: "r1",
         topic: "要点",
-        parts: [{ text: "返信" }],
+        text: "返信",
         summary: "要約",
         respondsTo: ["q1"],
         status: "verified",

@@ -3,7 +3,6 @@ import {
   hasContradiction,
   isEdited,
   nextWith,
-  paragraphText,
   splitByClaims,
   stanceSummary,
   statusCounts,
@@ -15,9 +14,9 @@ const [r1, r2, r3, r4] = paragraphs;
 
 test("書き換えていない・前後の空白だけが違う本文は、編集済みにしない", () => {
   expect(isEdited(r1!, undefined)).toBe(false);
-  expect(isEdited(r1!, paragraphText(r1!))).toBe(false);
-  expect(isEdited(r1!, `${paragraphText(r1!)}\n`)).toBe(false);
-  expect(isEdited(r1!, `${paragraphText(r1!)}（追記）`)).toBe(true);
+  expect(isEdited(r1!, r1!.text)).toBe(false);
+  expect(isEdited(r1!, `${r1!.text}\n`)).toBe(false);
+  expect(isEdited(r1!, `${r1!.text}（追記）`)).toBe(true);
 });
 
 test("確認済み以外の文だけに印を付け、本文はそのまま全部残す", () => {
@@ -47,7 +46,7 @@ test("本文に見つからない文・重なる文には印を付けない", ()
 });
 
 test("見本データの段落 2 は、条件ありの文だけに印が付く", () => {
-  const marked = splitByClaims(paragraphText(r2!), r2!.claims).filter((s) => s.claim);
+  const marked = splitByClaims(r2!.text, r2!.claims).filter((s) => s.claim);
   expect(marked.map((s) => s.claim?.status)).toEqual(["conditional"]);
   expect(marked[0]?.text).toContain("SSO の強制");
 });
@@ -76,19 +75,4 @@ test("次の段落は、今の段落の後ろから探し、最後まで行っ�
   expect(nextWith(paragraphs, verified, r4!.id)?.id).toBe("r1");
   expect(nextWith(paragraphs, (p) => p.status === "recheck", "r3")?.id).toBe("r3");
   expect(nextWith(paragraphs, (p) => p.status === "unverified", "r1")).toBeUndefined();
-});
-
-test("本文は parts をつなげ、書く必要のある箇所は［要記入：…］として残す", () => {
-  const paragraph = {
-    ...r1!,
-    parts: [
-      { text: "保存期間は" },
-      { gap: { id: "g1", question: "解約後の保存期間" } },
-      { text: "です。" },
-    ],
-  };
-  expect(paragraphText(paragraph)).toBe("保存期間は［要記入：解約後の保存期間］です。");
-  // 書く必要のある箇所を残したままでは、編集していない扱い
-  expect(isEdited(paragraph, "保存期間は［要記入：解約後の保存期間］です。")).toBe(false);
-  expect(isEdited(paragraph, "保存期間は 30 日です。")).toBe(true);
 });

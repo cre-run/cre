@@ -3,7 +3,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { toHash } from "@cre/editor-payload";
-import { paragraphText } from "../src/paragraphs.ts";
+import { samplePayloadV2 } from "../src/sample-v2.ts";
 import { samplePayload } from "../src/sample.ts";
 import { guideExampleHashes } from "../tests/guide-example.ts";
 
@@ -37,7 +37,7 @@ test("返信プレビューには注釈が含まれない", async ({ page }) => 
   await page.goto("/");
   await page.getByRole("button", { name: "返信プレビュー" }).click();
   const dialog = page.getByRole("dialog", { name: "返信プレビュー" });
-  await expect(dialog.getByText(paragraphText(samplePayload.reply.paragraphs[0]!))).toBeVisible();
+  await expect(dialog.getByText(samplePayload.reply.paragraphs[0]!.text)).toBeVisible();
   await expect(dialog.getByText("確認済み")).toHaveCount(0);
   await dialog.getByRole("button", { name: "閉じる" }).click();
   await expect(dialog).toBeHidden();
@@ -283,4 +283,29 @@ test("速報モードでも、返信プレビューは帯に覆われず閉じ�
   // 帯が前面にあると、クリックが帯に遮られて失敗する
   await dialog.getByRole("button", { name: "閉じる" }).click({ timeout: 2000 });
   await expect(dialog).toBeHidden();
+});
+
+test("判定データの version で画面が切り替わる（1 は段落ごとで編集でき、2 は下線ごとで読み取り専用）", async ({
+  page,
+}) => {
+  await page.goto(`/${toHash(samplePayload)}`);
+  await expect(page.locator(".paragraph-text[contenteditable]")).toHaveCount(
+    samplePayload.reply.paragraphs.length,
+  );
+  await expect(page.getByRole("complementary", { name: "この段落の根拠" })).toBeVisible();
+
+  await page.goto(`/${toHash(samplePayloadV2)}`);
+  await expect(page.locator("[contenteditable]")).toHaveCount(0);
+  await expect(page.locator(".paragraph")).toHaveCount(0);
+  await expect(page.getByRole("complementary", { name: "選んだ箇所の根拠" })).toBeVisible();
+  await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
+});
+
+test("ガイドに載せた version 2 の URL の例を開くと、下線ごとの画面で見本と同じ内容が表示される", async ({
+  page,
+}) => {
+  const [encoded] = guideExampleHashes("assertions.mdx");
+  await page.goto(`/#d=${encoded}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayloadV2.inquiry.subject);
+  await expect(page.getByRole("group", { name: "確認状況の内訳" })).toContainText("要記入 1");
 });

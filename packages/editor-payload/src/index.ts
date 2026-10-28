@@ -13,17 +13,15 @@ export {
   readHash,
   toHash,
 } from "./payload.ts";
-export { isPayloadV1, upgradeV1 } from "./v1.ts";
-export type { ReplyParagraphV1, ReplyReviewPayloadV1 } from "./v1.ts";
+export { isPayloadV2 } from "./v2.ts";
 export type {
+  AnyReplyReviewPayload,
   CheckItem,
   CheckResult,
   Claim,
   Evidence,
   EvidenceStance,
   EvidenceType,
-  Gap,
-  GapOption,
   Inquiry,
   InquiryParagraph,
   NextActionTiming,
@@ -31,6 +29,15 @@ export type {
   Reply,
   ReplyMode,
   ReplyParagraph,
-  ReplyPart,
   ReplyReviewPayload,
 } from "./types.ts";
+export type {
+  Assertion,
+  AssertionStatus,
+  Gap,
+  GapOption,
+  ReplyParagraphV2,
+  ReplyPart,
+  ReplyReviewPayloadV2,
+  ReplyV2,
+} from "./types-v2.ts";

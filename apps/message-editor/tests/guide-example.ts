@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 
-const GUIDE = new URL("../../docs/docs/message-editor/index.mdx", import.meta.url);
+const guide = (page: string) => new URL(`../../docs/docs/message-editor/${page}`, import.meta.url);
 
 /** ガイドに載せた `https://editor.cre.run/#d=...` の圧縮データをすべて取り出す */
-export const guideExampleHashes = (): string[] =>
-  [...readFileSync(GUIDE, "utf8").matchAll(/https:\/\/editor\.cre\.run\/#d=([\w-]+)/gu)].map(
+export const guideExampleHashes = (page = "index.mdx"): string[] =>
+  [...readFileSync(guide(page), "utf8").matchAll(/https:\/\/editor\.cre\.run\/#d=([\w-]+)/gu)].map(
     (match) => match[1]!,
   );

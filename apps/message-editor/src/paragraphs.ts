@@ -2,7 +2,6 @@ import type {
   Claim,
   Evidence,
   EvidenceStance,
-  Gap,
   ParagraphStatus,
   ReplyParagraph,
 } from "@cre/editor-payload";
@@ -11,20 +10,11 @@ import type {
 export const STATUS_ORDER: ParagraphStatus[] = ["verified", "conditional", "recheck", "unverified"];
 
 /**
- * 段落の本文を 1 つの文字列にする。人が書く必要のある箇所（gap）は「［要記入：…］」として残し、
- * 送る文面に紛れても気づけるようにする。
- */
-export const paragraphText = (paragraph: ReplyParagraph): string =>
-  paragraph.parts.map((part) => ("gap" in part ? gapMarker(part.gap) : part.text)).join("");
-
-export const gapMarker = (gap: Gap): string => `［要記入：${gap.question}］`;
-
-/**
  * 本文を書き換えたか。前後の空白と改行コードの違いは編集とみなさない
  * （contentEditable の innerText は末尾の改行などが元の文字列と変わることがある）。
  */
 export const isEdited = (paragraph: ReplyParagraph, edited: string | undefined): boolean =>
-  edited !== undefined && normalize(edited) !== normalize(paragraphText(paragraph));
+  edited !== undefined && normalize(edited) !== normalize(paragraph.text);
 
 const normalize = (text: string): string => text.replaceAll("\r\n", "\n").trim();
 

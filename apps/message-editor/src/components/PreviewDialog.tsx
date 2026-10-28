@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import type { Reply } from "@cre/editor-payload";
-import { paragraphText } from "../paragraphs.ts";
 import { Icon } from "./Icon.tsx";
 
 type CopyState = "idle" | "copied" | "failed";
@@ -14,21 +12,21 @@ const COPY_LABEL: Record<CopyState, string> = {
 /** お客様に送る文面だけを表示する（注釈は含めない） */
 export const PreviewDialog = ({
   reply,
-  texts,
+  paragraphs,
   remaining = 0,
+  gaps = 0,
   onClose,
 }: {
-  reply: Reply;
-  texts: Record<string, string>;
+  reply: { to: string; subject: string; opening?: string; closing?: string };
+  /** 段落ごとの送る文面 */
+  paragraphs: string[];
   /** 送る前にやることのうち、まだチェックしていない件数 */
   remaining?: number;
+  /** 書き起こしが必要な空欄の数（下線ごとの画面） */
+  gaps?: number;
   onClose: () => void;
 }) => {
-  const body = [
-    reply.opening,
-    ...reply.paragraphs.map((p) => texts[p.id] ?? paragraphText(p)),
-    reply.closing,
-  ].filter(Boolean);
+  const body = [reply.opening, ...paragraphs, reply.closing].filter(Boolean);
 
   const [copy, setCopy] = useState<CopyState>("idle");
   useEffect(() => {
@@ -76,6 +74,12 @@ export const PreviewDialog = ({
           <p className="dialog-warning" role="alert">
             <Icon name="shield" size={14} />
             送る前にやることが残り {remaining} 件あります。確かめてからコピーしてください。
+          </p>
+        )}
+        {gaps > 0 && (
+          <p className="dialog-warning" role="alert">
+            <Icon name="shield" size={14} />
+            要記入の空欄が {gaps} 件あります。「［要記入：…］」を書き起こしてから送ってください。
           </p>
         )}
         <p className="muted small">

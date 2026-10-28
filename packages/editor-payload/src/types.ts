@@ -2,14 +2,19 @@
  * 画面描画に渡すデータ。初期は URL の `#d=` に pako で圧縮して載せる（バックエンドなし）。
  * 判定モデルの出力形式が固まるまでは、ここを唯一のスキーマとして扱う。
  *
- * これは version 2 の形。version 1 のデータは読み込むときに upgradeV1（v1.ts）で
- * この形に変換するので、画面は version 2 だけを扱えばよい。
+ * このファイルの ReplyReviewPayload は version 1（段落ごとに判定する形）。
+ * 本文の一部ごとに判定する version 2 は types-v2.ts。2 つは別の画面で表示する。
  */
+import type { ReplyReviewPayloadV2 } from "./types-v2.ts";
+
+/** 画面が表示できる判定データ。version で見分ける */
+export type AnyReplyReviewPayload = ReplyReviewPayload | ReplyReviewPayloadV2;
+
 /** 作成モード。`standard` は慎重な完成版、`flash` は速さ優先の速報 */
 export type ReplyMode = "standard" | "flash";
 
 export interface ReplyReviewPayload {
-  version: 2;
+  version: 1;
   /** 判定を行った日時（ISO 8601）。根拠の鮮度はこの日時を基準に計算する */
   generatedAt: string;
   /** 判定に使ったモデル（表示用） */
@@ -51,11 +56,7 @@ export interface ReplyParagraph {
   id: string;
   /** 段落の要点（右パネルの見出し） */
   topic: string;
-  /**
-   * 本文。文章（text）と、根拠が足りず人が書く必要のある箇所（gap）を順に並べる。
-   * version 1 の text は、文章 1 つだけの parts に変換される
-   */
-  parts: ReplyPart[];
+  text: string;
   /** どの問い合わせ段落への回答か */
   respondsTo: string[];
   status: ParagraphStatus;
@@ -86,32 +87,8 @@ export interface ReplyParagraph {
   claims?: Claim[];
 }
 
-/** 本文の一部。文章か、人が書く必要のある箇所のどちらか */
-export type ReplyPart = { text: string } | { gap: Gap };
-
-/**
- * 根拠が足りず、判定モデルが文章を書かなかった箇所。
- * 何を決めればよいかと、根拠のある選択肢だけを示し、文章は人が書く。
- */
-export interface Gap {
-  /** 段落の中で一意な ID */
-  id: string;
-  /** 決める必要があること（例: 「解約後の保存期間を何日と案内するか」） */
-  question: string;
-  /** 根拠のある選択肢。根拠がなければ省略する */
-  options?: GapOption[];
-  /** 判断する担当（例: 「法務担当」） */
-  owners?: string[];
-}
-
-export interface GapOption {
-  /** 選択肢の要約（例: 「30 日（利用規約 第 12 条）」） */
-  label: string;
-  evidence?: Evidence[];
-}
-
 export interface Claim {
-  /** 段落の本文（parts の文章）の一部をそのまま書く。本文に見つからない文には印を付けない */
+  /** 段落の本文（text）の一部をそのまま書く。本文に見つからない文には印を付けない */
   text: string;
   status: ParagraphStatus;
   /** 判定の理由（例: 「お客様の設定は未確認」） */

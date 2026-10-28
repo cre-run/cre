@@ -66,7 +66,7 @@ export const browserAs = async (browser: Browser, email?: string): Promise<Brows
 /** 判定データ（Message Editor が表示できる最小の形）。件名でどのデータかを見分ける */
 export const dataWithSubject = (subject: string): string => {
   const payload: ReplyReviewPayload = {
-    version: 2,
+    version: 1,
     generatedAt: "2026-10-06T10:00:00+09:00",
     inquiry: {
       from: "田中 様",
@@ -81,7 +81,7 @@ export const dataWithSubject = (subject: string): string => {
         {
           id: "r1",
           topic: "回答",
-          parts: [{ text: "返信の本文" }],
+          text: "返信の本文",
           summary: "要約",
           respondsTo: ["q1"],
           status: "verified",
