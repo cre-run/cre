@@ -5,6 +5,7 @@
 import { expect, test } from "vite-plus/test";
 import {
   MAX_ENCODED_LENGTH,
+  RetiredVersionError,
   decodePayload,
   encodePayload,
   isPayload,
@@ -71,7 +72,7 @@ test("形式の違うデータは受け付けない", () => {
   );
 });
 
-test("version 1（段落ごとの判定）のデータは受け付けず、作り直しを案内する", () => {
+test("version 1（段落ごとの判定）のデータは受け付けず、廃止したことを RetiredVersionError で知らせる", () => {
   const v1 = {
     ...payload,
     version: 1,
@@ -93,8 +94,16 @@ test("version 1（段落ごとの判定）のデータは受け付けず、作�
   };
   expect(isPayload(v1)).toBe(false);
   expect(() => decodePayload(encodePayload(v1 as unknown as ReplyReviewPayload))).toThrow(
-    /version 1（段落ごとの判定）のデータには対応していません/u,
+    RetiredVersionError,
   );
+  // 形だけ version 1 のものも、中身を問わず廃止の案内にする
+  expect(() => parsePayload({ version: 1 })).toThrow(/version 1）は廃止されました/u);
+  try {
+    parsePayload(v1);
+  } catch (error) {
+    expect(error).toBeInstanceOf(RetiredVersionError);
+    expect((error as RetiredVersionError).version).toBe(1);
+  }
 });
 
 test("圧縮データが長すぎるものは展開しない", () => {

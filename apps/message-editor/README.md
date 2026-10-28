@@ -25,7 +25,7 @@ vp run @cre/message-editor#build
 また `vp run ... -- payload.json --base URL` の形では `--` 以降がすべてファイル名として扱われ、`--base` が効きません。
 
 判定データは `version: 2` の形だけを受け付けます。段落の本文 `parts` に、文章（`text`）・判定した一部（`assertion`。画面では下線）・
-人が書く必要のある箇所（`gap`。画面では空欄）を並べます。段落ごとに判定する `version: 1` の URL を開くと、作り直しを案内するエラーを表示します。
+人が書く必要のある箇所（`gap`。画面では空欄）を並べます。段落ごとに判定する `version: 1` の URL を開くと、エラーではなく、形式を廃止したことと新しい形式への切り替え方を案内する画面を表示します（`RetiredVersionError`・`src/components/RetiredNotice.tsx`）。
 
 受け取ったデータは `@cre/editor-payload`（`packages/editor-payload`）の `parsePayload` で検証し、形式が合わないもの（必須の項目がない、
 根拠の `url` が `http(s)` 以外、圧縮データが `MAX_ENCODED_LENGTH`（10 万文字）を超える、

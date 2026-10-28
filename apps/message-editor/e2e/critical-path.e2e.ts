@@ -76,12 +76,21 @@ test("URL の判定データを表示する", async ({ page }) => {
   await expect(page.getByText("サンプル", { exact: true })).toHaveCount(0);
 });
 
-test("version 1（段落ごとの判定）の URL は表示せず、作り直しを案内する", async ({ page }) => {
+test("version 1（段落ごとの判定）の URL は、エラーではなく形式を廃止したことを案内する", async ({
+  page,
+}) => {
   const v1 = { ...samplePayload, version: 1 } as unknown as ReplyReviewPayload;
   await page.goto(`/#d=${encodePayload(v1)}`);
-  await expect(page.getByText("URL のデータを読み込めませんでした")).toContainText(
-    "version 2 で URL を作り直してください",
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "このデータ形式は廃止されました",
   );
+  await expect(page.getByText("データ形式 version 1")).toBeVisible();
+  await expect(page.getByText("URL のデータを読み込めませんでした")).toHaveCount(0);
+
+  // 同じタブで新しい形式の URL に切り替えると、いつもの画面になる
+  await page.evaluate((hash) => {
+    window.location.hash = hash;
+  }, toHash(samplePayload).slice(1));
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
 });
 

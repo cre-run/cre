@@ -7,6 +7,7 @@ import { Icon } from "./components/Icon.tsx";
 import { InquiryCard } from "./components/InquiryCard.tsx";
 import { PreviewDialog } from "./components/PreviewDialog.tsx";
 import { ReplyReader } from "./components/ReplyReader.tsx";
+import { RetiredNotice } from "./components/RetiredNotice.tsx";
 import type { ReplyReviewPayload } from "@cre/editor-payload";
 import { collectActions, remainingBeforeSend } from "./actions.ts";
 import { hashParam, isFlash, load, type Loaded } from "./load.ts";
@@ -21,6 +22,10 @@ export const App = () => {
   }, []);
 
   const loaded = useMemo(() => load(hash), [hash]);
+  // 廃止した形式の URL はエラーにせず、新しい形式への切り替えを案内する
+  if (loaded.kind === "retired") {
+    return <RetiredNotice version={loaded.version} />;
+  }
   return <Screen key={hash} hash={hash} loaded={loaded} payload={loaded.payload} />;
 };
 
@@ -34,7 +39,7 @@ const Screen = ({
   payload,
 }: {
   hash: string;
-  loaded: Loaded;
+  loaded: Exclude<Loaded, { kind: "retired" }>;
   payload: ReplyReviewPayload;
 }) => {
   const { inquiry, reply } = payload;

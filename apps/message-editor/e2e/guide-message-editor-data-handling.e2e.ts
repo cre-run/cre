@@ -8,7 +8,13 @@
  * 画像は撮らない（見た目ではなく、通信と保存の有無を見る）。
  */
 import { type Page, expect, test } from "@playwright/test";
-import { MAX_DECODED_BYTES, MAX_ENCODED_LENGTH, toHash } from "@cre/editor-payload";
+import {
+  MAX_DECODED_BYTES,
+  MAX_ENCODED_LENGTH,
+  encodePayload,
+  toHash,
+  type ReplyReviewPayload,
+} from "@cre/editor-payload";
 import { paragraphText } from "../src/reader.ts";
 import { samplePayload } from "../src/sample.ts";
 import { withAssertion } from "../tests/sample-edit.ts";
@@ -177,4 +183,27 @@ test("クリップボードには、コピーボタンを押したときだけ�
   expect(copied.endsWith(`\n\n${samplePayload.reply.closing}`)).toBe(true);
   expect(copied).not.toContain(MARK);
   expect(copied).not.toContain("確認済み");
+});
+
+test("廃止した形式（version 1）のデータは表示せず、廃止したことと新しい形式への切り替えを案内する", async ({
+  page,
+}) => {
+  const v1 = { ...payload, version: 1 } as unknown as ReplyReviewPayload;
+  await page.goto(`/#d=${encodePayload(v1)}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "このデータ形式は廃止されました",
+  );
+  // エラーではなく案内を出す。古いデータの中身（件名の目印）も、見本データも表示しない
+  await expect(page.getByText("URL のデータを読み込めませんでした")).toHaveCount(0);
+  await expect(page.getByText(MARK)).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "返信" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /新しいデータ形式の使い方/u })).toHaveAttribute(
+    "href",
+    "https://docs.cre.run/message-editor",
+  );
+
+  // 見本へのリンクで、新しい形式の画面を開ける
+  await page.getByRole("link", { name: "見本で新しい画面を見る" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
+  await expect(page.getByRole("region", { name: "返信" })).toBeVisible();
 });

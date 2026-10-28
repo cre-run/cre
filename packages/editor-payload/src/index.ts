@@ -6,6 +6,8 @@ export {
   HASH_KEY,
   MAX_DECODED_BYTES,
   MAX_ENCODED_LENGTH,
+  RETIRED_VERSIONS,
+  RetiredVersionError,
   decodePayload,
   encodePayload,
   isPayload,

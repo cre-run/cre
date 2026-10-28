@@ -149,21 +149,38 @@ const itemIds = (data: Shape): unknown[] =>
 export const isPayload = (data: unknown): data is ReplyReviewPayload =>
   isPayloadOf(data, 2, isReplyParagraph) && isUnique(itemIds(data as Shape));
 
-/** version 1（段落ごとに判定する形）の判定データか。対応をやめたので、作り直しを案内する */
-const isVersion1 = (data: unknown): boolean => isObject(data) && data.version === 1;
+/** 廃止した判定データの version。画面はエラーではなく、新しい形式への切り替えを案内する */
+export const RETIRED_VERSIONS: readonly number[] = [1];
+
+/**
+ * 廃止した version（段落ごとに判定する version 1）の判定データを読み込もうとしたときのエラー。
+ * 形式の誤りとは分けて、画面が案内を出せるようにする
+ */
+export class RetiredVersionError extends Error {
+  override name = "RetiredVersionError";
+  readonly version: number;
+  constructor(version: number) {
+    super(
+      `このデータ形式（version ${version}）は廃止されました。新しいデータ形式（version 2）で URL を作り直してください`,
+    );
+    this.version = version;
+  }
+}
 
 /**
  * JSON から読んだ値が、画面が表示できる判定データ（version 2）かを確かめて返す。
- * そうでなければ例外を投げる（version 1 は作り直しを案内する）
+ * そうでなければ例外を投げる（廃止した version は RetiredVersionError）
  */
 export const parsePayload = (data: unknown): ReplyReviewPayload => {
   if (isPayload(data)) {
     return data;
   }
-  if (isVersion1(data)) {
-    throw new Error(
-      "version 1（段落ごとの判定）のデータには対応していません。version 2 で URL を作り直してください",
-    );
+  if (
+    isObject(data) &&
+    typeof data.version === "number" &&
+    RETIRED_VERSIONS.includes(data.version)
+  ) {
+    throw new RetiredVersionError(data.version);
   }
   throw new Error("データの形式が正しくありません（version 2 の payload ではありません）");
 };
