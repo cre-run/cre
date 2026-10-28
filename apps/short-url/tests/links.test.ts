@@ -1,4 +1,9 @@
-import { HASH_KEY, MAX_ENCODED_LENGTH, encodePayload } from "@cre/editor-payload";
+import {
+  HASH_KEY,
+  MAX_ENCODED_LENGTH,
+  encodePayload,
+  type ReplyReviewPayload,
+} from "@cre/editor-payload";
 import { expect, test } from "vite-plus/test";
 import {
   InvalidDataError,
@@ -20,11 +25,22 @@ test("Message Editor が表示できる判定データだけを受け付ける",
     `${data}\n`,
     `${data}&x=1`,
     "not-a-payload",
-    encodePayload({ ...payload, version: 2 as 1 }),
+    encodePayload({ ...payload, version: 3 as 2 }),
     "A".repeat(MAX_ENCODED_LENGTH + 1),
   ]) {
     expect(() => validateData(bad), String(bad).slice(0, 20)).toThrow(InvalidDataError);
   }
+});
+
+test("version 1 の判定データ（利用中の URL）も登録できる", () => {
+  const [first] = payload.reply.paragraphs;
+  const v1 = {
+    ...payload,
+    version: 1,
+    reply: { ...payload.reply, paragraphs: [{ ...first, parts: undefined, text: "返信" }] },
+  };
+  const encoded = encodePayload(v1 as unknown as ReplyReviewPayload);
+  expect(validateData(encoded)).toBe(encoded);
 });
 
 test("登録した行は UUID v4 の id を持ち、data をそのまま返す", async () => {

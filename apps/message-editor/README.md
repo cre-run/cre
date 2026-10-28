@@ -23,7 +23,9 @@ vp run @cre/message-editor#build
 前回の URL が出ることがあり、生成した URL（判定データを含む）が `node_modules/.vite/task-cache/` に残ります。
 また `vp run ... -- payload.json --base URL` の形では `--` 以降がすべてファイル名として扱われ、`--base` が効きません。
 
-受け取ったデータは `@cre/editor-payload`（`packages/editor-payload`）の `isPayload` で検証し、形式が合わないもの（必須の項目がない、
+受け取ったデータは `@cre/editor-payload`（`packages/editor-payload`）の `parsePayload` で検証します。
+画面が扱うのは `version: 2` の形だけで、`version: 1` のデータ（以前に作った URL や短縮 URL）は読み込むときに `upgradeV1` で変換します。
+形式が合わないもの（必須の項目がない、
 根拠の `url` が `http(s)` 以外、圧縮データが `MAX_ENCODED_LENGTH`（10 万文字）を超える、
 展開後が `MAX_DECODED_BYTES`（1 MB）を超える、など）は表示せず、
 見本データとエラーを表示します。`javascript:` などの URL はリンクになりません。

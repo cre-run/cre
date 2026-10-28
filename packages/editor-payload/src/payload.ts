@@ -1,5 +1,7 @@
 import { Inflate, deflate } from "pako";
 import type { ReplyReviewPayload } from "./types.ts";
+import { isPayloadV1, upgradeV1 } from "./v1.ts";
+import { isArrayOf, isEvidence, isObject, isPayloadOf, isString, isUnique } from "./validate.ts";
 
 /** URL ハッシュのキー（`#d=<base64url>`） */
 export const HASH_KEY = "d";
@@ -61,17 +63,13 @@ const fromBase64Url = (text: string): Uint8Array => {
 export const encodePayload = (payload: ReplyReviewPayload): string =>
   toBase64Url(deflate(new TextEncoder().encode(JSON.stringify(payload))));
 
-/** encodePayload の逆。形式が不正なら例外を投げる */
+/** encodePayload の逆。version 1 のデータは version 2 の形にして返す。形式が不正なら例外を投げる */
 export const decodePayload = (encoded: string): ReplyReviewPayload => {
   if (encoded.length > MAX_ENCODED_LENGTH) {
     throw tooLarge(`${MAX_ENCODED_LENGTH.toLocaleString("ja-JP")} 文字`);
   }
   const json = new TextDecoder().decode(inflateBounded(fromBase64Url(encoded)));
-  const data: unknown = JSON.parse(json);
-  if (!isPayload(data)) {
-    throw new Error("データの形式が正しくありません（version 1 の payload ではありません）");
-  }
-  return data;
+  return parsePayload(JSON.parse(json));
 };
 
 /** `#d=...` 形式のハッシュから圧縮データを取り出す。なければ null */
@@ -85,111 +83,41 @@ export const toHash = (payload: ReplyReviewPayload): string =>
 
 type Shape = Record<string, unknown>;
 
-const isObject = (value: unknown): value is Shape => typeof value === "object" && value !== null;
-const isString = (value: unknown): value is string => typeof value === "string";
-const isOptionalString = (value: unknown): boolean => value === undefined || isString(value);
-/** 表示時に Date として扱う項目は、解釈できる日時文字列だけを受け付ける */
-const isDate = (value: unknown): value is string =>
-  isString(value) && !Number.isNaN(Date.parse(value));
-/** 根拠のリンクは http(s) だけを受け付ける（`javascript:` や `data:` を href にしない） */
-const isHttpUrl = (value: unknown): value is string => {
-  if (!isString(value)) {
-    return false;
-  }
-  try {
-    return ["http:", "https:"].includes(new URL(value).protocol);
-  } catch {
-    return false;
-  }
-};
-const isArrayOf = <T>(value: unknown, item: (v: unknown) => v is T): value is T[] =>
-  Array.isArray(value) && value.every(item);
-const oneOf =
-  <T extends string>(...values: T[]) =>
-  (value: unknown): value is T =>
-    values.includes(value as T);
-
-const isStatus = oneOf("verified", "conditional", "recheck", "unverified");
-const isCheckResult = oneOf("ok", "warn", "ng");
-const isEvidenceType = oneOf(
-  "terms",
-  "internal-rule",
-  "precedent",
-  "case-law",
-  "code",
-  "faq",
-  "help",
-);
-const isStance = oneOf("supports", "conditional", "contradicts", "related");
-const isNextActionTiming = oneOf("beforeSend", "afterSend");
-
-const isInquiryParagraph = (v: unknown): v is Shape =>
-  isObject(v) && isString(v.id) && isString(v.text);
-
-const isCheck = (v: unknown): v is Shape =>
-  isObject(v) && isString(v.label) && isCheckResult(v.result) && isOptionalString(v.note);
-
-const isEvidence = (v: unknown): v is Shape =>
+const isGapOption = (v: unknown): v is Shape =>
   isObject(v) &&
-  isEvidenceType(v.type) &&
-  isStance(v.stance) &&
-  isString(v.title) &&
-  ["excerpt", "source"].every((key) => isOptionalString(v[key])) &&
-  (v.url === undefined || isHttpUrl(v.url)) &&
-  (v.checkedAt === undefined || isDate(v.checkedAt));
+  isString(v.label) &&
+  (v.evidence === undefined || isArrayOf(v.evidence, isEvidence));
 
-const isClaim = (v: unknown): v is Shape =>
-  isObject(v) && isString(v.text) && isStatus(v.status) && isOptionalString(v.note);
-
-const isReplyParagraph = (v: unknown): v is Shape =>
+const isGap = (v: unknown): v is Shape =>
   isObject(v) &&
-  ["id", "topic", "text", "summary"].every((key) => isString(v[key])) &&
-  ["method", "conditions", "nextAction"].every((key) => isOptionalString(v[key])) &&
-  isArrayOf(v.respondsTo, isString) &&
-  isStatus(v.status) &&
-  (v.nextActionTiming === undefined || isNextActionTiming(v.nextActionTiming)) &&
-  isArrayOf(v.checks, isCheck) &&
-  isArrayOf(v.evidence, isEvidence) &&
-  (v.owners === undefined || isArrayOf(v.owners, isString)) &&
-  (v.claims === undefined || isArrayOf(v.claims, isClaim));
+  isString(v.id) &&
+  isString(v.question) &&
+  (v.options === undefined || isArrayOf(v.options, isGapOption)) &&
+  (v.owners === undefined || isArrayOf(v.owners, isString));
 
-const isUnique = (ids: unknown[]): boolean => new Set(ids).size === ids.length;
+/** 文章（text）か書く必要のある箇所（gap）のどちらか一方だけを持つ */
+const isPart = (v: unknown): v is Shape =>
+  isObject(v) && ("gap" in v ? !("text" in v) && isGap(v.gap) : isString(v.text));
+
+/** 本文は文章と書く必要のある箇所を並べたもの。書く必要のある箇所の ID は段落の中で重複させない */
+const hasParts = (paragraph: Shape): boolean =>
+  isArrayOf(paragraph.parts, isPart) &&
+  isUnique(paragraph.parts.filter((part) => "gap" in part).map((part) => (part.gap as Shape).id));
+
+/** version 2 の形かを確かめる。version 1 は parsePayload が変換してから渡す */
+export const isPayload = (data: unknown): data is ReplyReviewPayload =>
+  isPayloadOf(data, 2, hasParts);
 
 /**
- * 段落 ID は選択・編集内容・React の key に使うため重複させない。
- * respondsTo は問い合わせの段落を指すので、存在する ID だけを許す。
+ * JSON から読んだ値を、画面が扱う version 2 の形にする。version 1 は upgradeV1 で変換する。
+ * どちらの形でもなければ例外を投げる
  */
-const hasConsistentIds = (inquiry: Shape[], reply: Shape[]): boolean => {
-  const inquiryIds = inquiry.map((p) => p.id);
-  const known = new Set(inquiryIds);
-  return (
-    isUnique(inquiryIds) &&
-    isUnique(reply.map((p) => p.id)) &&
-    reply.every((p) => (p.respondsTo as string[]).every((id) => known.has(id)))
-  );
-};
-
-/** 画面が前提とする項目と値をすべて確かめる（欠けていれば見本データにフォールバックさせる） */
-export const isPayload = (data: unknown): data is ReplyReviewPayload => {
-  if (!isObject(data) || data.version !== 1 || !isDate(data.generatedAt)) {
-    return false;
+export const parsePayload = (data: unknown): ReplyReviewPayload => {
+  if (isPayload(data)) {
+    return data;
   }
-  if (data.mode !== undefined && data.mode !== "standard" && data.mode !== "flash") {
-    return false;
+  if (isPayloadV1(data)) {
+    return upgradeV1(data);
   }
-  const { inquiry, reply } = data;
-  return (
-    isObject(inquiry) &&
-    isString(inquiry.from) &&
-    isString(inquiry.subject) &&
-    isDate(inquiry.receivedAt) &&
-    isArrayOf(inquiry.paragraphs, isInquiryParagraph) &&
-    isObject(reply) &&
-    isString(reply.to) &&
-    isString(reply.subject) &&
-    isOptionalString(reply.opening) &&
-    isOptionalString(reply.closing) &&
-    isArrayOf(reply.paragraphs, isReplyParagraph) &&
-    hasConsistentIds(inquiry.paragraphs, reply.paragraphs)
-  );
+  throw new Error("データの形式が正しくありません（version 1・2 の payload ではありません）");
 };

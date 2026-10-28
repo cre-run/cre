@@ -9,9 +9,12 @@ export {
   decodePayload,
   encodePayload,
   isPayload,
+  parsePayload,
   readHash,
   toHash,
 } from "./payload.ts";
+export { isPayloadV1, upgradeV1 } from "./v1.ts";
+export type { ReplyParagraphV1, ReplyReviewPayloadV1 } from "./v1.ts";
 export type {
   CheckItem,
   CheckResult,
@@ -19,6 +22,8 @@ export type {
   Evidence,
   EvidenceStance,
   EvidenceType,
+  Gap,
+  GapOption,
   Inquiry,
   InquiryParagraph,
   NextActionTiming,
@@ -26,5 +31,6 @@ export type {
   Reply,
   ReplyMode,
   ReplyParagraph,
+  ReplyPart,
   ReplyReviewPayload,
 } from "./types.ts";

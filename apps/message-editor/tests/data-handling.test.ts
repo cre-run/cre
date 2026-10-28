@@ -95,7 +95,7 @@ test("ドキュメントの encode の例は vp run を使わない（出力を�
 });
 
 test("形式の違うデータは読み込まない", () => {
-  const broken = encodePayload({ ...samplePayload, version: 2 as 1 });
+  const broken = encodePayload({ ...samplePayload, version: 3 as 2 });
   expect(() => decodePayload(broken)).toThrow();
   expect(() => decodePayload("not-a-payload")).toThrow();
 });

@@ -3,6 +3,7 @@
  */
 import { expect, test } from "@playwright/test";
 import { toHash } from "@cre/editor-payload";
+import { paragraphText } from "../src/paragraphs.ts";
 import { samplePayload } from "../src/sample.ts";
 import { guideExampleHashes } from "../tests/guide-example.ts";
 
@@ -36,7 +37,7 @@ test("返信プレビューには注釈が含まれない", async ({ page }) => 
   await page.goto("/");
   await page.getByRole("button", { name: "返信プレビュー" }).click();
   const dialog = page.getByRole("dialog", { name: "返信プレビュー" });
-  await expect(dialog.getByText(samplePayload.reply.paragraphs[0]!.text)).toBeVisible();
+  await expect(dialog.getByText(paragraphText(samplePayload.reply.paragraphs[0]!))).toBeVisible();
   await expect(dialog.getByText("確認済み")).toHaveCount(0);
   await dialog.getByRole("button", { name: "閉じる" }).click();
   await expect(dialog).toBeHidden();

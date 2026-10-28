@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Reply } from "@cre/editor-payload";
+import { paragraphText } from "../paragraphs.ts";
 import { Icon } from "./Icon.tsx";
 
 type CopyState = "idle" | "copied" | "failed";
@@ -25,7 +26,7 @@ export const PreviewDialog = ({
 }) => {
   const body = [
     reply.opening,
-    ...reply.paragraphs.map((p) => texts[p.id] ?? p.text),
+    ...reply.paragraphs.map((p) => texts[p.id] ?? paragraphText(p)),
     reply.closing,
   ].filter(Boolean);
 
