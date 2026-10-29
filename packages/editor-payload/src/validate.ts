@@ -1,6 +1,6 @@
 /**
- * 判定データの検証のうち、version 1 と 2 で共通の部分。
- * 返信の段落の形はそれぞれ（payload.ts の v1・v2.ts の v2）で確かめる。
+ * 判定データの検証の部品。
+ * 返信の段落の形は payload.ts で確かめる。
  */
 export type Shape = Record<string, unknown>;
 
@@ -31,7 +31,6 @@ export const oneOf =
   (value: unknown): value is T =>
     values.includes(value as T);
 
-export const isStatus = oneOf("verified", "conditional", "recheck", "unverified");
 const isCheckResult = oneOf("ok", "warn", "ng");
 const isEvidenceType = oneOf(
   "terms",

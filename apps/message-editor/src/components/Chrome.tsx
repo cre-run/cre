@@ -30,8 +30,25 @@ const BrandMark = () => (
   </svg>
 );
 
+/** 画面の一番上の帯（ロゴと利用者） */
+export const Topbar = () => (
+  <header className="topbar">
+    <div className="topbar-brand">
+      <BrandMark />
+      <span className="brand-name">CRE</span>
+      <span className="divider">/</span>
+      <span>Message Editor</span>
+    </div>
+    <div className="topbar-user">
+      <span className="online" aria-hidden="true" />
+      カスタマーサポート
+      <span className="avatar avatar-small">CS</span>
+    </div>
+  </header>
+);
+
 /**
- * 段落ごとの画面と下線ごとの画面で共通の外枠（上部の帯・見出し・フッター）。
+ * 画面の外枠（上部の帯・見出し・フッター）。
  * 中身（2 列のレイアウト）と見出しの右のボタンは、それぞれの画面が渡す
  */
 export const Chrome = ({
@@ -62,19 +79,7 @@ export const Chrome = ({
 }) => (
   <div className={`app ${flash ? "is-flash" : ""}`}>
     {flash && <FlashBanner />}
-    <header className="topbar">
-      <div className="topbar-brand">
-        <BrandMark />
-        <span className="brand-name">CRE</span>
-        <span className="divider">/</span>
-        <span>Message Editor</span>
-      </div>
-      <div className="topbar-user">
-        <span className="online" aria-hidden="true" />
-        カスタマーサポート
-        <span className="avatar avatar-small">CS</span>
-      </div>
-    </header>
+    <Topbar />
 
     <div className="page">
       <div className="page-head">

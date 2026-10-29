@@ -8,38 +8,40 @@
  * 画像は撮らない（見た目ではなく、通信と保存の有無を見る）。
  */
 import { type Page, expect, test } from "@playwright/test";
-import { MAX_DECODED_BYTES, MAX_ENCODED_LENGTH, toHash } from "@cre/editor-payload";
+import {
+  MAX_DECODED_BYTES,
+  MAX_ENCODED_LENGTH,
+  encodePayload,
+  toHash,
+  type ReplyReviewPayload,
+} from "@cre/editor-payload";
+import { paragraphText } from "../src/reader.ts";
 import { samplePayload } from "../src/sample.ts";
+import { withAssertion } from "../tests/sample-edit.ts";
 
 /** 外部に出ていないことを探すための目印（圧縮前の JSON にだけ現れる） */
 const MARK = "機密テスト-7f3a";
 const EVIDENCE_URL = "https://example.com/terms";
 
-const [first, ...rest] = samplePayload.reply.paragraphs;
-const payload = {
-  ...samplePayload,
-  inquiry: { ...samplePayload.inquiry, subject: `${MARK} の件名` },
-  reply: {
-    ...samplePayload.reply,
-    paragraphs: [
-      {
-        ...first!,
-        evidence: [{ ...first!.evidence[0]!, url: EVIDENCE_URL, source: "利用規約 第3条" }],
-      },
-      ...rest,
-    ],
+const payload = withAssertion(
+  {
+    ...samplePayload,
+    inquiry: { ...samplePayload.inquiry, subject: `${MARK} の件名` },
   },
-};
+  "a1",
+  (assertion) => ({
+    ...assertion,
+    evidence: [{ ...assertion.evidence[0]!, url: EVIDENCE_URL, source: "利用規約 第3条" }],
+  }),
+);
 
-/** ガイドの手順を一通り行う: 段落を選ぶ・本文を編集する・チェックを付ける・プレビューを開く */
+/** ガイドの手順を一通り行う: 下線を選ぶ・空欄を選ぶ・チェックを付ける・プレビューを開く */
 const operate = async (page: Page): Promise<void> => {
-  await page.getByLabel("段落 データの保存期間と削除").click();
-  const paragraph = page.locator(".paragraph-text").first();
-  await paragraph.fill("編集した本文");
-  await paragraph.blur();
+  await page.getByRole("button", { name: /^個別のご契約がある場合は/u }).click();
+  await page.getByRole("button", { name: /^要記入 解約後/u }).click();
   await page
     .getByLabel("改善アクション")
-    .getByRole("checkbox", { name: "データの保存期間と削除 を確認済みにする" })
+    .getByRole("checkbox", { name: "個別契約があるときの扱い を確認済みにする" })
     .check();
   await page.getByRole("button", { name: "返信プレビュー" }).click();
   await expect(page.getByRole("dialog", { name: "返信プレビュー" })).toBeVisible();
@@ -99,6 +101,7 @@ test("根拠のリンクは新しいタブで開き、開いた先に判定デ�
   });
 
   await page.goto(`/${toHash(payload)}`);
+  await page.getByRole("button", { name: /^エラーのある行が含まれていても/u }).click();
   const panel = page.getByRole("complementary");
   await panel.getByRole("tab", { name: /出典/u }).click();
   await panel.getByRole("button", { name: "根拠の詳細" }).first().click();
@@ -120,16 +123,10 @@ test("根拠のリンクは新しいタブで開き、開いた先に判定デ�
 test("http(s) 以外のリンクを含むデータは読み込まず、見本データとエラーを表示する", async ({
   page,
 }) => {
-  const unsafe = {
-    ...payload,
-    reply: {
-      ...payload.reply,
-      paragraphs: [
-        { ...first!, evidence: [{ ...first!.evidence[0]!, url: "javascript:alert(1)" }] },
-        ...rest,
-      ],
-    },
-  };
+  const unsafe = withAssertion(payload, "a1", (assertion) => ({
+    ...assertion,
+    evidence: [{ ...assertion.evidence[0]!, url: "javascript:alert(1)" }],
+  }));
   await page.goto(`/${toHash(unsafe)}`);
   await expect(page.getByText("URL のデータを読み込めませんでした")).toBeVisible();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
@@ -179,10 +176,34 @@ test("クリップボードには、コピーボタンを押したときだけ�
   await dialog.getByRole("button", { name: "本文をコピー" }).click();
   await expect(dialog.getByRole("button", { name: "コピーしました" })).toBeVisible();
 
-  // 段落の間は空行。宛名・編集した本文・結びだけで、確認状況や件名（判定データの目印）は入らない
+  // 段落の間は空行。宛名・本文・結びだけで、確認状況や件名（判定データの目印）は入らない
   const copied = await clipboard();
-  expect(copied.startsWith(`${samplePayload.reply.opening}\n\n編集した本文\n\n`)).toBe(true);
+  const firstParagraph = paragraphText(samplePayload.reply.paragraphs[0]!);
+  expect(copied.startsWith(`${samplePayload.reply.opening}\n\n${firstParagraph}\n\n`)).toBe(true);
   expect(copied.endsWith(`\n\n${samplePayload.reply.closing}`)).toBe(true);
   expect(copied).not.toContain(MARK);
   expect(copied).not.toContain("確認済み");
+});
+
+test("廃止した形式（version 1）のデータは表示せず、廃止したことと新しい形式への切り替えを案内する", async ({
+  page,
+}) => {
+  const v1 = { ...payload, version: 1 } as unknown as ReplyReviewPayload;
+  await page.goto(`/#d=${encodePayload(v1)}`);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "このデータ形式は廃止されました",
+  );
+  // エラーではなく案内を出す。古いデータの中身（件名の目印）も、見本データも表示しない
+  await expect(page.getByText("URL のデータを読み込めませんでした")).toHaveCount(0);
+  await expect(page.getByText(MARK)).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "返信" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /新しいデータ形式の使い方/u })).toHaveAttribute(
+    "href",
+    "https://docs.cre.run/message-editor",
+  );
+
+  // 見本へのリンクで、新しい形式の画面を開ける
+  await page.getByRole("link", { name: "見本で新しい画面を見る" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(samplePayload.inquiry.subject);
+  await expect(page.getByRole("region", { name: "返信" })).toBeVisible();
 });

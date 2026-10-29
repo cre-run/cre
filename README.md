@@ -4,9 +4,9 @@
 
 # CRE
 
-**いつものメールを書くように。気になる段落の根拠を、すぐそばで。**
+**確かめた部分に下線を。下線ごとの根拠を、すぐそばで。**
 
-カスタマーサポートの返信を、段落ごとの根拠と確認状況を見ながら書ける<br />
+カスタマーサポートの返信を、下線ごとの根拠と確認状況を見ながら確かめられる<br />
 **Message Editor** を開発しています。
 
 [![Message Editor を試す](https://img.shields.io/badge/Try_it-editor.cre.run-42D6A4?style=for-the-badge&labelColor=071B3D)](https://editor.cre.run)
@@ -19,33 +19,33 @@
 
 <br />
 
-<a href="https://editor.cre.run"><img src=".github/assets/readme-hero.png" alt="Message Editor の画面。左に返信の下書きと段落ごとの確認状況、右に選んだ段落の根拠（評価のタブ）が表示されている" width="100%" /></a>
+<a href="https://editor.cre.run"><img src=".github/assets/readme-hero.png" alt="Message Editor の画面。左に返信の下書きと下線ごとの確認状況、右に選んだ下線の根拠（評価のタブ）が表示されている" width="100%" /></a>
 
 <p align="center"><sub>見本データ（架空の問い合わせ）で動くプロトタイプの画面です</sub></p>
 
 ## Message Editor
 
-返信の段落ごとに **何を根拠にしているか** と **その根拠をどこまで確認できているか** を本文の横に表示し、安心して送れるかどうかを判断しやすくするエディターです。
+返信の本文のうち判定した部分に下線を引き、下線ごとに **何を根拠にしているか** と **その根拠をどこまで確認できているか** を本文の横に表示し、安心して送れるかどうかを判断しやすくするエディターです。根拠が足りない箇所は文章を作らず、人が書き起こす空欄にします。
 いまはプロトタイプで、[editor.cre.run](https://editor.cre.run) で画面を試せます。
 
 <table>
   <tr>
     <td width="50%" valign="top">
       <img src=".github/assets/icons/status.svg" alt="" width="40" height="40" /><br />
-      <strong>段落ごとの確認状況</strong><br />
-      各段落の右上に「確認済み・条件あり・再確認・根拠なし」を表示します。どの段落を確かめればよいかがひと目で分かります。
+      <strong>下線ごとの確認状況</strong><br />
+      判定した部分に下線を引き、すぐ後ろに「確認済み・条件あり・再確認」を表示します。根拠が足りない箇所は「要記入」の空欄になります。どこを確かめればよいかがひと目で分かります。
     </td>
     <td width="50%" valign="top">
       <img src=".github/assets/icons/evidence.svg" alt="" width="40" height="40" /><br />
       <strong>根拠をすぐそばで</strong><br />
-      段落を選ぶと、右側に要点・評価・出典・質問をタブで表示します。出典の種類・立場・確認日まで確かめられます。
+      下線を選ぶと、右側にその下線の要点・評価・出典・質問をタブで表示します。出典の種類・立場・確認日まで確かめられます。
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <img src=".github/assets/icons/todo.svg" alt="" width="40" height="40" /><br />
       <strong>送る前にやること</strong><br />
-      確認済み以外の段落について、取るべきアクションと担当をまとめて表示します。あと何件で送れるかが分かります。
+      確認済み以外の下線と空欄について、取るべきアクションと担当をまとめて表示します。あと何件で送れるかが分かります。
     </td>
     <td width="50%" valign="top">
       <img src=".github/assets/icons/privacy.svg" alt="" width="40" height="40" /><br />

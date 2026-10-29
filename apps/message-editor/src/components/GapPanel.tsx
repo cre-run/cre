@@ -1,4 +1,4 @@
-import { STATUS_OR_GAP } from "../labels.ts";
+import { STATUS } from "../labels.ts";
 import type { Gap } from "@cre/editor-payload";
 import { EvidenceItem } from "./EvidencePanel.tsx";
 import { Icon } from "./Icon.tsx";
@@ -12,7 +12,7 @@ export const GapPanel = ({ gap, generatedAt }: { gap: Gap; generatedAt: string }
     <div className="panel-head">
       <h3 className="panel-topic">{gap.question}</h3>
       <span className="status-chip status-gap">
-        {STATUS_OR_GAP.gap.icon} {STATUS_OR_GAP.gap.label}
+        {STATUS.gap.icon} {STATUS.gap.label}
       </span>
     </div>
     <div className="tabpanel">
@@ -27,7 +27,7 @@ export const GapPanel = ({ gap, generatedAt }: { gap: Gap; generatedAt: string }
       )}
       {gap.options && gap.options.length > 0 && (
         <section className="gap-options" aria-label="選択肢">
-          <p className="claims-label">選択肢</p>
+          <p className="section-label">選択肢</p>
           <ol>
             {gap.options.map((option) => (
               <li key={option.label} className="gap-option">

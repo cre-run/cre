@@ -1,20 +1,22 @@
 import { expect, test } from "vite-plus/test";
-import { isPayloadV2 } from "@cre/editor-payload";
+import { isPayload } from "@cre/editor-payload";
+import { collectActions } from "../src/actions.ts";
+import { hasContradiction, stanceSummary } from "../src/evidence.ts";
 import {
-  collectItemActions,
   gapCount,
   initialFocus,
   itemStatusCounts,
+  nextWith,
   paragraphText,
   replyItems,
 } from "../src/reader.ts";
-import { samplePayloadV2 } from "../src/sample-v2.ts";
+import { samplePayload } from "../src/sample.ts";
 
-const { reply } = samplePayloadV2;
+const { reply } = samplePayload;
 const items = replyItems(reply);
 
-test("version 2 の見本データは、version 2 の形として正しい", () => {
-  expect(isPayloadV2(samplePayloadV2)).toBe(true);
+test("見本データは、判定データの形として正しい", () => {
+  expect(isPayload(samplePayload)).toBe(true);
 });
 
 test("下線と空欄を本文の順に並べ、段落の何番目にあるかを持つ", () => {
@@ -50,7 +52,7 @@ test("送る文面は、下線を文章だけにし、空欄を「［要記入�
 });
 
 test("空欄と再確認は送る前、条件ありは送った後。確認済みの下線は出さない", () => {
-  const { beforeSend, afterSend } = collectItemActions(items);
+  const { beforeSend, afterSend } = collectActions(items);
   expect(beforeSend.map((item) => [item.id, item.status, item.index])).toEqual([
     ["g1", "gap", 3],
     ["a4", "recheck", 3],
@@ -68,7 +70,7 @@ test("下線の nextActionTiming は、確認状況による既定の欄より�
     ...conditional,
     assertion: { ...conditional.assertion, nextActionTiming: "beforeSend" as const },
   };
-  const { beforeSend, afterSend } = collectItemActions([moved]);
+  const { beforeSend, afterSend } = collectActions([moved]);
   expect(beforeSend.map((item) => item.id)).toEqual(["a3"]);
   expect(afterSend).toEqual([]);
 });
@@ -79,4 +81,25 @@ test("最初に選ぶのは、指定があればその箇所、なければ最�
   expect(initialFocus(items, "unknown")).toBe("a3");
   expect(initialFocus(items.slice(0, 2), null)).toBe("a1");
   expect(initialFocus([], null)).toBeUndefined();
+});
+
+test("根拠の内訳は、0 件の立場を書かずに並べる", () => {
+  const evidenceOf = (id: string) => {
+    const item = items.find((i) => i.id === id);
+    return item?.kind === "assertion" ? item.assertion.evidence : [];
+  };
+  expect(stanceSummary(evidenceOf("a1"))).toBe("支持 2");
+  expect(stanceSummary(evidenceOf("a3"))).toBe("支持 1・条件つき 1");
+  expect(stanceSummary([])).toBe("");
+  expect(hasContradiction(evidenceOf("a1"))).toBe(false);
+  expect(hasContradiction([{ type: "code", stance: "contradicts", title: "実装" }])).toBe(true);
+});
+
+test("次の箇所は、今の箇所の後ろから探し、最後まで行ったら先頭に戻る", () => {
+  const verified = (item: { status: string }) => item.status === "verified";
+  expect(nextWith(items, verified, undefined)?.id).toBe("a1");
+  expect(nextWith(items, verified, "a2")?.id).toBe("a5");
+  expect(nextWith(items, verified, "a6")?.id).toBe("a1");
+  expect(nextWith(items, (item) => item.status === "gap", "g1")?.id).toBe("g1");
+  expect(nextWith(items, () => false, "a1")).toBeUndefined();
 });

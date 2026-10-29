@@ -1,6 +1,6 @@
 ---
 title: Message Editor
-description: 返信の下書きを書きながら、段落ごとの根拠と確認状況をすぐそばで確かめられるエディターです。（プロトタイプ公開中）
+description: 返信の下書きのうち、確かめた部分に下線を引き、下線ごとの根拠と確認状況をすぐそばで確かめられるエディターです。（プロトタイプ公開中）
 sidebar:
   label: 使い方
   badge: Preview
@@ -12,59 +12,73 @@ sidebar:
 実際の問い合わせから判定データを作る仕組みは開発中で、プロトタイプでは見本データか、手で用意した判定データだけを表示します。
 
 カスタマーサポートで技術的な内容に返信するとき、「この説明で本当に合っているか」が不安になることがあります。
-Message Editor は、返信の段落ごとに **何を根拠にしているか** と **その根拠をどこまで確認できているか** を本文の横に表示し、安心して送れるかどうかを判断しやすくします。
+Message Editor は、返信の本文のうち **判定した部分に下線** を引き、**下線ごとに** 何を根拠にしているかと、その根拠をどこまで確認できているかを表示します。
+1 つの段落の中でも「ここは確かめてある」「ここは社内で確認が必要」「ここは人が書く」を分けて示すので、確かめる場所をピンポイントで見つけられます。
 
-<Frame caption="段落を選ぶと、右側にその段落の根拠が表示されます（モック）">
-  ![Message Editor
-  の画面。左に返信の下書きと各段落の右上の確認状況、右に選んだ段落の根拠](./message-editor.png)
-</Frame>
-
-画面は 2 つの列でできています。左の列で返信を書き、右の列で選んだ段落の根拠を確かめます。
-
-このページは、判定データの `version` が `1`（段落ごとに判定する形）の画面です。`version` が `2` のときは、本文の一部ごとに下線を引いて根拠を示す画面になります（[下線ごとに根拠を確かめる](/message-editor/assertions)）。
+画面は 2 つの列でできています。左の列で問い合わせと返信を読み、右の列で選んだ下線の根拠を確かめます。
 
 ## 画面の見方
 
-1. **お客様からのメッセージ** — 問い合わせの冒頭を表示します。「元のメール」で全文を開けます
-2. **返信** — いつものメールと同じように本文を直接編集できます。各段落の右上に確認状況（確認済み・条件あり・再確認・根拠なし）が表示され、どの段落を確かめればよいかがひと目で分かります。段落をクリックすると、右側にその段落の根拠が表示されます
-   - **確認状況の内訳** — 返信の上に、状態ごとの段落の数（例: 確認済み 2・条件あり 1・再確認 1）を表示します。押すと、その状態の段落へ順に移動します
-   - **文ごとの確認状況** — 1 つの段落の中で、確かめが必要な文には、その状態の色で印が付きます。判定データに文ごとの判定があるときだけ表示します。確認済みの文には印を付けません
-   - **編集済み** — 本文を書き換えた段落には「編集済み」が付き、文ごとの印は消えます。確認状況と根拠は編集前の文面に対する判定なので、書き換えた内容は送る前に自分で確かめてください
-3. **選んだ段落の根拠** — 右側の上に、選んだ段落の見出しと確認状況を表示します。その下のタブで、次の内容を切り替えて確かめられます。最初は「要点」が開きます
-   - **要点** — 判定のひとこと、確かめが必要な文とその理由、確かめ方、この説明が成り立つ条件。取るべきアクションと担当は、返信の下部の「送る前にやること」にまとめています
-   - **評価** — 確認した観点ごとの評価。タブには「OK の数 / 観点の数」（例: 3/4）を表示し、OK 以外があると赤くなります
-   - **出典** — 根拠の内訳（支持・食い違いなどの数）と、参照した出典の種類・立場・確認日。開くと引用とリンクを表示します。段落の主張と食い違う出典があると、タブの数が赤くなります
-   - **質問** — この段落が答えている、お客様の質問
-4. **送る前にやること** — 返信の下部に、確認済み以外の段落について取るべきアクションと担当がまとめて表示されます。済んだものにチェックを付けると、あと何件で送れるかが分かります。「段落を見る」でその段落の根拠へ移動できます
-   - 確認済みの段落でも、本文を書き換えると「編集した内容を確かめる」が加わります
-   - チェックを付けた段落には、本文の右上にも「確認した」と表示されます
-   - 画面の上の「返信プレビュー」の横に残りの件数（例: 送る前にやること 残り 1 件）が表示され、押すと「送る前にやること」へ移動します
+返信の本文は **読み取り専用** です（この画面では編集できません）。本文の中で、判定した部分には次の印が付きます。
 
-段落の右上の確認状況と右側の根拠は、お客様に送る文面には含まれません。「返信プレビュー」で、送る文面だけを確認できます。プレビューの右上のコピーボタンで、送る文面をクリップボードにコピーし、メールにそのまま貼り付けられます。「送る前にやること」が残っているときは、プレビューの上に残りの件数が表示されます。
+| 印                             | 状態     | 意味                                                                   |
+| ------------------------------ | -------- | ---------------------------------------------------------------------- |
+| 緑の下線と ✓                   | 確認済み | 十分な根拠があります                                                   |
+| 黄色の点線の下線と「条件あり」 | 条件あり | 条件つきで成り立ちます。お客様の設定や契約などの確認が必要です         |
+| 赤の波線の下線と「再確認」     | 再確認   | 根拠が古い、または根拠どうしが食い違っています。社内で確かめてください |
+| 点線の枠と「要記入」           | 要記入   | 根拠が足りないため、文章を作っていません。人が書き起こします           |
 
-### 送る前にやること・送った後のフォロー
+- 印のない文章（あいさつなど）は、判定の対象外です
+- 確認状況のラベルは、段落ではなく **下線のすぐ後ろ** に付きます
+- 返信の上に、状態ごとの数（例: 確認済み 3・条件あり 1・再確認 1・要記入 1）を表示します。押すと、その状態の箇所へ順に移動します
 
-| 区分               | 対象の段落                           | 例                                             |
-| ------------------ | ------------------------------------ | ---------------------------------------------- |
-| 送る前にやること   | 再確認・根拠なし・書き換えた確認済み | 規約と実装の食い違いを開発担当に確認する       |
-| 送った後のフォロー | 条件あり                             | お客様から設定の状況を聞いたら、手順を案内する |
-
-条件ありの段落でも、送る前に担当者へ確かめることがあれば、判定データでその段落を「送る前」に指定すると「送る前にやること」に表示されます。
-
-確認すべき段落がなければ「追加で確認することはありません。このまま送れます。」と表示されます。
-
-### 段落の確認状況
-
-| 状態     | 意味                                                                         |
-| -------- | ---------------------------------------------------------------------------- |
-| 確認済み | 根拠が確認できています                                                       |
-| 条件あり | 条件つきで成り立ちます。お客様の設定や契約などの確認が必要です               |
-| 再確認   | 根拠が古い、または根拠どうしが食い違っています。送る前に確認し直してください |
-| 根拠なし | 根拠が見つかっていません                                                     |
-
-<Frame caption="再確認が必要な段落で「評価」タブを開いたところ。観点ごとの評価と、送る前にやることが表示されます（モック）">
-  ![再確認が必要な段落を選んだところ。利用規約と実装コードの内容が食い違い、実装の確認が45日前であることが表示されている](./message-editor-recheck.png)
+<Frame caption="下線を選ぶと、右側にその下線の根拠が表示されます（モック）">
+  ![Message Editor
+  の画面。左に返信の本文と下線ごとの確認状況、右に選んだ下線の根拠](./message-editor.png)
 </Frame>
+
+## 下線を選んで根拠を確かめる
+
+下線をクリックする（または Tab キーで移動して Enter を押す）と、その下線だけが強調され、右側にその下線の根拠が表示されます。
+右側の上に下線の見出しと確認状況を表示し、その下のタブで次の内容を切り替えて確かめられます。
+
+- **要点** — 判定のひとこと、確かめ方、この説明が成り立つ条件
+- **評価** — 確認した観点ごとの評価
+- **出典** — この下線の根拠になった出典の種類・立場・確認日
+- **質問** — この下線を含む段落が答えている、お客様の質問
+
+<Frame caption="再確認の下線で「評価」タブを開いたところ。観点ごとの評価と、送る前にやることが表示されます（モック）">
+  ![再確認の下線を選んだところ。個別契約の有無が未確認であることが表示されている](./message-editor-recheck.png)
+</Frame>
+
+## 空欄（要記入）を書き起こす
+
+根拠が足りない箇所は、判定モデルが推測で文章を作らず、点線の枠の **空欄** にしています。枠には、決める必要があることが書かれています。
+
+空欄をクリックすると、右側に次の内容が表示されます。
+
+- **案内** — 何を確かめて、どう書けばよいか
+- **選択肢** — 根拠のある候補と、それぞれの出典（例: 「30 日（利用規約）」「60 日（削除処理の実装）」）
+- **担当** — 判断する担当
+
+この画面では本文を編集できないので、確かめた内容は、返信をメールに貼り付けてから書き起こしてください。
+
+## 送る前にやること
+
+返信の下部に、確認済み以外の下線と空欄について、取るべきアクションと担当をまとめて表示します。
+
+| 区分               | 対象                                       |
+| ------------------ | ------------------------------------------ |
+| 送る前にやること   | 要記入の空欄・再確認の下線                 |
+| 送った後のフォロー | 条件ありの下線（お客様の回答を受けて対応） |
+
+済んだものにチェックを付けると、あと何件で送れるかが分かります。「箇所を見る」で、その下線や空欄を選んだ状態にできます。
+
+## 返信プレビュー
+
+「返信プレビュー」で、お客様に送る文面だけを確認できます（下線と確認状況は含まれません）。
+空欄は「［要記入：…］」として残るので、コピーしてメールに貼り付けたあと、書き起こしてから送ってください。
+空欄が残っているときは、プレビューの上に件数が表示されます。
 
 ## 速報モード
 
@@ -83,7 +97,7 @@ Message Editor は、返信の段落ごとに **何を根拠にしているか**
 
 ## 根拠の種類
 
-根拠ごとに、種類と「段落の主張に対する立場（支持・条件つきで支持・食い違い）」、確認した日時を表示します。どの種類を使うかは、今後の検討で変わる可能性があります。
+根拠ごとに、種類と「下線の主張に対する立場（支持・条件つきで支持・食い違い）」、確認した日時を表示します。どの種類を使うかは、今後の検討で変わる可能性があります。
 
 - **利用規約** — 規約の条文
 - **社内ルール** — サポートの運用ルール
@@ -96,7 +110,7 @@ Message Editor は、返信の段落ごとに **何を根拠にしているか**
 ## 判定データの渡し方
 
 初期版はバックエンドを持たず、判定結果を URL に載せて渡します（プロトタイプは `editor.cre.run` で公開しています）。
-問い合わせ・返信の段落・確認の内訳・根拠をまとめた JSON を pako で圧縮し、URL の `#d=` 以降に付けて開くと、その内容が表示されます。
+問い合わせ・返信の本文（文章・下線・空欄）・下線ごとの確認の内訳と根拠をまとめた JSON を pako で圧縮し、URL の `#d=` 以降に付けて開くと、その内容が表示されます。
 
 ```text
 https://editor.cre.run/#d=<圧縮した判定データ>
@@ -107,7 +121,7 @@ https://editor.cre.run/#d=<圧縮した判定データ>
 上の画面（見本データ）と同じ内容を、実際に pako で圧縮して `#d=` に載せた URL です。開くと、見本と同じ問い合わせ・返信・根拠が表示されます。
 見本データの問い合わせ・根拠・確認結果はすべて架空です。
 
-<a href="https://editor.cre.run/#d=eJzNWW1P21gW_ite75cZbSiB0mqaaj9U3a40X2Zm22pXqxFapcGlHiBOndB2tkLyvQ40b0wohJfMwPBOUigOqNDyEsKPubGdfOIvrM61HV-bBLqaWWklhEzie-855z7nec45vOZfCHJclKJ8qCfADwpRQQ4nhIF7CT7E9wZ7b3f1BLuCtx_3BENB-PlT8E4oGOQD_Ig0IAzzodd8NDwi8CF-QIiIsE0X_eKimqqfahfVNB9w9-eDN3r4sQAvRp-PivKPsPipLI3wId4s7NWPdjmjtMAH-Pjokx-ECJx__9HfOYI3iPqBqEtErRI1RZBWP501SgsElYmC9NSSsbjcKO_q2s8E7RC0QVCSoC0-wMtCRBBfXPYkeCfUc4v1JBaWw4NyOPYszoe-f82LA3yIf97DB_iE8KqjFe5R5tpJY3uSoBJBRaLg-pHSVMsEaY3VHLyGy0R9B6tQjiBM0DpBy_rKgT6VIgrybauPl-tnMwTljN01gmr05S2C5unzBEEaPWWe4Df0z-xFdZkfCzgm97om0wXLREHmRk2fGKfLKtyjR99y8KjuErxnHw2bb1FHapb9BM0QpJnTe_qaCi9jzN377muO4F2wEU-bxRPqGV2nIH1jDtzFnwg-JuoEUVcIyhKcbirrxtQJPXjS3ttv703GXn9458F89Q098pyGLkkDXiOoVD9f0ncXCJolOEcU1CitmwdJo4jppbwjaMJI7xOch29xllqDjdkiQSnqaZ6gFViLkkTBjDV9rjU-UNWPJnUtbd8f7EivQUFGOluvLjmXlASLYeu3BGfN7Rk9v-4syRG0Zy5vEpyh7yRbWOHH-scAqLFhmgwJqXMqPBRC3G9KBykmRMXooP-EyLAUtz6-__ABR_Chu7WK6MNKhxSRaYpIMTFCL9CGOcVGK1Jlevuanp8jONOoVQk6Z0Ga0WfzBCUhF3CeoF_osgxdX6YILxA05wGnm02adYZ1nj61A-9ApK2r2CIYwxXtrlMsJelrHjsIqpgfi-bHn20gtTmiTNC2lbB0eQUCzOxgHk4Zvy5CshROm0trFu4JKjiEwCDC2ZzSUjwmRQfijyU-9D3wTH-AjyfCidE4HwKqFJ-KwgDwq5B4JkGc60eK8X7VUMf1lX2CStbuFBsjI2FgUV7Xlhvr4wSV9fH3ejVP1AWi7hB1Hkho-72x8BNBufqR0nhzcDnd9Uqtsb9K1CmaakdELVFW0GwnMNa1XP1k4vJCwM4zITJkIWI4_ATUwDWl48E4awVhdBgwIA3xAT4qJUBBaJALNOw7xsZio1yFVUAx-8bsvMUJ9B0ryaabxQ19Y46mcOv4dt50Os_M12A778sX1dSLPs78cHpRTbvRZs8wVo6N7ApBWlPT9JOtTrv3cMb8pp6eJGinzSaNsgLAT72heC8S9JMT3m36u2OQ6rWsvjFnYxNnjaXV-ulHgiqNrSzN9izDRzVIKTzDj_UH-IgUHRATohSNt1c0rpszykXjZM7zOT4napUP8MILcUCIRgR614kfY2BJRBoQeIpd-gUfH43FJDkRhwQXE8P2jeqTC_Uz4AA3r9Q8PSBN1G14wHtwwKuIIMfAWfEp98UfLNdvSENfcq-5p2FxWBi4ERuNP_vC-uLLu1xEiibE6KhwlxsDI6RRmRoRC0eGwoNCvFscAWMEuTsuR7rl0egNahhFrL8kuOUvbuCibCefCcOxa5z0BbJ-tOuTfbN4YhaWbU2jlOhxuAOnVUBQQXRVmsm22BG0RHCufrpJQWDVGBWGlGoslbGB8VED180x8uon6M8MU3-AjwqvEvciCau8s0oHQztsTJ0RtNM4P9MzKy6XoIrD7zYwLROll1FBBhbhm3NZs3hiZMf1sxk-wN9_ZD_2t1Ra7mU0B8oZt05BGlOnWEWKKzW08sHTBBX01DuzUPZVOERBbWscpniBwshic6AkU1s1pyYayjholZKzCitNr37SUx-JMknwtLGY1jPHVINd5rPrPqok5mHSPC7AHdpqXWLrLKTZNuDpRnlfz1fABpzVz8cbW8gR2Axjm-uYvR94m6FVR5oq6yU18paSbcWp1yNOLQoJD7P6ZJWYf733N44qUKqxmqufZOu1bHuxcmJb8daGuXYh2SE4ZfGZkc42VyZA6TfStLZjfc_o2hotgVoLW5DLORErXaVanvuGumWGoHJH2XD89RD6ZSvY9S_DctTdwQsXlHOwkrXKV_pQMRa3f4P49F5WH78IdLJi27mGkg1UF-uag0U7rB2U4Wn4OcuZXtw4tAnHW5ilpTubvR567Ghmq4n6rzNpvk0jwFClC-hurrE92ShX21Fi8E5Xb98VyhGD_nNAiCaukQ82Y7g_9n3V23PJfcd3zb0ZLwUxji3TJhNKKC-JLVugBnJr5WRLG7xVuLVzO3pvQRwqXTfXMh-NDwjii361eQanrf4IchZPG6sp2oQCg_k53yV56EXC4oiVmb8jb_Pt62t_NnPeaq_Vo_z_kj7fkZtt31hOakGHu4J9WNJhRPcm2-gxVYPViBuLy805wJaezjSLG5_f1PvXe3t5uyaBXh4w5fayViQBEptvzYOkPjGua8ctXNMiagKafQUZhWOCEV1ScDBoyeB8K4hmvmYUsYmPLb7zmET3NA-SNnKtBEIsvtwqxqecNz3KKQuUPljVtPDc2MrT_ct234SnzfGSPpXytneeV7VGeaEBvYkdb_3NljkFsyGn9co112HI0ARqW3dRmK801DNDKV3GkbGoGHN7sIM_lO2Jso2A-ozrJEusJ5z5_j0HOrW06m3hnA4SAEJ7R3a36CCzm9f_-vmSkUPG_KYxuwec6ITWhD-hV_pcIfWKtWOPW1JwfbdsdfUaTuFoFy04S-OfvGJfJaunNp1FmrGYNpOrNB23Oym23aAhzYuIkrOJn3M6yHNCkEfi16lS-5u6qKasw8xDXD-Z0GswVfE1ElbGWqNfV8f0sxlzo2YPUZgtjPlNS064m0GIKqDvMNeEfhjoAk6AZHeIrHUUnraun81lj6axDoBgc_rxAdfHGYspM51ihdrfx0JnKYcHxIi3laXM1OLvliG2Ffb4YM7jc0SKxhPcwwePH3zz-Otvv_nXX-798xH3Z-528C5raTgWi3e_lOQhu1n9QXoS746NyoNClyQPhqPiv8MUAB062OBXXb29j2n5cUVrxrZWMNJkc4XNdwX5KQn49B1Bq7SPyLUGavTSpo39E2DYy7Lua-WMD7N6tniV0v9ePNyGc53xEnXsopqygHZhcSh18qKauu1-WPIxSVs-9QhkHyOQ3hGsxk5UXWlkJrQF33iZLRfYxc5IuWStbXE13UExP023Sn1f_eMdetL5szpL8CqV5x3I2bM1GA1YAkw3dwaabmnn7SU9ikDUt3T2X6F2pukE6x0dPULp7MwtKwRlmuBRhmlF805p034y4NPUvmtHpfZ_O2DCUaW-tWtAnf74kB2iN1EWykt3ZbnTwLS9ABr5qXrtF5aCvQd0nOf5TVZyV9mn-KaIbIghG7FT71w_SLx0bRU9P0_QWwoX6xaT1qmUTdoJiRhNCHI0PNwljw5fOwrs7JWHMy3o6eP7xmLa_i-WPQqr0HlhlY4MP1G2VekupdbAw4G_3Wf4AHjZvbZ9H_cPcUiE8RhjasvOtoOxnv_5YIyZhPWPjf0HiB5ExA">
+<a href="https://editor.cre.run/#d=eJztWVtvGkkW_iu9_TSjxQl2nGjDPEXZXWmfdncS7T6M_ECg4zDBQLhkEkWWqGpwuHlwML4wscc3bIgvja3Yie1g8mOK7oYn_4XVqb5Q3XTbGUX7FilCOHSdOrfvnO-cfsU_F-KJUDTC-8Y8_KQQEeL-pBC8l-R9_Jh37M7IqHfEe-fhqNfnhX9_9t71eb28h5-KBoUw73vFR_xTAu_jg0IgBGJG6A-X7Vz3k3TZzvOegXzee2OUn_bwocizVCj-Eg4_jkeneB-vVg-7pwec0ljmPXwi9ehnIQD333_wH47gOhHfE3GViG0i5giSup8WlMYyQU2SRnJuVVlZ6zUPZOk3gvYIqhOUIWiH9_BxISCEng9b4r3rG73NWhLzx_2TcX_sSYL3_fSKDwV5H_9slPfwSeGFqxaDq9TN897uLEENgmokjbun6b7YJEjqbZTgMdwk4js4hUoEYYK2CFqT14_luRxJI5tYOdvsXswTVFIONgnq0Id3CFqi32cIkugtSwS_pn8WL9tr_LTHUHlsoDI9sEbSSK135JksPdbiHjz4JwdfxQOCD_WrQfgONaSj6U_QPEGSWjmUN0V4GGPu3r_-wRF8ADriilo7p5bRc2kk1xfBXPyR4DMizhBxnaAiwfl-ekuZO6cXz-qy7freYvS1u3cJ1Bdf0ys_U9dlqMM7BDW6n1flg2WCFggukTTqNbbU44xSwzQo7wiaUfJHBJfhV1yk2mBloUZQjlpaJmgdzqIMSWNGm_GBNrak6p7OylJejx9IpGFIIyVf7LZXjSBlQGMQ_Ybgoro7L5e3jCMlgg7VtW2CC_SZjJkr_PTENCRqLEzBkIy6Q-FHwcd9FRyiMSESikzabwiEowntv-__-DeO4JOBaBHRL-suEImPUpAlYtFIMPEwyvt-AtRM0IeT2nNmNhbkhTJBGUh6XCboLXVLgfqnSVO5StAim4U0MP5EQognaenQ7_SPsjljIkvSIkPzsiTP7YEY8LoWlh2CMYTrYIvmVYY-JsnlRYILvU6boM8EtdQPNfXDb3pSmVp4-ETSn0wleB9UsdDjkBAEBaKxUIDVQLvYSI8mTXnLBTSUU1N-KHq8LK31trIENeXsvtwuE3GZiHtEXIKasbuvLP9KUKl7mu69Ph5Gp9zq9I42iDhHkXFKxAYFsaQXIYxlqdQ9nxk-CBVbSD6Jghe7p2llf0MRs_L6EUEN7SzkwhMh8FSLXNj_CKr7QFdXzXBRS4NUGIISfcp7-Eg0CR2BeqVK_bGn1Fd6zTacgpJxpCwsaRinz2igqfRrdbm-SCNvXu9krtt9arkD4qwPX7Zzz8c59f2ny3Z-YCt7h7J-phTXCZL6kiSf77hJH-WUpW05P0vQnoOQXjMN-Z17TdO6RtCvhv936aerk7qdolxfpE7aJbiorG50P30gqNXbKVL0Fpn60gHk4Hl-esLDC89DQSESEDScvYyBrEA0KGgpS3_gE6lYLApY9PDJUDKsx0SeXe5eQIIOACSWaU3JE3EXvuBD3sMLLwJCPAbqhh5z3_1JU_5G9On33CvusT8UFoI3YqnEk--0H77_gQtEI8lQJCX8wE2DEtFUnCohvPBPxcLCzdAU6CLEbyQTl-1cb6eorOxr_ICmnb1P37YzDvC2bucTIRy7xk5bmeyeHth6sVo7V6treqOhkLXY7FJcWtDloBOKFK96ByJoleBS99M2jaTW-FsM_Dv2mmL4xlYAuJsc0_PsBeQL3TQxTT01VCNpglH2oVuSRuwF6smc8vsKVJLqp_7qptbECaoa7IZpb4MaPWG2z_jYcDMYszYDh2rOMBbKTXCFoKqce6dWmzYOQtLIkYUw9OLacg1XDGQiieE1mjhLldYV6l58ZhC440qHqCJQ_efB1bhicq-_3_s3Zxaeq-uywwHnqux4qWtZNKS61o3H_mcsnALRSDAEgfKHGUSBP7TQUKrFes-CHI1kSnL7o5z7AFR2JS8XzgjaNUmvepJRz6oAFJ2nNFiXIkm3Dld6zSO53DJ8ZiVuDIpMA9m6cpPr7c72mm0n4HjvjoyNuwDHIUtZnqqDANqYKm2oczO9dBZaf7pktTs9S3DFMH2P7Za6GygA_7AnaiDgc7a3gwy-UXDMflsIGQA4hsbkLEq-2F-fseAAyJu0SRmmZOjbcLJ3IK-o0XD6RSfK_fUZoGb1PCXmhWvTvylnc72NUve82O0ULWgwLEtcZdBAUc3Pg1BJhitLmh-dAcYarcWGRdcv_nhkgC83JVgvtJSV3a-gHmPD3OMblK-A8oAqxGALEBQiyWv4AptuNnpi9YfhDBYLllLAWLpGB36gv9Z2tWZ2CTOtB5TAOihpki0aQegjwovkvYBWpthkhaZthEJSCx-U9wicj37XGzjOD-CIK8pGji4HoKpogYj-EhHiAAX-_gOlmJUv5nkrn2Das34P9OwCnW7zdLAbIgrWlYWdN9wa5g23nIfIa1YELUrEqvo2YGlbcwbNhUl_zKzmkzBBPksJCd152vNyB3hc92KBHmwMxOKKnC_0a3XdSZTHT6ZCQT2TNGf0dsrqcQaKFn1Wfr2jzsG2xhieGsrStrJwSFCpvwXzfx9Sf2to7_KOoA3qxZI5qlIjIEvoFwTB00ThivL2VKckQ3CKxvQCyVS0W16oIZftHKuynuAOdSQpxKcS12GGkcSp-_sc1KnVDbhj-416nFFPcPd8BlyLJBuvhQ0NytjxJV_Mq_WOzk0ZEWY0Oc0KcMlJqQ8zFiSBFrwBChyCt-RMv1kDoJxw8tkxN84pKzk1n9PT1HDgHdOBTkF296R9KIMxKe4PhgLWecVQWtdYH18XXWtRXEgKEQjzX_0vEz7ujpe7eZPTHgWl0nWnGSyWik8KIz9HH33BEOb9y8jY2ENaUC0kaYKtEv3Folo71yuFh1feL8jFmmPhGA4Z2jOio5WMpWuXP-yKLl2Uc9t0OKtqqWIuYFiCBZMZkuSZrCydQcvP7MrZ3BVLnrhA_cBwJu0i2xUMX4I8tm53LAckZSWvZja07ZymDZ1F9eFOOToHWLMQx3lmdaVP_JqWFuqjNGvKOUyb1hLUMC62E06X9Y7-9B7BOYKLtDBl3KmOi20lht248JJv9SR3ZeOWzEiYmW3JkEHmFU3a4Ny47Rhkeu34cK8dd-y1zAK5att-s-hyw-ltdkk7WCgbS_GGJl5HJZ35u6dp9WPFpLd_bK63Lr0l9koLMg3CcsJuz_uoCHQG9i9t-ERNt9Xr8KjCnLpyXFfKc93OWxaTViVcl4P2a9Klq2xIu8MvFEkK8Yg_PBJPha9dEbpfYUGXtiiSs0fKSl5_36Tvx1p0j9imq8SPtI-JVErDpIy2BNb4vbGQbsnlJYLe0PzP6wtUpzGB-2_oacg6KLBamyo7Ls5Gr16cWd8O0Jc24gLBG5SF7gE6LzZhdUfrumaWsTgb8G4rMR5-8eQAnTsMdMQ39J1ai5qjOeIdfUdgcRZBhT68SCww1Lts7AhazI5g0EiuApNFOq44hMJYNjHAuu6MnqD_D2zZ7laOMC2XX7R7H_KwQ-bpWfQNWF8FrAn4-B_mVVtU">
   見本データを URL で渡して開く
 </a>
 
@@ -115,7 +129,7 @@ https://editor.cre.run/#d=<圧縮した判定データ>
 <summary>URL の全文</summary>
 
 ```text
-https://editor.cre.run/#d=eJzNWW1P21gW_ite75cZbSiB0mqaaj9U3a40X2Zm22pXqxFapcGlHiBOndB2tkLyvQ40b0wohJfMwPBOUigOqNDyEsKPubGdfOIvrM61HV-bBLqaWWklhEzie-855z7nec45vOZfCHJclKJ8qCfADwpRQQ4nhIF7CT7E9wZ7b3f1BLuCtx_3BENB-PlT8E4oGOQD_Ig0IAzzodd8NDwi8CF-QIiIsE0X_eKimqqfahfVNB9w9-eDN3r4sQAvRp-PivKPsPipLI3wId4s7NWPdjmjtMAH-Pjokx-ECJx__9HfOYI3iPqBqEtErRI1RZBWP501SgsElYmC9NSSsbjcKO_q2s8E7RC0QVCSoC0-wMtCRBBfXPYkeCfUc4v1JBaWw4NyOPYszoe-f82LA3yIf97DB_iE8KqjFe5R5tpJY3uSoBJBRaLg-pHSVMsEaY3VHLyGy0R9B6tQjiBM0DpBy_rKgT6VIgrybauPl-tnMwTljN01gmr05S2C5unzBEEaPWWe4Df0z-xFdZkfCzgm97om0wXLREHmRk2fGKfLKtyjR99y8KjuErxnHw2bb1FHapb9BM0QpJnTe_qaCi9jzN377muO4F2wEU-bxRPqGV2nIH1jDtzFnwg-JuoEUVcIyhKcbirrxtQJPXjS3ttv703GXn9458F89Q098pyGLkkDXiOoVD9f0ncXCJolOEcU1CitmwdJo4jppbwjaMJI7xOch29xllqDjdkiQSnqaZ6gFViLkkTBjDV9rjU-UNWPJnUtbd8f7EivQUFGOluvLjmXlASLYeu3BGfN7Rk9v-4syRG0Zy5vEpyh7yRbWOHH-scAqLFhmgwJqXMqPBRC3G9KBykmRMXooP-EyLAUtz6-__ABR_Chu7WK6MNKhxSRaYpIMTFCL9CGOcVGK1Jlevuanp8jONOoVQk6Z0Ga0WfzBCUhF3CeoF_osgxdX6YILxA05wGnm02adYZ1nj61A-9ApK2r2CIYwxXtrlMsJelrHjsIqpgfi-bHn20gtTmiTNC2lbB0eQUCzOxgHk4Zvy5CshROm0trFu4JKjiEwCDC2ZzSUjwmRQfijyU-9D3wTH-AjyfCidE4HwKqFJ-KwgDwq5B4JkGc60eK8X7VUMf1lX2CStbuFBsjI2FgUV7Xlhvr4wSV9fH3ejVP1AWi7hB1Hkho-72x8BNBufqR0nhzcDnd9Uqtsb9K1CmaakdELVFW0GwnMNa1XP1k4vJCwM4zITJkIWI4_ATUwDWl48E4awVhdBgwIA3xAT4qJUBBaJALNOw7xsZio1yFVUAx-8bsvMUJ9B0ryaabxQ19Y46mcOv4dt50Os_M12A778sX1dSLPs78cHpRTbvRZs8wVo6N7ApBWlPT9JOtTrv3cMb8pp6eJGinzSaNsgLAT72heC8S9JMT3m36u2OQ6rWsvjFnYxNnjaXV-ulHgiqNrSzN9izDRzVIKTzDj_UH-IgUHRATohSNt1c0rpszykXjZM7zOT4napUP8MILcUCIRgR614kfY2BJRBoQeIpd-gUfH43FJDkRhwQXE8P2jeqTC_Uz4AA3r9Q8PSBN1G14wHtwwKuIIMfAWfEp98UfLNdvSENfcq-5p2FxWBi4ERuNP_vC-uLLu1xEiibE6KhwlxsDI6RRmRoRC0eGwoNCvFscAWMEuTsuR7rl0egNahhFrL8kuOUvbuCibCefCcOxa5z0BbJ-tOuTfbN4YhaWbU2jlOhxuAOnVUBQQXRVmsm22BG0RHCufrpJQWDVGBWGlGoslbGB8VED180x8uon6M8MU3-AjwqvEvciCau8s0oHQztsTJ0RtNM4P9MzKy6XoIrD7zYwLROll1FBBhbhm3NZs3hiZMf1sxk-wN9_ZD_2t1Ra7mU0B8oZt05BGlOnWEWKKzW08sHTBBX01DuzUPZVOERBbWscpniBwshic6AkU1s1pyYayjholZKzCitNr37SUx-JMknwtLGY1jPHVINd5rPrPqok5mHSPC7AHdpqXWLrLKTZNuDpRnlfz1fABpzVz8cbW8gR2Axjm-uYvR94m6FVR5oq6yU18paSbcWp1yNOLQoJD7P6ZJWYf733N44qUKqxmqufZOu1bHuxcmJb8daGuXYh2SE4ZfGZkc42VyZA6TfStLZjfc_o2hotgVoLW5DLORErXaVanvuGumWGoHJH2XD89RD6ZSvY9S_DctTdwQsXlHOwkrXKV_pQMRa3f4P49F5WH78IdLJi27mGkg1UF-uag0U7rB2U4Wn4OcuZXtw4tAnHW5ilpTubvR567Ghmq4n6rzNpvk0jwFClC-hurrE92ShX21Fi8E5Xb98VyhGD_nNAiCaukQ82Y7g_9n3V23PJfcd3zb0ZLwUxji3TJhNKKC-JLVugBnJr5WRLG7xVuLVzO3pvQRwqXTfXMh-NDwjii361eQanrf4IchZPG6sp2oQCg_k53yV56EXC4oiVmb8jb_Pt62t_NnPeaq_Vo_z_kj7fkZtt31hOakGHu4J9WNJhRPcm2-gxVYPViBuLy805wJaezjSLG5_f1PvXe3t5uyaBXh4w5fayViQBEptvzYOkPjGua8ctXNMiagKafQUZhWOCEV1ScDBoyeB8K4hmvmYUsYmPLb7zmET3NA-SNnKtBEIsvtwqxqecNz3KKQuUPljVtPDc2MrT_ct234SnzfGSPpXytneeV7VGeaEBvYkdb_3NljkFsyGn9co112HI0ARqW3dRmK801DNDKV3GkbGoGHN7sIM_lO2Jso2A-ozrJEusJ5z5_j0HOrW06m3hnA4SAEJ7R3a36CCzm9f_-vmSkUPG_KYxuwec6ITWhD-hV_pcIfWKtWOPW1JwfbdsdfUaTuFoFy04S-OfvGJfJaunNp1FmrGYNpOrNB23Oym23aAhzYuIkrOJn3M6yHNCkEfi16lS-5u6qKasw8xDXD-Z0GswVfE1ElbGWqNfV8f0sxlzo2YPUZgtjPlNS064m0GIKqDvMNeEfhjoAk6AZHeIrHUUnraun81lj6axDoBgc_rxAdfHGYspM51ihdrfx0JnKYcHxIi3laXM1OLvliG2Ffb4YM7jc0SKxhPcwwePH3zz-Otvv_nXX-798xH3Z-528C5raTgWi3e_lOQhu1n9QXoS746NyoNClyQPhqPiv8MUAB062OBXXb29j2n5cUVrxrZWMNJkc4XNdwX5KQn49B1Bq7SPyLUGavTSpo39E2DYy7Lua-WMD7N6tniV0v9ePNyGc53xEnXsopqygHZhcSh18qKauu1-WPIxSVs-9QhkHyOQ3hGsxk5UXWlkJrQF33iZLRfYxc5IuWStbXE13UExP023Sn1f_eMdetL5szpL8CqV5x3I2bM1GA1YAkw3dwaabmnn7SU9ikDUt3T2X6F2pukE6x0dPULp7MwtKwRlmuBRhmlF805p034y4NPUvmtHpfZ_O2DCUaW-tWtAnf74kB2iN1EWykt3ZbnTwLS9ABr5qXrtF5aCvQd0nOf5TVZyV9mn-KaIbIghG7FT71w_SLx0bRU9P0_QWwoX6xaT1qmUTdoJiRhNCHI0PNwljw5fOwrs7JWHMy3o6eP7xmLa_i-WPQqr0HlhlY4MP1G2VekupdbAw4G_3Wf4AHjZvbZ9H_cPcUiE8RhjasvOtoOxnv_5YIyZhPWPjf0HiB5ExA
+https://editor.cre.run/#d=eJztWVtvGkkW_iu9_TSjxQl2nGjDPEXZXWmfdncS7T6M_ECg4zDBQLhkEkWWqGpwuHlwML4wscc3bIgvja3Yie1g8mOK7oYn_4XVqb5Q3XTbGUX7FilCOHSdOrfvnO-cfsU_F-KJUDTC-8Y8_KQQEeL-pBC8l-R9_Jh37M7IqHfEe-fhqNfnhX9_9t71eb28h5-KBoUw73vFR_xTAu_jg0IgBGJG6A-X7Vz3k3TZzvOegXzee2OUn_bwocizVCj-Eg4_jkeneB-vVg-7pwec0ljmPXwi9ehnIQD333_wH47gOhHfE3GViG0i5giSup8WlMYyQU2SRnJuVVlZ6zUPZOk3gvYIqhOUIWiH9_BxISCEng9b4r3rG73NWhLzx_2TcX_sSYL3_fSKDwV5H_9slPfwSeGFqxaDq9TN897uLEENgmokjbun6b7YJEjqbZTgMdwk4js4hUoEYYK2CFqT14_luRxJI5tYOdvsXswTVFIONgnq0Id3CFqi32cIkugtSwS_pn8WL9tr_LTHUHlsoDI9sEbSSK135JksPdbiHjz4JwdfxQOCD_WrQfgONaSj6U_QPEGSWjmUN0V4GGPu3r_-wRF8ADriilo7p5bRc2kk1xfBXPyR4DMizhBxnaAiwfl-ekuZO6cXz-qy7freYvS1u3cJ1Bdf0ys_U9dlqMM7BDW6n1flg2WCFggukTTqNbbU44xSwzQo7wiaUfJHBJfhV1yk2mBloUZQjlpaJmgdzqIMSWNGm_GBNrak6p7OylJejx9IpGFIIyVf7LZXjSBlQGMQ_Ybgoro7L5e3jCMlgg7VtW2CC_SZjJkr_PTENCRqLEzBkIy6Q-FHwcd9FRyiMSESikzabwiEowntv-__-DeO4JOBaBHRL-suEImPUpAlYtFIMPEwyvt-AtRM0IeT2nNmNhbkhTJBGUh6XCboLXVLgfqnSVO5StAim4U0MP5EQognaenQ7_SPsjljIkvSIkPzsiTP7YEY8LoWlh2CMYTrYIvmVYY-JsnlRYILvU6boM8EtdQPNfXDb3pSmVp4-ETSn0wleB9UsdDjkBAEBaKxUIDVQLvYSI8mTXnLBTSUU1N-KHq8LK31trIENeXsvtwuE3GZiHtEXIKasbuvLP9KUKl7mu69Ph5Gp9zq9I42iDhHkXFKxAYFsaQXIYxlqdQ9nxk-CBVbSD6Jghe7p2llf0MRs_L6EUEN7SzkwhMh8FSLXNj_CKr7QFdXzXBRS4NUGIISfcp7-Eg0CR2BeqVK_bGn1Fd6zTacgpJxpCwsaRinz2igqfRrdbm-SCNvXu9krtt9arkD4qwPX7Zzz8c59f2ny3Z-YCt7h7J-phTXCZL6kiSf77hJH-WUpW05P0vQnoOQXjMN-Z17TdO6RtCvhv936aerk7qdolxfpE7aJbiorG50P30gqNXbKVL0Fpn60gHk4Hl-esLDC89DQSESEDScvYyBrEA0KGgpS3_gE6lYLApY9PDJUDKsx0SeXe5eQIIOACSWaU3JE3EXvuBD3sMLLwJCPAbqhh5z3_1JU_5G9On33CvusT8UFoI3YqnEk--0H77_gQtEI8lQJCX8wE2DEtFUnCohvPBPxcLCzdAU6CLEbyQTl-1cb6eorOxr_ICmnb1P37YzDvC2bucTIRy7xk5bmeyeHth6sVo7V6treqOhkLXY7FJcWtDloBOKFK96ByJoleBS99M2jaTW-FsM_Dv2mmL4xlYAuJsc0_PsBeQL3TQxTT01VCNpglH2oVuSRuwF6smc8vsKVJLqp_7qptbECaoa7IZpb4MaPWG2z_jYcDMYszYDh2rOMBbKTXCFoKqce6dWmzYOQtLIkYUw9OLacg1XDGQiieE1mjhLldYV6l58ZhC440qHqCJQ_efB1bhicq-_3_s3Zxaeq-uywwHnqux4qWtZNKS61o3H_mcsnALRSDAEgfKHGUSBP7TQUKrFes-CHI1kSnL7o5z7AFR2JS8XzgjaNUmvepJRz6oAFJ2nNFiXIkm3Dld6zSO53DJ8ZiVuDIpMA9m6cpPr7c72mm0n4HjvjoyNuwDHIUtZnqqDANqYKm2oczO9dBZaf7pktTs9S3DFMH2P7Za6GygA_7AnaiDgc7a3gwy-UXDMflsIGQA4hsbkLEq-2F-fseAAyJu0SRmmZOjbcLJ3IK-o0XD6RSfK_fUZoGb1PCXmhWvTvylnc72NUve82O0ULWgwLEtcZdBAUc3Pg1BJhitLmh-dAcYarcWGRdcv_nhkgC83JVgvtJSV3a-gHmPD3OMblK-A8oAqxGALEBQiyWv4AptuNnpi9YfhDBYLllLAWLpGB36gv9Z2tWZ2CTOtB5TAOihpki0aQegjwovkvYBWpthkhaZthEJSCx-U9wicj37XGzjOD-CIK8pGji4HoKpogYj-EhHiAAX-_gOlmJUv5nkrn2Das34P9OwCnW7zdLAbIgrWlYWdN9wa5g23nIfIa1YELUrEqvo2YGlbcwbNhUl_zKzmkzBBPksJCd152vNyB3hc92KBHmwMxOKKnC_0a3XdSZTHT6ZCQT2TNGf0dsrqcQaKFn1Wfr2jzsG2xhieGsrStrJwSFCpvwXzfx9Sf2to7_KOoA3qxZI5qlIjIEvoFwTB00ThivL2VKckQ3CKxvQCyVS0W16oIZftHKuynuAOdSQpxKcS12GGkcSp-_sc1KnVDbhj-416nFFPcPd8BlyLJBuvhQ0NytjxJV_Mq_WOzk0ZEWY0Oc0KcMlJqQ8zFiSBFrwBChyCt-RMv1kDoJxw8tkxN84pKzk1n9PT1HDgHdOBTkF296R9KIMxKe4PhgLWecVQWtdYH18XXWtRXEgKEQjzX_0vEz7ujpe7eZPTHgWl0nWnGSyWik8KIz9HH33BEOb9y8jY2ENaUC0kaYKtEv3Folo71yuFh1feL8jFmmPhGA4Z2jOio5WMpWuXP-yKLl2Uc9t0OKtqqWIuYFiCBZMZkuSZrCydQcvP7MrZ3BVLnrhA_cBwJu0i2xUMX4I8tm53LAckZSWvZja07ZymDZ1F9eFOOToHWLMQx3lmdaVP_JqWFuqjNGvKOUyb1hLUMC62E06X9Y7-9B7BOYKLtDBl3KmOi20lht248JJv9SR3ZeOWzEiYmW3JkEHmFU3a4Ny47Rhkeu34cK8dd-y1zAK5att-s-hyw-ltdkk7WCgbS_GGJl5HJZ35u6dp9WPFpLd_bK63Lr0l9koLMg3CcsJuz_uoCHQG9i9t-ERNt9Xr8KjCnLpyXFfKc93OWxaTViVcl4P2a9Klq2xIu8MvFEkK8Yg_PBJPha9dEbpfYUGXtiiSs0fKSl5_36Tvx1p0j9imq8SPtI-JVErDpIy2BNb4vbGQbsnlJYLe0PzP6wtUpzGB-2_oacg6KLBamyo7Ls5Gr16cWd8O0Jc24gLBG5SF7gE6LzZhdUfrumaWsTgb8G4rMR5-8eQAnTsMdMQ39J1ai5qjOeIdfUdgcRZBhT68SCww1Lts7AhazI5g0EiuApNFOq44hMJYNjHAuu6MnqD_D2zZ7laOMC2XX7R7H_KwQ-bpWfQNWF8FrAn4-B_mVVtU
 ```
 
 </details>
@@ -137,7 +151,8 @@ URL で渡す形式は手軽な一方、URL を見れば内容が分かります
 - `#` 以降はサーバー（Cloudflare）には送られず、editor.cre.run はデータを受け取りません。保存・送信・外部サービスへの連携も行いません。データはブラウザの中だけで復号・表示されます
 - ただし、開いた URL はブラウザの履歴やブックマーク、リンクを貼ったチャットやチケットには残ります。実際のお客様の問い合わせを載せた URL は、社内の権限管理された場所にだけ貼ってください
 - プロトタイプでは、URL から渡したデータをそのまま「判定結果」として表示します。誰が作った URL かは検証できないので、出所の分からない URL の内容を根拠にしないでください
-- 編集した本文は画面を閉じると消えます。ただし、返信プレビューでクリップボードにコピーした文面は、画面を閉じても残ります。画面からメールは送信されません
+- 送る前にやることに付けたチェックは、画面を閉じると消えます。ただし、返信プレビューでクリップボードにコピーした文面は、画面を閉じても残ります。画面からメールは送信されません
 
 形式が合わないデータ（必須の項目がない、根拠のリンクが `http(s)` 以外、圧縮データが 10 万文字を超える、展開後が 1 MB を超える、など）は表示せず、見本データとエラーを表示します。
+段落ごとに判定する以前の形式（`version` が `1`）の URL を開くと、エラーではなく、その形式を廃止したことと、新しい形式への切り替え方を案内します。
 どこにデータが届き、どこに残るかの一覧は、[Message Editor のデータの取り扱い](/message-editor/data-handling)にまとめています。

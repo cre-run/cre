@@ -1,8 +1,7 @@
 import type { KeyboardEvent, ReactNode } from "react";
-import { STATUS_OR_GAP } from "../labels.ts";
-import { nextWith } from "../paragraphs.ts";
-import { itemStatusCounts, type ItemStatus, type ReplyItem } from "../reader.ts";
-import type { Assertion, Gap, ReplyV2 } from "@cre/editor-payload";
+import { STATUS } from "../labels.ts";
+import { itemStatusCounts, nextWith, type ItemStatus, type ReplyItem } from "../reader.ts";
+import type { Assertion, Gap, Reply } from "@cre/editor-payload";
 import { Icon } from "./Icon.tsx";
 
 /** 下線・空欄はクリックのほか、Tab で移動して Enter・Space でも選べるようにする */
@@ -35,7 +34,7 @@ const AssertionMark = ({
   selected: boolean;
   onSelect: () => void;
 }) => {
-  const { label, icon } = STATUS_OR_GAP[assertion.status];
+  const { label, icon } = STATUS[assertion.status];
   return (
     <mark
       id={`item-${assertion.id}`}
@@ -72,7 +71,7 @@ const GapBox = ({
     {...selectable(selected, onSelect)}
   >
     <span className="assertion-label status-gap">
-      <span aria-hidden="true">{STATUS_OR_GAP.gap.icon}</span> {STATUS_OR_GAP.gap.label}
+      <span aria-hidden="true">{STATUS.gap.icon}</span> {STATUS.gap.label}
     </span>
     <span className="gap-question">{gap.question}</span>
   </span>
@@ -101,10 +100,10 @@ const ItemSummary = ({
           key={status}
           type="button"
           className={`status-chip status-${status}`}
-          title={`${STATUS_OR_GAP[status].label}の箇所へ移動`}
+          title={`${STATUS[status].label}の箇所へ移動`}
           onClick={() => jump(status)}
         >
-          <span aria-hidden="true">{STATUS_OR_GAP[status].icon}</span> {STATUS_OR_GAP[status].label}{" "}
+          <span aria-hidden="true">{STATUS[status].icon}</span> {STATUS[status].label}{" "}
           <span className="status-count">{count}</span>
         </button>
       ))}
@@ -112,7 +111,7 @@ const ItemSummary = ({
   );
 };
 
-/** 下線ごとの画面の返信。本文は読み取り専用 */
+/** 返信。本文は読み取り専用で、下線と空欄を選べる */
 export const ReplyReader = ({
   reply,
   items,
@@ -121,7 +120,7 @@ export const ReplyReader = ({
   isSample,
   children,
 }: {
-  reply: ReplyV2;
+  reply: Reply;
   items: ReplyItem[];
   focusedId: string | undefined;
   onFocus: (id: string) => void;

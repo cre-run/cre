@@ -1,5 +1,5 @@
 import { remainingBeforeSend, type ActionGroups, type ActionItem } from "../actions.ts";
-import { STATUS_OR_GAP } from "../labels.ts";
+import { STATUS } from "../labels.ts";
 import { Icon } from "./Icon.tsx";
 
 const Item = ({
@@ -7,13 +7,11 @@ const Item = ({
   done,
   onToggle,
   onSelect,
-  selectLabel,
 }: {
   item: ActionItem;
   done: boolean;
   onToggle: () => void;
   onSelect: () => void;
-  selectLabel: string;
 }) => (
   <li className={`action ${done ? "is-done" : ""}`}>
     <input
@@ -24,18 +22,9 @@ const Item = ({
     />
     <div className="action-body">
       <p className="action-title">
-        {/* 書き換えた確認済みの段落は「確認済み」と出すと誤解されるので、編集済みとだけ出す */}
-        {item.status === "verified" ? (
-          <span className="status-label status-edited">
-            <span aria-hidden="true">✎</span> 編集済み
-          </span>
-        ) : (
-          <span className={`status-label status-${item.status}`}>
-            <span aria-hidden="true">{STATUS_OR_GAP[item.status].icon}</span>{" "}
-            {STATUS_OR_GAP[item.status].label}
-            {item.edited && <span className="action-edited">・編集済み</span>}
-          </span>
-        )}
+        <span className={`status-label status-${item.status}`}>
+          <span aria-hidden="true">{STATUS[item.status].icon}</span> {STATUS[item.status].label}
+        </span>
         {item.topic}
         <span className="muted small">（段落{item.index}）</span>
       </p>
@@ -48,25 +37,22 @@ const Item = ({
       )}
     </div>
     <button type="button" className="link-button" onClick={onSelect}>
-      {selectLabel} <Icon name="arrowRight" size={12} />
+      箇所を見る <Icon name="arrowRight" size={12} />
     </button>
   </li>
 );
 
-/** 「4段落のうち2段落確認済み」の代わりに、取るべきアクションを具体的に並べる */
+/** 「7 箇所のうち 4 箇所確認済み」の代わりに、取るべきアクションを具体的に並べる */
 export const ActionList = ({
   groups,
   done,
   onToggle,
   onSelect,
-  selectLabel = "段落を見る",
 }: {
   groups: ActionGroups;
   done: Set<string>;
   onToggle: (id: string) => void;
   onSelect: (id: string) => void;
-  /** 対象へ移動するボタンの文言（下線ごとの画面では「箇所を見る」） */
-  selectLabel?: string;
 }) => {
   const { beforeSend, afterSend } = groups;
   const remaining = remainingBeforeSend(groups, done);
@@ -91,7 +77,6 @@ export const ActionList = ({
           done={done.has(item.id)}
           onToggle={() => onToggle(item.id)}
           onSelect={() => onSelect(item.id)}
-          selectLabel={selectLabel}
         />
       ))}
     </ul>
