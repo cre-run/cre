@@ -11,7 +11,7 @@
     "test": "vp test"
   },
   "dependencies": {
-    "pako": "3.0.2"
+    "pako": "3.0.3"
   },
   "devDependencies": {
     "@types/node": "catalog:",
